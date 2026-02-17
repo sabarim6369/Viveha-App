@@ -1,0 +1,1383 @@
+{
+  "info": {
+    "name": "Viveka Backend API - Complete Test Suite",
+    "description": "Comprehensive Postman collection for testing all Viveka backend APIs (A-Z)",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "_postman_id": "viveka-backend-test-suite"
+  },
+  "auth": {
+    "type": "bearer",
+    "bearer": [
+      {
+        "key": "token",
+        "value": "{{token}}",
+        "type": "string"
+      }
+    ]
+  },
+  "variable": [
+    {
+      "key": "baseUrl",
+      "value": "https://viveha-backend.onrender.com/api",
+      "type": "string"
+    },
+    {
+      "key": "phoneNumber",
+      "value": "9876543210",
+      "type": "string"
+    },
+    {
+      "key": "otp",
+      "value": "1234",
+      "type": "string"
+    },
+    {
+      "key": "clientId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deviceSessionId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "deviceId",
+      "value": "device-001-unique-id",
+      "type": "string"
+    },
+    {
+      "key": "itemGroupId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "itemId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clientCustomerId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "clientCustomerPhone",
+      "value": "9988776655",
+      "type": "string"
+    },
+    {
+      "key": "cartId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "cartItemId",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "invoiceId",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Admin",
+      "item": [
+        {
+          "name": "0. Flush Database (Admin)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/admin/flush-db",
+              "host": ["{{baseUrl}}"],
+              "path": ["admin", "flush-db"]
+            },
+            "description": "Drops the entire database. Requires X-Admin-Token matching server ADMIN_API_TOKEN. Use only in non-production environments."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "OTP Management",
+      "item": [
+        {
+          "name": "1. Send OTP",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"{{phoneNumber}}\",\n  \"purpose\": \"register\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/otp/send",
+              "host": ["{{baseUrl}}"],
+              "path": ["otp", "send"]
+            },
+            "description": "Send OTP to a phone number for registration or login"
+          },
+          "response": []
+        },
+        {
+          "name": "1b. Send Mock OTP (Testing)",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"{{phoneNumber}}\",\n  \"purpose\": \"register\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/mockotp/send",
+              "host": ["{{baseUrl}}"],
+              "path": ["mockotp", "send"]
+            },
+            "description": "Send mock OTP (fixed 1234) for testing without SMS"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Authentication",
+      "item": [
+        {
+          "name": "4. Register Client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const responseData = pm.response.json();",
+                  "  pm.environment.set('clientId', responseData.clientId);",
+                  "  pm.environment.set('token', responseData.token);",
+                  "  pm.environment.set('deviceSessionId', responseData.deviceSessionId);",
+                  "  console.log('✅ Client ID:', responseData.clientId);",
+                  "  console.log('✅ Token set from registration');",
+                  "  console.log('✅ Device Session ID:', responseData.deviceSessionId);",
+                  "}",
+                  "else {",
+                  "  console.warn('Registration did not return 201, token not set');",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"{{phoneNumber}}\",\n  \"otp\": \"1234\",\n  \"ownerName\": \"John Doe\",\n  \"businessName\": \"John's Automobile Shop\",\n  \"deviceId\": \"{{deviceId}}\",\n  \"shopName\": \"John Auto Spares\",\n  \"location\": \"123 Main Street\",\n  \"city\": \"Bangalore\",\n  \"state\": \"Karnataka\",\n  \"gstin\": \"18AADCA1111K1Z5\",\n  \"profileUrl\": \"https://example.com/logo.png\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/register",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Register new client (business owner) using OTP. Ensure OTP from /otp/send with purpose=register."
+          },
+          "response": []
+        },
+        {
+          "name": "5. Login Client",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const responseData = pm.response.json();",
+                  "  pm.environment.set('clientId', responseData.clientId);",
+                  "  pm.environment.set('token', responseData.token);",
+                  "  pm.environment.set('deviceSessionId', responseData.deviceSessionId);",
+                  "  console.log('✅ Client ID:', responseData.clientId);",
+                  "  console.log('✅ Device Session ID:', responseData.deviceSessionId);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"phoneNumber\": \"{{phoneNumber}}\",\n  \"otp\": \"4321\",\n  \"deviceId\": \"{{deviceId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/login",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login client with OTP and create device session (one-device policy). Use purpose=login OTP."
+          },
+          "response": []
+        },
+        {
+          "name": "6. Get Client Details",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              }
+            ],
+            "url": {
+              "raw": "{{baseUrl}}/auth/client/{{clientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "client", "{{clientId}}"]
+            },
+            "description": "Get client details (password excluded)"
+          },
+          "response": []
+        },
+        {
+          "name": "6b. Update Client Profile",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"ownerName\": \"Updated Owner\",\n  \"businessName\": \"Updated Business\",\n  \"shopName\": \"Updated Shop\",\n  \"city\": \"Updated City\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/client/{{clientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "client", "{{clientId}}"]
+            },
+            "description": "Update mutable client profile fields"
+          },
+          "response": []
+        },
+        {
+          "name": "6c. Update Client Settings (Customer Fields)",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientSettings\": {\n    \"customerFields\": {\n      \"address\": true,\n      \"gstNo\": true,\n      \"emailId\": false\n    }\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/client/{{clientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "client", "{{clientId}}"]
+            },
+            "description": "Update client settings to control which optional fields are enabled for client customers.\\n\\nSettings Guide:\\n- address: true/false - Enable/disable customer address collection\\n- gstNo: true/false - Enable/disable customer GST number collection\\n- emailId: true/false - Enable/disable customer email collection\\n\\nNote: These settings guide frontend UI behavior. The API accepts all fields regardless of settings."
+          },
+          "response": []
+        },
+        {
+          "name": "7. Logout Client",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Authorization",
+                "value": "Bearer {{token}}"
+              },
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/auth/logout",
+              "host": ["{{baseUrl}}"],
+              "path": ["auth", "logout"]
+            },
+            "description": "Logout client using bearer token (device session derived from token)"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Item Groups",
+      "item": [
+        {
+          "name": "8. Create Item Group",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const responseData = pm.response.json();",
+                  "  pm.environment.set('itemGroupId', responseData.itemGroup._id);",
+                  "  console.log('✅ Item Group ID:', responseData.itemGroup._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{clientId}}\",\n  \"name\": \"Engine Parts\",\n  \"description\": \"All engine-related spare parts and components\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/business/item-groups",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "item-groups"]
+            },
+            "description": "Create a new item group/category"
+          },
+          "response": []
+        },
+        {
+          "name": "9. Get Item Groups",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/item-groups/{{clientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "item-groups", "{{clientId}}"]
+            },
+            "description": "Get all item groups for a client"
+          },
+          "response": []
+        },
+        {
+          "name": "10. Update Item Group",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Engine Parts - Updated\",\n  \"description\": \"Updated description for engine parts\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/business/item-groups/{{clientId}}/{{itemGroupId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "business",
+                "item-groups",
+                "{{clientId}}",
+                "{{itemGroupId}}"
+              ]
+            },
+            "description": "Update an existing item group"
+          },
+          "response": []
+        },
+        {
+          "name": "11. Delete Item Group",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/item-groups/{{clientId}}/{{itemGroupId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "business",
+                "item-groups",
+                "{{clientId}}",
+                "{{itemGroupId}}"
+              ]
+            },
+            "description": "Delete an item group"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Items",
+      "item": [
+        {
+          "name": "12. Create Item",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const responseData = pm.response.json();",
+                  "  pm.environment.set('itemId', responseData.item._id);",
+                  "  console.log('✅ Item ID:', responseData.item._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{clientId}}\",\n  \"name\": \"Carburetor\",\n  \"price\": 2500,\n  \"unit\": \"nos\",\n  \"groupId\": \"{{itemGroupId}}\",\n  \"description\": \"2-barrel carburetor for 4-cylinder engines\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/business/items",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "items"]
+            },
+            "description": "Create a new item/product"
+          },
+          "response": []
+        },
+        {
+          "name": "13. Get Items (All)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/items/{{clientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "items", "{{clientId}}"]
+            },
+            "description": "Get all items for a client"
+          },
+          "response": []
+        },
+        {
+          "name": "14. Get Items (By Group)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/items/{{clientId}}?groupId={{itemGroupId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "items", "{{clientId}}"],
+              "query": [
+                {
+                  "key": "groupId",
+                  "value": "{{itemGroupId}}"
+                }
+              ]
+            },
+            "description": "Get items filtered by group"
+          },
+          "response": []
+        },
+        {
+          "name": "15. Update Item",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Carburetor - Premium\",\n  \"price\": 3000,\n  \"description\": \"Premium 2-barrel carburetor\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/business/items/{{clientId}}/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "items", "{{clientId}}", "{{itemId}}"]
+            },
+            "description": "Update an existing item"
+          },
+          "response": []
+        },
+        {
+          "name": "16. Delete Item",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/items/{{clientId}}/{{itemId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "items", "{{clientId}}", "{{itemId}}"]
+            },
+            "description": "Delete (deactivate) an item"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Client Customers",
+      "item": [
+        {
+          "name": "19. Create Client Customer",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200 || pm.response.code === 201) {",
+                  "  const data = pm.response.json();",
+                  "  const id = data.clientCustomer?._id || data.clientCustomer?._id;",
+                  "  if (id) { pm.environment.set('clientCustomerId', id); console.log('✅ Client clientCustomer ID:', id); }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{clientId}}\",\n  \"name\": \"clientCustomer Alpha\",\n  \"phone\": \"{{clientCustomerPhone}}\",\n  \"address\": \"clientCustomer Street\",\n  \"emailId\": \"customer@example.com\",\n  \"gstNo\": \"22ABCDE1234F1Z5\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/business/client-customers",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "client-customers"]
+            },
+            "description": "Create or update a client customer.\\n\\nRequired: clientId, name, phone\\nOptional: address, emailId, gstNo\\n\\nBehavior:\\n- If customer exists (by phone): updates provided fields\\n- If new: creates customer record\\n- All optional fields are persisted if provided, regardless of clientSettings.customerFields\\n- Client settings control UI visibility, not API validation"
+          },
+          "response": []
+        },
+        {
+          "name": "20. List Client Customers",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/client-customers/{{clientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "client-customers", "{{clientId}}"]
+            },
+            "description": "List all client clientCustomers for a client"
+          },
+          "response": []
+        },
+        {
+          "name": "21. Get Client Customer By Phone",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/client-customers/{{clientId}}/{{clientCustomerPhone}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "business",
+                "client-customers",
+                "{{clientId}}",
+                "{{clientCustomerPhone}}"
+              ]
+            },
+            "description": "Fetch a client clientCustomer using phone number"
+          },
+          "response": []
+        },
+        {
+          "name": "22. Update Client Customer",
+          "request": {
+            "method": "PUT",
+            "header": [{ "key": "Content-Type", "value": "application/json" }],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"clientCustomer Alpha Updated\",\n  \"address\": \"Updated Address Lane\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/business/client-customers/{{clientId}}/{{clientCustomerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "business",
+                "client-customers",
+                "{{clientId}}",
+                "{{clientCustomerId}}"
+              ]
+            },
+            "description": "Update a client clientCustomer's name/address"
+          },
+          "response": []
+        },
+        {
+          "name": "23. Delete Client Customer",
+          "request": {
+            "method": "DELETE",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/client-customers/{{clientId}}/{{clientCustomerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "business",
+                "client-customers",
+                "{{clientId}}",
+                "{{clientCustomerId}}"
+              ]
+            },
+            "description": "Delete a client clientCustomer"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Cart & Billing",
+      "item": [
+        {
+          "name": "24. Create Cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const responseData = pm.response.json();",
+                  "  pm.environment.set('cartId', responseData.cart._id);",
+                  "  console.log('✅ Cart ID:', responseData.cart._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{clientId}}\",\n  \"clientCustomerPhone\": \"9988776655\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/business/carts",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "carts"]
+            },
+            "description": "Create a new shopping cart"
+          },
+          "response": []
+        },
+        {
+          "name": "25. Add Item to Cart",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const responseData = pm.response.json();",
+                  "  pm.environment.set('cartItemId', responseData.cartItem._id);",
+                  "  console.log('✅ Cart Item ID:', responseData.cartItem._id);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartId\": \"{{cartId}}\",\n  \"itemId\": \"{{itemId}}\",\n  \"itemName\": \"Carburetor\",\n  \"unitPrice\": 2500,\n  \"quantity\": 2\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/business/carts/add-item",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "carts", "add-item"]
+            },
+            "description": "Add item to cart with quantity\nNote: Total amount is calculated automatically"
+          },
+          "response": []
+        },
+        {
+          "name": "26. Get Cart",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/carts/{{cartId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "carts", "{{cartId}}"]
+            },
+            "description": "Get cart details with all items and total amount"
+          },
+          "response": []
+        },
+        {
+          "name": "27. Remove Item from Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartId\": \"{{cartId}}\",\n  \"cartItemId\": \"{{cartItemId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/business/carts/remove-item",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "carts", "remove-item"]
+            },
+            "description": "Remove item from cart"
+          },
+          "response": []
+        },
+        {
+          "name": "28. Clear Cart",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"cartId\": \"{{cartId}}\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/business/carts/clear",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "carts", "clear"]
+            },
+            "description": "Clear entire cart"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Invoices & Payments",
+      "item": [
+        {
+          "name": "29. Generate Invoice (Paid = Total)",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const responseData = pm.response.json();",
+                  "  pm.environment.set('invoiceId', responseData.invoice._id);",
+                  "  console.log('✅ Invoice ID:', responseData.invoice._id);",
+                  "  console.log('✅ Invoice Number:', responseData.invoice.invoiceNumber);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{clientId}}\",\n  \"clientCustomerId\": \"{{clientCustomerId}}\",\n  \"cartId\": \"{{cartId}}\",\n  \"totalAmount\": 5000,\n  \"paidAmount\": 5000,\n  \"notes\": \"Full payment received in cash\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/business/invoices/generate",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "invoices", "generate"]
+            },
+            "description": "Generate an invoice. Response returns invoice.products snapshots (itemName, itemGroup, costPerUnit, quantity)."
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/business/invoices/generate",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["business", "invoices", "generate"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"invoice\": {\n    \"_id\": \"invoice-id\",\n    \"invoiceNumber\": \"INV-1704967200000\",\n    \"totalAmount\": 5000,\n    \"paidAmount\": 2000,\n    \"products\": [\n      {\n        \"productId\": \"item-id\",\n        \"itemName\": \"Carburetor\",\n        \"itemGroup\": \"Engine Parts\",\n        \"quantity\": 2,\n        \"costPerUnit\": 2500\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "29b. Generate Invoice With Products",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "type": "text/javascript",
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "  const responseData = pm.response.json();",
+                  "  console.log('✅ Invoice With Products:', responseData.invoice?._id);",
+                  "  console.log('✅ Invoice Number:', responseData.invoice?.invoiceNumber);",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{clientId}}\",\n  \"clientCustomerId\": \"{{clientCustomerId}}\",\n  \"products\": [\n    {\n      \"productId\": \"{{itemId}}\",\n      \"quantity\": 2\n    }\n  ],\n  \"totalAmount\": 1000,\n  \"paidAmount\": 1000,\n  \"notes\": \"Invoice generated with direct products array\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/business/invoices/generatewithproducts",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "invoices", "generatewithproducts"]
+            },
+            "description": "Generate an invoice directly with a products array (without cart). Useful when products are already known.\n\nRequest Body:\n- clientId (required): Client's ObjectId\n- products (required): Array of product objects with productId, quantity\n- clientCustomerId (optional): Client customer's ObjectId\n- clientCustomerPhone (optional): Client customer phone for auto-create\n- clientCustomerName (optional): Client customer name\n- totalAmount (optional): Calculated if not provided\n- paidAmount (optional): Default 0\n- notes (optional): Invoice notes"
+          },
+          "response": [
+            {
+              "name": "201 Created",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/business/invoices/generatewithproducts",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["business", "invoices", "generatewithproducts"]
+                }
+              },
+              "status": "Created",
+              "code": 201,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"invoice\": {\n    \"_id\": \"invoice-id\",\n    \"invoiceNumber\": \"INV-1704967200000\",\n    \"totalAmount\": 1000,\n    \"paidAmount\": 1000,\n    \"isFinalized\": true,\n    \"products\": [\n      {\n        \"productId\": \"item-id\",\n        \"itemName\": \"Sample Product\",\n        \"itemGroup\": \"General\",\n        \"quantity\": 2,\n        \"costPerUnit\": 500\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "31. Get All Invoices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/invoices/{{clientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "invoices", "{{clientId}}"]
+            },
+            "description": "Get all invoices for a client. Each invoice includes product snapshots (itemName, itemGroup, costPerUnit, quantity)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/business/invoices/{{clientId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["business", "invoices", "{{clientId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"invoices\": [\n    {\n      \"invoiceNumber\": \"INV-1704967200000\",\n      \"totalAmount\": 5000,\n      \"paidAmount\": 5000,\n      \"products\": [\n        {\n          \"productId\": \"item-id\",\n          \"itemName\": \"Carburetor\",\n          \"itemGroup\": \"Engine Parts\",\n          \"quantity\": 2,\n          \"costPerUnit\": 2500\n        }\n      ]\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "32. Record Payment Against Invoice",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"clientId\": \"{{clientId}}\",\n  \"invoiceId\": \"{{invoiceId}}\",\n  \"amount\": 2500,\n  \"method\": \"cash\",\n  \"note\": \"Additional payment\"\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/business/invoices/pay",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "invoices", "pay"]
+            },
+            "description": "Record a payment against an existing invoice (supports multiple payments). Response returns the payment and the invoice with product snapshots."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "POST",
+                "header": [
+                  { "key": "Content-Type", "value": "application/json" }
+                ],
+                "url": {
+                  "raw": "{{baseUrl}}/business/invoices/pay",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["business", "invoices", "pay"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"payment\": {\n    \"amount\": 2500,\n    \"method\": \"cash\",\n    \"note\": \"Additional payment\"\n  },\n  \"invoice\": {\n    \"invoiceNumber\": \"INV-1704967200000\",\n    \"totalAmount\": 5000,\n    \"paidAmount\": 5000,\n    \"products\": [\n      {\n        \"productId\": \"item-id\",\n        \"itemName\": \"Carburetor\",\n        \"itemGroup\": \"Engine Parts\",\n        \"quantity\": 2,\n        \"costPerUnit\": 2500\n      }\n    ]\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "33. Get Payments for Invoice",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/invoices/{{invoiceId}}/payments?clientId={{clientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "invoices", "{{invoiceId}}", "payments"],
+              "query": [
+                {
+                  "key": "clientId",
+                  "value": "{{clientId}}"
+                }
+              ]
+            },
+            "description": "Get all payments recorded for a specific invoice"
+          },
+          "response": []
+        },
+        {
+          "name": "34. Get Purchase History (All)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/purchase-history/{{clientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "purchase-history", "{{clientId}}"]
+            },
+            "description": "Get complete purchase history for a client"
+          },
+          "response": []
+        },
+        {
+          "name": "35. Get Purchase History (By Client clientCustomer)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/purchase-history/{{clientId}}?clientCustomerId={{clientCustomerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "purchase-history", "{{clientId}}"],
+              "query": [
+                {
+                  "key": "clientCustomerId",
+                  "value": "{{clientCustomerId}}"
+                }
+              ]
+            },
+            "description": "Get purchase history filtered by specific client clientCustomer"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Health & Status",
+      "item": [
+        {
+          "name": "42. Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/health",
+              "host": ["{{baseUrl}}"],
+              "path": ["health"]
+            },
+            "description": "Check if server is running and MongoDB is connected"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Reports & Pending",
+      "item": [
+        {
+          "name": "38. Get Pending Invoices",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/pending-invoices/{{clientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "pending-invoices", "{{clientId}}"]
+            },
+            "description": "Retrieve all unpaid/partial invoices with pendingAmount. Each invoice returns products hydrated with item details (no productId)."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/business/pending-invoices/{{clientId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["business", "pending-invoices", "{{clientId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"pendingInvoices\": [\n    {\n      \"invoiceNumber\": \"INV-1704967200000\",\n      \"totalAmount\": 5000,\n      \"paidAmount\": 2000,\n      \"pendingAmount\": 3000,\n      \"isFinalized\": false,\n      \"products\": [\n        {\n          \"_id\": \"item-id\",\n          \"name\": \"Carburetor\",\n          \"price\": 2500,\n          \"quantity\": 2,\n          \"costPerUnit\": 2500\n        }\n      ]\n    }\n  ]\n}"
+            }
+          ]
+        },
+        {
+          "name": "39. Get Pending Invoices (By Client Customer)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/pending-invoices/{{clientId}}/{{clientCustomerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "business",
+                "pending-invoices",
+                "{{clientId}}",
+                "{{clientCustomerId}}"
+              ]
+            },
+            "description": "Retrieve pending invoices for a specific client customer."
+          },
+          "response": []
+        },
+        {
+          "name": "40. Get Paid Invoices (By Client Customer)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/paid-invoices/{{clientId}}/{{clientCustomerId}}",
+              "host": ["{{baseUrl}}"],
+              "path": [
+                "business",
+                "paid-invoices",
+                "{{clientId}}",
+                "{{clientCustomerId}}"
+              ]
+            },
+            "description": "Retrieve fully paid invoices for a specific client customer."
+          },
+          "response": []
+        },
+        {
+          "name": "41. Get Payment Report",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/payment-report/{{clientId}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "payment-report", "{{clientId}}"]
+            },
+            "description": "Retrieve payment breakdown and summary for client. Report entries include hydrated products (no productId). Summary fields: totalInvoices, totalAmount, totalPaid, totalPending."
+          },
+          "response": [
+            {
+              "name": "200 OK",
+              "originalRequest": {
+                "method": "GET",
+                "header": [],
+                "url": {
+                  "raw": "{{baseUrl}}/business/payment-report/{{clientId}}",
+                  "host": ["{{baseUrl}}"],
+                  "path": ["business", "payment-report", "{{clientId}}"]
+                }
+              },
+              "status": "OK",
+              "code": 200,
+              "_postman_previewlanguage": "json",
+              "header": [],
+              "cookie": [],
+              "body": "{\n  \"success\": true,\n  \"report\": [\n    {\n      \"invoiceNumber\": \"INV-1704967200000\",\n      \"totalAmount\": 5000,\n      \"paidAmount\": 5000,\n      \"products\": [\n        {\n          \"_id\": \"item-id\",\n          \"name\": \"Carburetor\",\n          \"quantity\": 2,\n          \"costPerUnit\": 2500\n        }\n      ]\n    }\n  ],\n  \"summary\": {\n    \"totalInvoices\": 1,\n    \"totalAmount\": 5000,\n    \"totalPaid\": 5000,\n    \"totalPending\": 0\n  }\n}"
+            }
+          ]
+        },
+        {
+          "name": "40. Get Purchase History (By Phone)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/business/purchase-history/{{clientId}}?clientCustomerPhone={{phoneNumber}}",
+              "host": ["{{baseUrl}}"],
+              "path": ["business", "purchase-history", "{{clientId}}"],
+              "query": [
+                {
+                  "key": "clientCustomerPhone",
+                  "value": "{{phoneNumber}}"
+                }
+              ]
+            },
+            "description": "Get purchase history filtered by clientCustomer phone"
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Dashboard",
+      "item": [
+        {
+          "name": "Dashboard - Summary",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/summary",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "summary"]
+            },
+            "description": "Get business summary (total sales, pending amount, pending invoices)."
+          },
+          "response": []
+        },
+        {
+          "name": "Dashboard - Sales Trends (6 months)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/sales-trends?months=6",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "sales-trends"],
+              "query": [
+                {
+                  "key": "months",
+                  "value": "6"
+                }
+              ]
+            },
+            "description": "Get sales trend data for the last 6 months."
+          },
+          "response": []
+        },
+        {
+          "name": "Dashboard - Top Items (limit 5)",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard/top-items?limit=5",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard", "top-items"],
+              "query": [
+                {
+                  "key": "limit",
+                  "value": "5"
+                }
+              ]
+            },
+            "description": "Get top selling items (default limit 5)."
+          },
+          "response": []
+        },
+        {
+          "name": "Dashboard - Full",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/dashboard",
+              "host": ["{{baseUrl}}"],
+              "path": ["dashboard"]
+            },
+            "description": "Get full dashboard payload (summary, trends, top items)."
+          },
+          "response": []
+        }
+      ]
+    },
+    {
+      "name": "Sync (Offline)",
+      "item": [
+        {
+          "name": "42. Ready To Sync",
+          "request": {
+            "method": "POST",
+            "header": [],
+            "url": {
+              "raw": "{{baseUrl}}/readytosync",
+              "host": ["{{baseUrl}}"],
+              "path": ["readytosync"]
+            },
+            "description": "Check if the authenticated client session is ready for offline sync"
+          },
+          "response": []
+        },
+        {
+          "name": "43. Sync Offline Data",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "  const data = pm.response.json();",
+                  "  pm.test('Sync response message matches', function () {",
+                  "    pm.expect(data.message).to.eql('Sync completed successfully');",
+                  "  });",
+                  "  pm.test('Sync response includes summary', function () {",
+                  "    pm.expect(data.summary).to.be.an('object');",
+                  "  });",
+                  "  pm.test('Sync response includes full data tables', function () {",
+                  "    pm.expect(data.data).to.be.an('object');",
+                  "    pm.expect(data.data.itemGroups).to.be.an('array');",
+                  "    pm.expect(data.data.items).to.be.an('array');",
+                  "    pm.expect(data.data.clientCustomers).to.be.an('array');",
+                  "    pm.expect(data.data.invoices).to.be.an('array');",
+                  "    pm.expect(data.data.payments).to.be.an('array');",
+                  "    pm.expect(data.data.purchaseHistory).to.be.an('array');",
+                  "  });",
+                  "  pm.test('Sync response includes synced IDs', function () {",
+                  "    pm.expect(data.synced).to.be.an('object');",
+                  "  });",
+                  "  if (data.synced && Array.isArray(data.synced.itemsCreated) && data.synced.itemsCreated[0]) {",
+                  "    pm.environment.set('syncItemId', data.synced.itemsCreated[0]);",
+                  "  }",
+                  "  if (data.synced && Array.isArray(data.synced.invoicesCreated) && data.synced.invoicesCreated[0]) {",
+                  "    pm.environment.set('syncInvoiceId', data.synced.invoicesCreated[0]);",
+                  "  }",
+                  "  if (data.synced && Array.isArray(data.synced.paymentsCreated) && data.synced.paymentsCreated[0]) {",
+                  "    pm.environment.set('syncPaymentId', data.synced.paymentsCreated[0]);",
+                  "  }",
+                  "}"
+                ]
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"item\": {\n    \"create\": [\n      {\n        \"name\": \"Offline Item\",\n        \"price\": 120,\n        \"stock\": 20,\n        \"unit\": \"nos\",\n        \"description\": \"Premium offline item\"\n      }\n    ],\n    \"update\": [\n      {\n        \"_id\": \"{{itemId}}\",\n        \"price\": 140\n      }\n    ],\n    \"delete\": [\"{{itemId}}\"]\n  },\n  \"invoice\": {\n    \"create\": [\n      {\n        \"invoiceNumber\": \"INV-OFFLINE-1001\",\n        \"clientCustomerId\": \"{{clientCustomerId}}\",\n        \"clientCustomerName\": \"Offline Customer\",\n        \"clientCustomerPhone\": \"9988776655\",\n        \"products\": [\n          {\n            \"productId\": \"{{itemId}}\",\n            \"itemName\": \"Carburetor\",\n            \"quantity\": 1,\n            \"costPerUnit\": 140,\n            \"itemGroup\": \"Engine Parts\"\n          }\n        ],\n        \"subtotal\": 140,\n        \"totalAmount\": 140,\n        \"paidAmount\": 0\n      }\n    ]\n  },\n  \"payment\": {\n    \"create\": [\n      {\n        \"invoiceId\": \"{{invoiceId}}\",\n        \"amount\": 50,\n        \"method\": \"cash\",\n        \"note\": \"Offline payment\",\n        \"paidAt\": \"2025-01-12T10:05:00.000Z\"\n      }\n    ]\n  }\n}"
+            },
+            "url": {
+              "raw": "{{baseUrl}}/sync",
+              "host": ["{{baseUrl}}"],
+              "path": ["sync"]
+            },
+            "description": "Sync offline operations, apply changes, and return full client data with synced record IDs"
+          },
+          "response": []
+        }
+      ]
+    }
+  ]
+}

@@ -1,0 +1,41 @@
+{
+  "expo": {
+    "name": "Viveha",
+    "slug": "viveha-ai",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/logo.png",
+    "userInterfaceStyle": "light",
+    "newArchEnabled": true,
+    "splash": {
+      "image": "./assets/splashimg.png",
+      "resizeMode": "contain",
+      "backgroundColor": "#ffffff"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "infoPlist": {
+        "NSContactsUsageDescription": "This app needs access to your contacts to help you select customers when creating invoices."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "foregroundImage": "./assets/finallogo.png",
+        "backgroundColor": "#ffffff"
+      },
+      "edgeToEdgeEnabled": true,
+      "package": "com.isaiiai.vivehaai",
+      "permissions": [
+        "READ_CONTACTS"
+      ]
+    },
+    "web": {
+      "favicon": "./assets/favicon.png"
+    },
+    "extra": {
+      "eas": {
+        "projectId": "c553f67a-f36c-457c-a687-83b0b39b9714"
+      }
+    }
+  }
+}
