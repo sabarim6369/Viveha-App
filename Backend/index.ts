@@ -1,17 +1,18 @@
-import express from 'express';
+import express, { Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
+// @ts-ignore
 import cors from 'cors';
-import { connectDB } from './src/config/db.js';
+import { connectDB } from './src/config/db.ts';
 
 // Import routes
-import otpRoutes from './src/api/routes/otpRoutes.js';
-import mockOtpRouter from './src/api/routes/mockOtpRoutes.js';
-import authRoutes from './src/api/routes/authRoutes.js';
-import clientRoutes from './src/api/routes/clientRoutes.js';
-import businessRoutes from './src/api/routes/businessRoutes.js';
-import dashboardRoutes from './src/api/routes/dashboardRoutes.js';
-import adminRoutes from './src/api/routes/adminRoutes.js';
-import syncRoutes from './src/api/routes/syncRoutes.js';
+import otpRoutes from './src/api/routes/otpRoutes.ts';
+import mockOtpRouter from './src/api/routes/mockOtpRoutes.ts';
+import authRoutes from './src/api/routes/authRoutes.ts';
+import clientRoutes from './src/api/routes/clientRoutes.ts';
+import businessRoutes from './src/api/routes/businessRoutes.ts';
+import dashboardRoutes from './src/api/routes/dashboardRoutes.ts';
+import adminRoutes from './src/api/routes/adminRoutes.ts';
+import syncRoutes from './src/api/routes/syncRoutes.ts';
 
 // Load environment variables
 dotenv.config();
@@ -24,10 +25,10 @@ const PORT = process.env.PORT || 10000;
 // MIDDLEWARE
 // ============================================================================
 app.use(
-  cors({
-    origin: 'http://localhost:5173',
-    credentials: true,
-  }),
+    cors({
+        origin: 'http://localhost:5173',
+        credentials: true,
+    }),
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
@@ -63,43 +64,43 @@ app.use('/api', syncRoutes);
 app.use('/api/admin', adminRoutes);
 
 // Health check endpoint
-app.get('/api/health', (req, res) => {
-  res.status(200).json({
-    success: true,
-    message: 'Server is running',
-    timestamp: new Date().toISOString(),
-  });
+app.get('/api/health', (req: Request, res: Response) => {
+    res.status(200).json({
+        success: true,
+        message: 'Server is running',
+        timestamp: new Date().toISOString(),
+    });
 });
 
 // 404 handler
-app.use((req, res) => {
-  res.status(404).json({
-    success: false,
-    message: 'Route not found',
-  });
+app.use((req: Request, res: Response) => {
+    res.status(404).json({
+        success: false,
+        message: 'Route not found',
+    });
 });
 
 // Error handler
-app.use((err, req, res, next) => {
-  console.error('Error:', err);
-  res.status(500).json({
-    success: false,
-    message: 'Internal server error',
-    error: process.env.NODE_ENV === 'development' ? err.message : undefined,
-  });
+app.use((err: any, req: Request, res: Response, next: NextFunction) => {
+    console.error('Error:', err);
+    res.status(500).json({
+        success: false,
+        message: 'Internal server error',
+        error: process.env.NODE_ENV === 'development' ? err.message : undefined,
+    });
 });
 
 // ============================================================================
 // START SERVER
 // ============================================================================
 const startServer = async () => {
-  try {
-    // Connect to MongoDB
-    await connectDB();
+    try {
+        // Connect to MongoDB
+        await connectDB();
 
-    // Start Express server
-    app.listen(PORT, () => {
-      console.log(`
+        // Start Express server
+        app.listen(PORT, () => {
+            console.log(`
 ╔════════════════════════════════════════════════════════════╗
 ║   🚀 Server started successfully!                          ║
 ║   📡 Port: ${PORT}                                          ║
@@ -162,11 +163,11 @@ Available Routes:
 
 System is ready to handle requests!
       `);
-    });
-  } catch (error) {
-    console.error('❌ Failed to start server:', error.message);
-    process.exit(1);
-  }
+        });
+    } catch (error: any) {
+        console.error('❌ Failed to start server:', error.message);
+        process.exit(1);
+    }
 };
 
 // Start the server

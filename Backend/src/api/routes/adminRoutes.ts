@@ -1,5 +1,5 @@
 import express from 'express';
-import { flushDatabaseController } from '../controllers/admin/adminController.js';
+import { flushDatabaseController } from '../controllers/admin/adminController.ts'; // Assuming adminController is converted or will be
 
 const router = express.Router();
 

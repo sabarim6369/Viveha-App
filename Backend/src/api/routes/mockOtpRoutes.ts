@@ -1,5 +1,5 @@
 import express from 'express';
-import { sendOTPController } from '../controllers/mockOtp/mockOtpController.js';
+import { sendOTPController } from '../controllers/mockOtp/mockOtpController.ts';
 
 const router = express.Router();
 

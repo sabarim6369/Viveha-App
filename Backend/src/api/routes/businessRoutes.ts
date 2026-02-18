@@ -1,41 +1,41 @@
 import express from 'express';
 import {
-  createItemGroupController,
-  getItemGroupsController,
-  updateItemGroupController,
-  deleteItemGroupController,
-  createItemController,
-  getItemsController,
-  updateItemController,
-  deleteItemController,
-} from '../controllers/business/itemController.js';
+    createItemGroupController,
+    getItemGroupsController,
+    updateItemGroupController,
+    deleteItemGroupController,
+    createItemController,
+    getItemsController,
+    updateItemController,
+    deleteItemController,
+} from '../controllers/business/itemController.ts';
 import {
-  createclientCustomerController,
-  getclientCustomersController,
-  getclientCustomerByPhoneController,
-  updateclientCustomerController,
-  deleteclientCustomerController,
-} from '../controllers/business/clientCustomerController.js';
+    createclientCustomerController,
+    getclientCustomersController,
+    getclientCustomerByPhoneController,
+    updateclientCustomerController,
+    deleteclientCustomerController,
+} from '../controllers/business/clientCustomerController.ts';
 import {
-  createCartController,
-  addToCartController,
-  removeFromCartController,
-  getCartController,
-  clearCartController,
-} from '../controllers/business/cartController.js';
+    createCartController,
+    addToCartController,
+    removeFromCartController,
+    getCartController,
+    clearCartController,
+} from '../controllers/business/cartController.ts';
 import {
-  generateInvoiceController,
-  generateInvoiceWithProductsController,
-  getInvoicesController,
-  recordPaymentController,
-  getPaymentsController,
-  getPurchaseHistoryController,
-  getPendingInvoicesController,
-  getPaymentReportController,
-  getPendingInvoicesByClientCustomerController,
-  getPaidInvoicesByClientCustomerController,
-} from '../controllers/business/invoiceController.js';
-import { authenticateToken } from '../../middleware/authMiddleware.js';
+    generateInvoiceController,
+    generateInvoiceWithProductsController,
+    getInvoicesController,
+    recordPaymentController,
+    getPaymentsController,
+    getPurchaseHistoryController,
+    getPendingInvoicesController,
+    getPaymentReportController,
+    getPendingInvoicesByClientCustomerController,
+    getPaidInvoicesByClientCustomerController,
+} from '../controllers/business/invoiceController.ts';
+import { authenticateToken } from '../../middleware/authMiddleware.ts';
 
 const router = express.Router();
 
@@ -123,8 +123,8 @@ router.get('/client-customers/:clientId', getclientCustomersController);
  * @desc    Get client customer by phone
  */
 router.get(
-  '/client-customers/:clientId/:phone',
-  getclientCustomerByPhoneController,
+    '/client-customers/:clientId/:phone',
+    getclientCustomerByPhoneController,
 );
 
 /**
@@ -132,8 +132,8 @@ router.get(
  * @desc    Update client customer
  */
 router.put(
-  '/client-customers/:clientId/:clientCustomerId',
-  updateclientCustomerController,
+    '/client-customers/:clientId/:clientCustomerId',
+    updateclientCustomerController,
 );
 
 /**
@@ -141,8 +141,8 @@ router.put(
  * @desc    Delete client customer
  */
 router.delete(
-  '/client-customers/:clientId/:clientCustomerId',
-  deleteclientCustomerController,
+    '/client-customers/:clientId/:clientCustomerId',
+    deleteclientCustomerController,
 );
 
 // ============================================================================
@@ -194,8 +194,8 @@ router.post('/carts/clear', clearCartController);
  */
 router.post('/invoices/generate', generateInvoiceController);
 router.post(
-  '/invoices/generatewithproducts',
-  generateInvoiceWithProductsController,
+    '/invoices/generatewithproducts',
+    generateInvoiceWithProductsController,
 );
 
 /**
@@ -237,8 +237,8 @@ router.get('/pending-invoices/:clientId', getPendingInvoicesController);
  * @query   { clientCustomerPhone?: string }
  */
 router.get(
-  '/pending-invoices/:clientId/:clientCustomerId',
-  getPendingInvoicesByClientCustomerController,
+    '/pending-invoices/:clientId/:clientCustomerId',
+    getPendingInvoicesByClientCustomerController,
 );
 
 /**
@@ -247,8 +247,8 @@ router.get(
  * @query   { clientCustomerPhone?: string }
  */
 router.get(
-  '/paid-invoices/:clientId/:clientCustomerId',
-  getPaidInvoicesByClientCustomerController,
+    '/paid-invoices/:clientId/:clientCustomerId',
+    getPaidInvoicesByClientCustomerController,
 );
 
 /**

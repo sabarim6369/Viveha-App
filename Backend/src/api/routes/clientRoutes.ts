@@ -1,9 +1,9 @@
 import express from 'express';
 import {
-  getClientController,
-  updateClientController,
-} from '../controllers/client/clientController.js';
-import { authenticateToken } from '../../middleware/authMiddleware.js';
+    getClientController,
+    updateClientController,
+} from '../controllers/client/clientController.ts';
+import { authenticateToken } from '../../middleware/authMiddleware.ts';
 
 const router = express.Router();
 

@@ -1,11 +1,11 @@
 import express from 'express';
 import {
-  getDashboardSummaryController,
-  getSalesTrendsController,
-  getTopItemsController,
-  getDashboardController,
-} from '../controllers/dashboard/dashboardController.js';
-import { authenticateToken } from '../../middleware/authMiddleware.js';
+    getDashboardSummaryController,
+    getSalesTrendsController,
+    getTopItemsController,
+    getDashboardController,
+} from '../controllers/dashboard/dashboardController.ts';
+import { authenticateToken } from '../../middleware/authMiddleware.ts';
 
 const router = express.Router();
 

@@ -2,13 +2,13 @@
   "name": "viveka-backend",
   "version": "1.0.0",
   "description": "Viveka - B2B Billing System Backend API (Express + MongoDB)",
-  "main": "index.js",
+  "main": "index.ts",
   "type": "module",
   "scripts": {
-    "start": "node index.js",
-    "dev": "nodemon index.js",
-    "test": "node tests/test.js",
-    "test:watch": "nodemon tests/test.js"
+    "start": "node --loader ts-node/esm index.ts",
+    "dev": "nodemon --exec node --loader ts-node/esm index.ts",
+    "test": "node --loader ts-node/esm tests/test.ts",
+    "test:watch": "nodemon --exec node --loader ts-node/esm tests/test.ts"
   },
   "keywords": [
     "billing",
@@ -30,6 +30,11 @@
     "mongoose": "^8.0.3"
   },
   "devDependencies": {
-    "nodemon": "^3.0.2"
+    "@types/express": "^5.0.6",
+    "@types/jsonwebtoken": "^9.0.10",
+    "@types/node": "^25.2.3",
+    "nodemon": "^3.0.2",
+    "ts-node": "^10.9.2",
+    "typescript": "^5.9.3"
   }
 }
