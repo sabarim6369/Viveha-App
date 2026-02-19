@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import {
@@ -49,6 +50,14 @@ export default function PendingsScreen({ navigation }) {
       loadPendings();
     }
   }, [isConnected, isInternetReachable]);
+
+  // Reload data whenever screen comes into focus
+  useFocusEffect(
+    useCallback(() => {
+      console.log('📱 [PendingsScreen] Screen focused - reloading data...');
+      loadPendings();
+    }, [])
+  );
 
   const loadPendings = async () => {
     try {

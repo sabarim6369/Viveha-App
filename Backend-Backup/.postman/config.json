@@ -1,0 +1,15 @@
+{
+  "workspace": {
+    "id": "03c32a96-d346-4ae2-82e5-b9fbafeafe01"
+  },
+  "entities": {
+    "environments": [
+      "..\\Viveka_Development.postman_environment.json"
+    ],
+    "flows": [],
+    "globals": [],
+    "mocks": [],
+    "specs": [],
+    "collections": []
+  }
+}

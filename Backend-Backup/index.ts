@@ -5,14 +5,14 @@ import cors from 'cors';
 import { connectDB } from './src/config/db.ts';
 
 // Import routes
-import otpRoutes from './src/apis/otp/route.ts';
-import mockOtpRouter from './src/apis/mockOtp/route.ts';
-import authRoutes from './src/apis/auth/route.ts';
-import clientRoutes from './src/apis/client/route.ts';
-import businessRoutes from './src/apis/business/route.ts';
-import dashboardRoutes from './src/apis/dashboard/route.ts';
-import adminRoutes from './src/apis/admin/route.ts';
-import syncRoutes from './src/apis/sync/route.ts';
+import otpRoutes from './src/api/routes/otpRoutes.ts';
+import mockOtpRouter from './src/api/routes/mockOtpRoutes.ts';
+import authRoutes from './src/api/routes/authRoutes.ts';
+import clientRoutes from './src/api/routes/clientRoutes.ts';
+import businessRoutes from './src/api/routes/businessRoutes.ts';
+import dashboardRoutes from './src/api/routes/dashboardRoutes.ts';
+import adminRoutes from './src/api/routes/adminRoutes.ts';
+import syncRoutes from './src/api/routes/syncRoutes.ts';
 
 // Load environment variables
 dotenv.config();

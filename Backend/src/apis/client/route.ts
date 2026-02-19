@@ -1,0 +1,23 @@
+import express from 'express';
+import {
+    getClientController,
+    updateClientController,
+} from './controller.ts';
+import { authenticateToken } from '../../middleware/authMiddleware.ts';
+
+const router = express.Router();
+
+/**
+ * @route   GET /api/client/:clientId
+ * @desc    Get client details
+ * @returns { success: boolean, client: object }
+ */
+router.get('/:clientId', authenticateToken, getClientController);
+
+/**
+ * @route   PUT /api/client/:clientId
+ * @desc    Update client profile fields
+ */
+router.put('/:clientId', authenticateToken, updateClientController);
+
+export default router;
