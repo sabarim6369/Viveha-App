@@ -591,6 +591,12 @@ export const generateInvoice = async (clientId: string, invoiceData: InvoiceData
             throw new Error('cartId is required to generate invoice');
         }
 
+        // Fetch client settings for tax calculation
+        const client: any = await Client.findById(clientId).lean();
+        if (!client) {
+            throw new Error('Client not found');
+        }
+
         const cart = await Cart.findById(cartId);
         if (!cart) {
             throw new Error('Cart not found');
@@ -618,10 +624,19 @@ export const generateInvoice = async (clientId: string, invoiceData: InvoiceData
             (sum, item) => sum + item.lineTotal,
             0,
         );
+
+        // Auto-calculate tax if enabled in client settings
+        let finalTotalTax = totalTax;
+        const taxSettings = client?.clientSettings?.taxSettings;
+        if (taxSettings?.enableTaxCalculation && taxSettings?.primaryTaxRate > 0) {
+            // Calculate tax as percentage of subtotal
+            finalTotalTax = (totalFromCart * taxSettings.primaryTaxRate) / 100;
+        }
+
         const totalAmount =
             typeof providedTotalAmount === 'number'
                 ? providedTotalAmount
-                : totalFromCart;
+                : totalFromCart + finalTotalTax - totalDiscount;
         const paidAmount =
             typeof providedPaidAmount === 'number' ? providedPaidAmount : 0;
 
@@ -686,7 +701,7 @@ export const generateInvoice = async (clientId: string, invoiceData: InvoiceData
             invoiceDate,
             dueDate,
             subtotal: totalFromCart,
-            totalTax,
+            totalTax: finalTotalTax,
             totalDiscount,
             totalAmount,
             paidAmount,
@@ -797,6 +812,12 @@ export const generateInvoiceWithProduct = async (clientId: string, invoiceData: 
             }
         }
 
+        // Fetch client settings for tax calculation
+        const client: any = await Client.findById(clientId).lean();
+        if (!client) {
+            throw new Error('Client not found');
+        }
+
         const { clientCustomerId, nameToUse, phoneToUse } =
             await resolveClientCustomerForInvoice({
                 clientId,
@@ -859,6 +880,14 @@ export const generateInvoiceWithProduct = async (clientId: string, invoiceData: 
                 ? providedSubtotal
                 : calculatedSubtotal;
 
+        // Auto-calculate tax if enabled in client settings
+        let finalTotalTax = totalTax;
+        const taxSettings = client?.clientSettings?.taxSettings;
+        if (taxSettings?.enableTaxCalculation && taxSettings?.primaryTaxRate > 0) {
+            // Calculate tax as percentage of subtotal
+            finalTotalTax = (subtotal * taxSettings.primaryTaxRate) / 100;
+        }
+
         // Check if totalAmount is provided, otherwise default to subtotal + tax - discount
         // The original logic seemed to rely on providedTotalAmount being passed if strictly needed,
         // or implies calculation.
@@ -874,7 +903,7 @@ export const generateInvoiceWithProduct = async (clientId: string, invoiceData: 
         const totalAmount =
             typeof providedTotalAmount === 'number'
                 ? providedTotalAmount
-                : subtotal + totalTax - totalDiscount;
+                : subtotal + finalTotalTax - totalDiscount;
 
         const paidAmount =
             typeof providedPaidAmount === 'number' ? providedPaidAmount : 0;
@@ -898,7 +927,7 @@ export const generateInvoiceWithProduct = async (clientId: string, invoiceData: 
             invoiceDate,
             dueDate,
             subtotal,
-            totalTax,
+            totalTax: finalTotalTax,
             totalDiscount,
             totalAmount,
             paidAmount,

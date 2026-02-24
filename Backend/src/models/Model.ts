@@ -19,6 +19,10 @@ export interface IClient extends Document {
             gstNo?: boolean;
             emailId?: boolean;
         };
+        taxSettings?: {
+            enableTaxCalculation?: boolean;
+            primaryTaxRate?: number;
+        };
     };
     isActive?: boolean;
     createdAt?: Date;
@@ -90,6 +94,18 @@ const clientSchema = new Schema<IClient>(
                 emailId: {
                     type: Boolean,
                     default: false,
+                },
+            },
+            taxSettings: {
+                enableTaxCalculation: {
+                    type: Boolean,
+                    default: false,
+                },
+                primaryTaxRate: {
+                    type: Number,
+                    default: 0,
+                    min: [0, 'Tax rate cannot be negative'],
+                    max: [100, 'Tax rate cannot exceed 100%'],
                 },
             },
         },
