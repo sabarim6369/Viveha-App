@@ -31,7 +31,9 @@ async function clearAllStorage() {
       '@viveha_cart',
       '@viveha_payment_history',
       '@viveha_shop_details',
-      '@viveha_pendings'
+      '@viveha_pendings',
+      'hasSeenOnboarding',
+      'isNewUser'
     ];
     
     // Clear all keys

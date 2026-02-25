@@ -1,6 +1,5 @@
 import React from 'react';
 import { View, Text, Image, StyleSheet, TouchableOpacity } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface NameScreenProps {
   navigation: any;
@@ -8,29 +7,13 @@ interface NameScreenProps {
 
 export default function NameScreen({ navigation }: NameScreenProps): React.JSX.Element {
   React.useEffect(() => {
-    // Check if user is new or returning
-    const checkUserStatus = async (): Promise<void> => {
-      try {
-        const isNewUser = await AsyncStorage.getItem('isNewUser');
-        
-        setTimeout(() => {
-          if (isNewUser === 'false') {
-            // Returning user - go directly to verification
-            navigation.navigate('OTPVerification');
-          } else {
-            // New user - go through onboarding
-            navigation.navigate('ShopDetails');
-          }
-        }, 2000);
-      } catch (error) {
-        // Default to new user if error
-        setTimeout(() => {
-          navigation.navigate('ShopDetails');
-        }, 2000);
-      }
-    };
+    // This screen is only shown for first-time app users
+    // After 2 seconds, go to onboarding screens
+    const timer = setTimeout(() => {
+      navigation.navigate('Onboarding1');
+    }, 2000);
     
-    checkUserStatus();
+    return () => clearTimeout(timer);
   }, [navigation]);
 
   return (

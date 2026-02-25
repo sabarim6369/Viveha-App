@@ -176,6 +176,16 @@ export default function OTPVerificationScreen({ navigation }: OTPVerificationScr
               )}
             </TouchableOpacity>
 
+            <TouchableOpacity 
+              style={styles.registerButton}
+              onPress={() => navigation.navigate('ShopDetails')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.registerButtonText}>
+                Don't have an account? <Text style={styles.registerButtonTextBold}>Register</Text>
+              </Text>
+            </TouchableOpacity>
+
             <Text style={styles.termsText}>
               By continuing, you agree to the Terms of Service and confirm{'\n'}
               that you have read our Privacy Policy
@@ -338,6 +348,20 @@ const styles = StyleSheet.create({
     fontSize: 18,
     fontWeight: '700',
     textAlign: 'center',
+  },
+  registerButton: {
+    marginBottom: 20,
+    paddingVertical: 12,
+    alignItems: 'center',
+  },
+  registerButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '400',
+  },
+  registerButtonTextBold: {
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
   termsText: {
     fontSize: 11,

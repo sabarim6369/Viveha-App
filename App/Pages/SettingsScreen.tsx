@@ -451,6 +451,68 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
             </View>
           </View>
         </View>
+
+        {/* Developer Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>Developer Options</Text>
+            <Text style={styles.sectionDescription}>
+              Testing and debugging tools
+            </Text>
+          </View>
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.settingRow}
+              onPress={async () => {
+                Alert.alert(
+                  'Reset to First-Time User',
+                  'This will log you out and reset onboarding. The app will show onboarding screens as if you\'re opening it for the first time. Continue?',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Reset & Logout',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          // Clear onboarding flag
+                          await AsyncStorage.removeItem('hasSeenOnboarding');
+                          // Clear login tokens to simulate first-time user
+                          await AsyncStorage.removeItem('@viveha_token');
+                          await AsyncStorage.removeItem('@viveha_client_id');
+                          
+                          Toast.show({
+                            type: 'success',
+                            text1: 'Reset Complete',
+                            text2: 'Restarting app...',
+                          });
+                          
+                          // Navigate to logo screen (first-time user experience)
+                          setTimeout(() => {
+                            navigation.reset({
+                              index: 0,
+                              routes: [{ name: 'Logo' }],
+                            });
+                          }, 500);
+                        } catch (error) {
+                          console.error('Error resetting onboarding:', error);
+                          Alert.alert('Error', 'Failed to reset onboarding');
+                        }
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <View style={styles.settingLeft}>
+                <Text style={styles.settingLabel}>Test First-Time Experience</Text>
+                <Text style={styles.settingDescription}>
+                  Reset onboarding and logout to see first-time user flow
+                </Text>
+              </View>
+              <Ionicons name={"refresh" as any} size={24} color="#FF9800" />
+            </TouchableOpacity>
+          </View>
+        </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

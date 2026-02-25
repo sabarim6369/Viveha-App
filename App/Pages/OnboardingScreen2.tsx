@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface OnboardingScreen2Props {
   navigation: any;
@@ -10,8 +11,11 @@ export default function OnboardingScreen2({ navigation }: OnboardingScreen2Props
     navigation.navigate('Onboarding3');
   };
 
-  const handleSkip = () => {
-    navigation.navigate('Home');
+  const handleSkip = async () => {
+    // Mark that user has seen onboarding
+    await AsyncStorage.setItem('hasSeenOnboarding', 'true');
+    // Go to login screen
+    navigation.navigate('OTPVerification');
   };
 
   return (

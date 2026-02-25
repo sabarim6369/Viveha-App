@@ -1,30 +1,16 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
-import AsyncStorage from '@react-native-async-storage/async-storage';
 
 // Type definitions
 interface SuccessScreenProps {
   navigation: any;
-  route?: {
-    params?: {
-      isRegistration?: boolean;
-    };
-  };
 }
 
-export default function SuccessScreen({ navigation, route }: SuccessScreenProps): React.JSX.Element {
-  const handleContinue = async (): Promise<void> => {
-    // Check if user is registering for the first time or just logging in
-    const isRegistration = route?.params?.isRegistration || false;
-    
-    if (isRegistration) {
-      // New registration - show onboarding screens
-      await AsyncStorage.setItem('hasSeenOnboarding', 'true');
-      navigation.navigate('Onboarding1');
-    } else {
-      // Login - go directly to Home
-      navigation.navigate('Home');
-    }
+export default function SuccessScreen({ navigation }: SuccessScreenProps): React.JSX.Element {
+  const handleContinue = (): void => {
+    // After successful registration or login, always go to Home
+    // Onboarding screens are shown only on first app launch
+    navigation.navigate('Home');
   };
 
   return (

@@ -142,10 +142,10 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
               // Clear all user data to prevent data leakage
               await clearAllUserData();
 
-              // Navigate to the Logo/Login screen
+              // Navigate to the Login screen
               navigation.reset({
                 index: 0,
-                routes: [{ name: 'Logo' }],
+                routes: [{ name: 'OTPVerification' }],
               });
             } catch (error) {
               console.error('Error during logout:', error);

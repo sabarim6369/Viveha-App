@@ -101,7 +101,7 @@ import RateUsScreen from './Pages/RateUsScreen';
 const Stack = createNativeStackNavigator();
 
 export default function App() {
-  const [initialRoute, setInitialRoute] = useState("Logo");
+  const [initialRoute, setInitialRoute] = useState("OTPVerification");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -109,22 +109,24 @@ export default function App() {
       try {
         const token = await AsyncStorage.getItem('@viveha_token');
         const clientId = await AsyncStorage.getItem('@viveha_client_id');
+        const hasSeenOnboarding = await AsyncStorage.getItem('hasSeenOnboarding');
 
-        console.log('🔍 Checking Login Status:');
+        console.log('🔍 Checking App Status:');
         console.log('   - Token:', token ? 'Found' : 'Missing');
         console.log('   - ClientId:', clientId ? 'Found' : 'Missing');
+        console.log('   - Has seen onboarding:', hasSeenOnboarding);
 
         if (token && clientId) {
           console.log('✅ Auto-login to Home');
-          // Verify token validity or just trust it exists for now (10 days requirement)
-          // We could add a timestamp check if we stored login time, 
-          // but typically token existence + backend 401 handling is enough.
-          // For now, simple existence check to skip login screens.
           setInitialRoute("Home");
+        } else if (!hasSeenOnboarding) {
+          console.log('🆕 First time user - showing splash and onboarding');
+          // First time opening the app - show logo splash, then onboarding screens
+          setInitialRoute("Logo");
         } else {
-          console.log('❌ Auto-login failed, defaulting to Logo');
-          // Optional: Clear any partial data if one exists but not other?
-          // setInitialRoute("Logo"); // Default is already Logo
+          console.log('🔐 Returning user - showing Login screen');
+          // Returning user who has seen onboarding - show login
+          setInitialRoute("OTPVerification");
         }
       } catch (error) {
         console.error('Error checking login status:', error);
