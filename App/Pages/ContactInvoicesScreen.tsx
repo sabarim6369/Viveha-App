@@ -468,7 +468,10 @@ export default function ContactInvoicesScreen({ navigation, route }: ContactInvo
 
                     <TouchableOpacity
                       style={styles.paymentHistoryButton}
-                      onPress={() => handleShowPaymentHistory(invoice)}
+                      onPress={() => navigation.navigate('CustomerProfile', {
+                        customerId: contact.id,
+                        customerName: contact.name
+                      })}
                     >
                       <Ionicons name={"time-outline" as any} size={18} color="#666" />
                       <Text style={styles.paymentHistoryText}>Payment History</Text>

@@ -130,7 +130,7 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
     const getShareMessage = (): string => {
         if (!profileData) return '';
 
-        const { customer, pendingInvoices, totalBalance } = profileData;
+        const { customer, pendingInvoices, totalBalance, payments } = profileData;
         const firstInvoice = pendingInvoices.length > 0 ? pendingInvoices[0] : null;
 
         return `*${customer.name}*
@@ -146,9 +146,9 @@ ${formatCurrency(totalBalance)}
 ${firstInvoice?.dueDate ? formatDate(firstInvoice.dueDate) : ''}
 
 *BILLS*
-${pendingInvoices.map((inv, index) => 
-    `Bill ${index + 1} - ${formatBillDate(inv.invoiceDate || inv.createdAt)}  ${formatCurrency(inv.totalAmount - inv.paidAmount)}`
-).join('\n')}
+${payments && payments.length > 0 ? payments.map((payment, index) => 
+    `Bill ${index + 1} - ${formatBillDate(payment.paidAt)}  ${formatCurrency(payment.amount)}`
+).join('\n') : 'No bills yet'}
 
 *TOTAL AMOUNT*
 ${formatCurrency(totalBalance)}
@@ -314,46 +314,52 @@ Friendly reminder from JK TRADERS: You have a balance of ${formatCurrency(totalB
                         </View>
                     </View>
 
-                    {/* Pending Bills Section */}
-                    <View style={styles.billsSection}>
-                        <View style={styles.billsHeader}>
-                            <Text style={styles.billsLabel}>BILLS</Text>
-                            <Text style={styles.billsLabel}>TOTAL</Text>
-                        </View>
-                        {pendingInvoices.length > 0 ? (
-                            pendingInvoices.map((invoice, index) => (
-                                <View key={invoice._id} style={styles.billRow}>
+                    {/* Bills Section - Show payments made */}
+                    {profileData.payments && profileData.payments.length > 0 && (
+                        <View style={styles.billsSection}>
+                            <View style={styles.billsHeader}>
+                                <Text style={styles.billsLabel}>BILLS</Text>
+                                <Text style={styles.billsLabel}>TOTAL</Text>
+                            </View>
+                            {profileData.payments.map((payment, index) => (
+                                <View key={payment._id} style={styles.billRow}>
                                     <Text style={styles.billText}>
-                                        Bill {index + 1} - {formatBillDate(invoice.invoiceDate || invoice.createdAt)}
+                                        Bill {index + 1} - {formatBillDate(payment.paidAt)}
                                     </Text>
                                     <Text style={styles.billAmount}>
-                                        {formatCurrency(invoice.totalAmount - invoice.paidAmount)}
+                                        {formatCurrency(payment.amount)}
                                     </Text>
                                 </View>
-                            ))
-                        ) : (
-                            <View style={styles.billRow}>
-                                <Text style={styles.billText}>No pending bills</Text>
-                                <Text style={styles.billAmount}>Rs.0</Text>
-                            </View>
-                        )}
-                    </View>
+                            ))}
+                        </View>
+                    )}
 
-                    {/* Notes Section */}
-                    <View style={styles.notesSection}>
-                        <View style={styles.notesHeader}>
-                            <Text style={styles.notesLabel}>NOTES</Text>
-                            <Text style={styles.totalLabel}>TOTAL AMOUNT</Text>
+                    {/* No Bills Message - Show only when there are no payments */}
+                    {(!profileData.payments || profileData.payments.length === 0) && (
+                        <View style={styles.noBillsSection}>
+                            <Ionicons name="receipt-outline" size={48} color="#fff" />
+                            <Text style={styles.noBillsText}>No Bills Yet</Text>
+                            <Text style={styles.noBillsSubtext}>No payments recorded for this customer</Text>
                         </View>
-                        <View style={styles.notesContent}>
-                            <Text style={styles.notesText}>
-                                Friendly reminder from JK TRADERS: You have a balance of{' '}
-                                <Text style={styles.notesAmount}>{formatCurrency(totalBalance)}</Text>{' '}
-                                remaining. Tap below to mark as paid!
-                            </Text>
-                            <Text style={styles.totalAmount}>{formatCurrency(totalBalance)}</Text>
+                    )}
+
+                    {/* Notes Section - Only show if there is a pending balance */}
+                    {totalBalance > 0 && (
+                        <View style={styles.notesSection}>
+                            <View style={styles.notesHeader}>
+                                <Text style={styles.notesLabel}>NOTES</Text>
+                                <Text style={styles.totalLabel}>TOTAL AMOUNT</Text>
+                            </View>
+                            <View style={styles.notesContent}>
+                                <Text style={styles.notesText}>
+                                    Friendly reminder from JK TRADERS: You have a balance of{' '}
+                                    <Text style={styles.notesAmount}>{formatCurrency(totalBalance)}</Text>{' '}
+                                    remaining. Tap below to mark as paid!
+                                </Text>
+                                <Text style={styles.totalAmount}>{formatCurrency(totalBalance)}</Text>
+                            </View>
                         </View>
-                    </View>
+                    )}
 
                     {/* Action Buttons */}
                     <View style={styles.actionButtons}>
@@ -425,44 +431,52 @@ Friendly reminder from JK TRADERS: You have a balance of ${formatCurrency(totalB
                                         </View>
                                     </View>
 
-                                    <View style={styles.billsSection}>
-                                        <View style={styles.billsHeader}>
-                                            <Text style={styles.billsLabel}>BILLS</Text>
-                                            <Text style={styles.billsLabel}>TOTAL</Text>
-                                        </View>
-                                        {pendingInvoices.length > 0 ? (
-                                            pendingInvoices.map((invoice, index) => (
-                                                <View key={invoice._id} style={styles.billRow}>
+                                    {/* Bills Section in Share Modal - Show payments made */}
+                                    {profileData.payments && profileData.payments.length > 0 && (
+                                        <View style={styles.billsSection}>
+                                            <View style={styles.billsHeader}>
+                                                <Text style={styles.billsLabel}>BILLS</Text>
+                                                <Text style={styles.billsLabel}>TOTAL</Text>
+                                            </View>
+                                            {profileData.payments.map((payment, index) => (
+                                                <View key={payment._id} style={styles.billRow}>
                                                     <Text style={styles.billText}>
-                                                        Bill {index + 1} - {formatBillDate(invoice.invoiceDate || invoice.createdAt)}
+                                                        Bill {index + 1} - {formatBillDate(payment.paidAt)}
                                                     </Text>
                                                     <Text style={styles.billAmount}>
-                                                        {formatCurrency(invoice.totalAmount - invoice.paidAmount)}
+                                                        {formatCurrency(payment.amount)}
                                                     </Text>
                                                 </View>
-                                            ))
-                                        ) : (
-                                            <View style={styles.billRow}>
-                                                <Text style={styles.billText}>No pending bills</Text>
-                                                <Text style={styles.billAmount}>Rs.0</Text>
-                                            </View>
-                                        )}
-                                    </View>
+                                            ))}
+                                        </View>
+                                    )}
 
-                                    <View style={styles.notesSection}>
-                                        <View style={styles.notesHeader}>
-                                            <Text style={styles.notesLabel}>NOTES</Text>
-                                            <Text style={styles.totalLabel}>TOTAL AMOUNT</Text>
+                                    {/* No Bills Message in Share Modal */}
+                                    {(!profileData.payments || profileData.payments.length === 0) && (
+                                        <View style={styles.noBillsSection}>
+                                            <Ionicons name="receipt-outline" size={48} color="#fff" />
+                                            <Text style={styles.noBillsText}>No Bills Yet</Text>
+                                            <Text style={styles.noBillsSubtext}>No payments recorded for this customer</Text>
                                         </View>
-                                        <View style={styles.notesContent}>
-                                            <Text style={styles.notesText}>
-                                                Friendly reminder from JK TRADERS: You have a balance of{' '}
-                                                <Text style={styles.notesAmount}>{formatCurrency(totalBalance)}</Text>{' '}
-                                                remaining. Tap below to mark as paid!
-                                            </Text>
-                                            <Text style={styles.totalAmount}>{formatCurrency(totalBalance)}</Text>
+                                    )}
+
+                                    {/* Notes Section in Share Modal - Only show if there is a pending balance */}
+                                    {totalBalance > 0 && (
+                                        <View style={styles.notesSection}>
+                                            <View style={styles.notesHeader}>
+                                                <Text style={styles.notesLabel}>NOTES</Text>
+                                                <Text style={styles.totalLabel}>TOTAL AMOUNT</Text>
+                                            </View>
+                                            <View style={styles.notesContent}>
+                                                <Text style={styles.notesText}>
+                                                    Friendly reminder from JK TRADERS: You have a balance of{' '}
+                                                    <Text style={styles.notesAmount}>{formatCurrency(totalBalance)}</Text>{' '}
+                                                    remaining. Tap below to mark as paid!
+                                                </Text>
+                                                <Text style={styles.totalAmount}>{formatCurrency(totalBalance)}</Text>
+                                            </View>
                                         </View>
-                                    </View>
+                                    )}
                                 </View>
                             </View>
                         </ScrollView>
@@ -684,6 +698,24 @@ const styles = StyleSheet.create({
         fontSize: 13,
         fontWeight: '600',
         color: '#fff',
+    },
+    noBillsSection: {
+        alignItems: 'center',
+        justifyContent: 'center',
+        paddingVertical: 30,
+        marginBottom: 12,
+    },
+    noBillsText: {
+        fontSize: 16,
+        fontWeight: '700',
+        color: '#fff',
+        marginTop: 12,
+        marginBottom: 4,
+    },
+    noBillsSubtext: {
+        fontSize: 12,
+        color: '#fff',
+        opacity: 0.8,
     },
     notesSection: {
         marginBottom: 12,
