@@ -6,19 +6,35 @@ export interface CustomerFieldSettings {
     emailId: boolean;
 }
 
+export interface TaxSettings {
+    enableTaxCalculation: boolean;
+    primaryTaxRate: number;
+}
+
 export const defaultCustomerFieldSettings: CustomerFieldSettings = {
     address: false,
     gstNo: false,
     emailId: false,
 };
 
+export const defaultTaxSettings: TaxSettings = {
+    enableTaxCalculation: false,
+    primaryTaxRate: 0,
+};
+
 export const buildClientSettings = (client: any) => {
     const customerFields =
         client?.clientSettings?.customerFields || defaultCustomerFieldSettings;
+    const taxSettings =
+        client?.clientSettings?.taxSettings || defaultTaxSettings;
     return {
         customerFields: {
             ...defaultCustomerFieldSettings,
             ...customerFields,
+        },
+        taxSettings: {
+            ...defaultTaxSettings,
+            ...taxSettings,
         },
     };
 };
@@ -57,6 +73,7 @@ interface UpdateClientData {
     profileUrl?: string;
     clientSettings?: {
         customerFields?: Partial<CustomerFieldSettings>;
+        taxSettings?: Partial<TaxSettings>;
     };
 }
 
@@ -76,13 +93,17 @@ export const updateClientProfile = async (clientId: string, updateData: UpdateCl
 
     const requestedCustomerFields =
         updateData?.clientSettings?.customerFields || null;
+    const requestedTaxSettings =
+        updateData?.clientSettings?.taxSettings || null;
     let sanitizedCustomerFields: Partial<CustomerFieldSettings> | null = null;
+    let sanitizedTaxSettings: Partial<TaxSettings> | null = null;
+
+    // Get existing client for reference
+    const existingClient =
+        await Client.findById(clientId).select('clientSettings');
+    const existingSettings = buildClientSettings(existingClient?.toObject() || {});
 
     if (requestedCustomerFields) {
-        const existingClient =
-            await Client.findById(clientId).select('clientSettings');
-        const existingSettings = buildClientSettings(existingClient?.toObject() || {});
-
         // safe casting because we know the structure
         const currentFields = existingSettings.customerFields as Record<string, boolean>;
         const requestedFields = requestedCustomerFields as Record<string, boolean>;
@@ -98,14 +119,41 @@ export const updateClientProfile = async (clientId: string, updateData: UpdateCl
         };
     }
 
+    if (requestedTaxSettings) {
+        const currentTaxSettings = existingSettings.taxSettings as Record<string, boolean | number>;
+        const requestedTax = requestedTaxSettings as Record<string, boolean | number>;
+
+        sanitizedTaxSettings = {
+            ...existingSettings.taxSettings,
+            ...Object.entries(requestedTax).reduce((acc, [key, value]) => {
+                if (Object.prototype.hasOwnProperty.call(currentTaxSettings, key)) {
+                    if (key === 'enableTaxCalculation') {
+                        (acc as any)[key] = Boolean(value);
+                    } else if (key === 'primaryTaxRate') {
+                        const rate = Number(value);
+                        if (rate >= 0 && rate <= 100) {
+                            (acc as any)[key] = rate;
+                        }
+                    }
+                }
+                return acc;
+            }, {} as Partial<TaxSettings>),
+        };
+    }
+
     const sanitizedUpdate = Object.entries(updateData || {})
         .filter(([key]) => allowedFields.includes(key))
         .reduce((acc, [key, value]) => {
             if (key === 'clientSettings') {
+                const settings: any = {};
                 if (sanitizedCustomerFields) {
-                    acc.clientSettings = {
-                        customerFields: sanitizedCustomerFields,
-                    };
+                    settings.customerFields = sanitizedCustomerFields;
+                }
+                if (sanitizedTaxSettings) {
+                    settings.taxSettings = sanitizedTaxSettings;
+                }
+                if (Object.keys(settings).length > 0) {
+                    acc.clientSettings = settings;
                 }
                 return acc;
             }
@@ -132,6 +180,11 @@ export const updateClientProfile = async (clientId: string, updateData: UpdateCl
         if (sanitizedCustomerFields) {
             client.set('clientSettings.customerFields', sanitizedCustomerFields);
             client.markModified('clientSettings.customerFields');
+        }
+
+        if (sanitizedTaxSettings) {
+            client.set('clientSettings.taxSettings', sanitizedTaxSettings);
+            client.markModified('clientSettings.taxSettings');
         }
 
         // client.updatedAt is handled by timestamps: true in schema, but prompt logic had it explicitly?

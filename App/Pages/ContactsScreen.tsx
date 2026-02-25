@@ -106,7 +106,13 @@ export default function ContactsScreen({ navigation }: ContactsScreenProps): Rea
     };
 
     const renderItem = ({ item }: { item: Client }): React.JSX.Element => (
-        <View style={styles.clientItem}>
+        <TouchableOpacity 
+            style={styles.clientItem}
+            onPress={() => navigation.navigate('CustomerProfile', { 
+                customerId: item.id, 
+                customerName: item.name 
+            })}
+        >
             <View style={styles.avatarContainer}>
                 <Text style={styles.avatarText}>
                     {item.name ? item.name.charAt(0).toUpperCase() : '?'}
@@ -122,7 +128,7 @@ export default function ContactsScreen({ navigation }: ContactsScreenProps): Rea
             >
                 <Ionicons name={"trash-outline" as any} size={20} color="#F44336" />
             </TouchableOpacity>
-        </View>
+        </TouchableOpacity>
     );
 
     return (

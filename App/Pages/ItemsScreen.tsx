@@ -827,7 +827,7 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
         </View>
       </Modal>
 
-      <Footer activeTab="Home" navigation={navigation} />
+      <Footer activeTab="Items" navigation={navigation} />
     </View>
   );
 }

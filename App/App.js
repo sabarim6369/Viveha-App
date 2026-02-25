@@ -90,6 +90,9 @@ import InsightsScreen from './Pages/InsightsScreen';
 import TaxAndDiscountScreen from './Pages/TaxAndDiscountScreen';
 import ContactsScreen from './Pages/ContactsScreen';
 import SettingsScreen from './Pages/SettingsScreen';
+import InviteFriendsScreen from './Pages/InviteFriendsScreen';
+import CustomerProfileScreen from './Pages/CustomerProfileScreen';
+import RateUsScreen from './Pages/RateUsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -173,6 +176,9 @@ export default function App() {
           <Stack.Screen name="Insights" component={InsightsScreen} />
           <Stack.Screen name="TaxAndDiscount" component={TaxAndDiscountScreen} />
           <Stack.Screen name="MyContacts" component={ContactsScreen} />
+          <Stack.Screen name="InviteFriends" component={InviteFriendsScreen} />
+          <Stack.Screen name="CustomerProfile" component={CustomerProfileScreen} />
+          <Stack.Screen name="RateUs" component={RateUsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
       <Toast position="bottom" bottomOffset={100} />

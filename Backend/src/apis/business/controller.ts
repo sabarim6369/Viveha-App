@@ -418,3 +418,16 @@ export const deleteclientCustomerController = async (req: Request, res: Response
         return serverError(res, e);
     }
 };
+
+export const getClientCustomerProfileController = async (req: Request, res: Response) => {
+    try {
+        const { clientId, clientCustomerId } = req.params;
+        if (!clientId || !clientCustomerId)
+            return badRequest(res, 'clientId and clientCustomerId required');
+        return res.json(
+            await businessService.getClientCustomerProfile(clientId as string, clientCustomerId as string),
+        );
+    } catch (e: any) {
+        return serverError(res, e);
+    }
+};

@@ -14,16 +14,20 @@ interface Tab {
   name: string;
   icon: string;
   activeIcon: string;
-  label?: string;
+  label: string;
 }
 
 export default function Footer({ activeTab = 'Home', navigation, pendingCount = 0 }: FooterProps): React.JSX.Element {
   const insets = useSafeAreaInsets();
-  const tabs: Tab[] = [
-    { name: 'Home', icon: 'home-outline', activeIcon: 'home' },
-    { name: 'AddInvoice', icon: 'add-circle-outline', activeIcon: 'add-circle', label: 'Add Invoice' },
-    { name: 'Pendings', icon: 'time-outline', activeIcon: 'time' },
-    { name: 'Profile', icon: 'person-outline', activeIcon: 'person' },
+  
+  const leftTabs: Tab[] = [
+    { name: 'Home', icon: 'home-outline', activeIcon: 'home', label: 'Home' },
+    { name: 'Items', icon: 'pricetag-outline', activeIcon: 'pricetag', label: 'Pricelist' },
+  ];
+
+  const rightTabs: Tab[] = [
+    { name: 'Pendings', icon: 'clipboard-outline', activeIcon: 'clipboard', label: 'Pendings' },
+    { name: 'Profile', icon: 'person-outline', activeIcon: 'person', label: 'Profile' },
   ];
 
   const handleTabPress = (tabName: string): void => {
@@ -32,70 +36,148 @@ export default function Footer({ activeTab = 'Home', navigation, pendingCount = 
     }
   };
 
+  const handleCreateInvoice = (): void => {
+    if (navigation) {
+      navigation.navigate('AddInvoice');
+    }
+  };
+
   return (
-    <View style={[styles.footer, { paddingBottom: Math.max(insets.bottom, 10) }]}>
-      {tabs.map((tab) => {
-        const isActive = activeTab === tab.name;
-        return (
-          <TouchableOpacity
-            key={tab.name}
-            style={styles.tabButton}
-            onPress={() => handleTabPress(tab.name)}
-            activeOpacity={0.7}
-          >
-            <View>
-              <Ionicons
-                name={(isActive ? tab.activeIcon : tab.icon) as any}
-                size={24}
-                color={isActive ? '#E88E99' : '#999'}
-              />
-              {tab.name === 'Pendings' && pendingCount > 0 && (
-                <View style={styles.badge}>
-                  <Text style={styles.badgeText}>
-                    {pendingCount > 99 ? '99+' : pendingCount}
-                  </Text>
+    <View style={[styles.footerContainer, { paddingBottom: Math.max(insets.bottom, 5) }]}>
+      <View style={styles.footer}>
+        {/* Left Tabs */}
+        <View style={styles.tabsSection}>
+          {leftTabs.map((tab) => {
+            const isActive = activeTab === tab.name;
+            return (
+              <TouchableOpacity
+                key={tab.name}
+                style={[styles.tabButton, tab.name === 'Items' && styles.pricelistTab]}
+                onPress={() => handleTabPress(tab.name)}
+                activeOpacity={0.7}
+              >
+                <Ionicons
+                  name={(isActive ? tab.activeIcon : tab.icon) as any}
+                  size={24}
+                  color={isActive ? '#333' : '#999'}
+                />
+                <Text style={[styles.tabLabel, isActive && styles.activeTabLabel]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+
+        {/* Center Create Invoice Button */}
+        <TouchableOpacity
+          style={styles.createButton}
+          onPress={handleCreateInvoice}
+          activeOpacity={0.8}
+        >
+          <View style={styles.createButtonInner}>
+            <Ionicons name="receipt-outline" size={28} color="#fff" />
+          </View>
+        </TouchableOpacity>
+
+        {/* Right Tabs */}
+        <View style={styles.tabsSection}>
+          {rightTabs.map((tab) => {
+            const isActive = activeTab === tab.name;
+            return (
+              <TouchableOpacity
+                key={tab.name}
+                style={styles.tabButton}
+                onPress={() => handleTabPress(tab.name)}
+                activeOpacity={0.7}
+              >
+                <View>
+                  <Ionicons
+                    name={(isActive ? tab.activeIcon : tab.icon) as any}
+                    size={24}
+                    color={isActive ? '#333' : '#999'}
+                  />
+                  {tab.name === 'Pendings' && pendingCount > 0 && (
+                    <View style={styles.badge}>
+                      <Text style={styles.badgeText}>
+                        {pendingCount > 99 ? '99+' : pendingCount}
+                      </Text>
+                    </View>
+                  )}
                 </View>
-              )}
-            </View>
-            <Text style={[styles.tabLabel, isActive && styles.activeTabLabel]}>
-              {tab.label || tab.name}
-            </Text>
-          </TouchableOpacity>
-        );
-      })}
+                <Text style={[styles.tabLabel, isActive && styles.activeTabLabel]}>
+                  {tab.label}
+                </Text>
+              </TouchableOpacity>
+            );
+          })}
+        </View>
+      </View>
     </View>
   );
 }
 
 const styles = StyleSheet.create({
+  footerContainer: {
+    position: 'relative',
+    backgroundColor: 'transparent',
+  },
   footer: {
     flexDirection: 'row',
     backgroundColor: '#fff',
-    paddingVertical: 10,
-    paddingHorizontal: 20,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
     borderTopWidth: 1,
-    borderTopColor: '#f0f0f0',
-    elevation: 8,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: -2 },
-    shadowOpacity: 0.1,
-    shadowRadius: 8,
+    borderTopColor: '#E5E5E5',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+  },
+  tabsSection: {
+    flexDirection: 'row',
+    flex: 1,
+    justifyContent: 'space-around',
   },
   tabButton: {
-    flex: 1,
     alignItems: 'center',
     justifyContent: 'center',
-    paddingVertical: 5,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    minWidth: 70,
+  },
+  pricelistTab: {
+    marginRight: 10,
   },
   tabLabel: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#999',
     marginTop: 4,
     fontWeight: '500',
   },
   activeTabLabel: {
-    color: '#E88E99',
+    color: '#333',
     fontWeight: '600',
+  },
+  createButton: {
+    position: 'absolute',
+    top: -30,
+    left: '50%',
+    marginLeft: -30,
+    zIndex: 10,
+  },
+  createButtonInner: {
+    width: 60,
+    height: 60,
+    borderRadius: 30,
+    backgroundColor: '#E88E99',
+    alignItems: 'center',
+    justifyContent: 'center',
+    shadowColor: '#E88E99',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.4,
+    shadowRadius: 8,
+    elevation: 8,
+    borderWidth: 4,
+    borderColor: '#fff',
   },
   badge: {
     position: 'absolute',
@@ -103,12 +185,12 @@ const styles = StyleSheet.create({
     right: -8,
     backgroundColor: '#FF6B6B',
     borderRadius: 10,
-    minWidth: 16,
-    height: 16,
+    minWidth: 18,
+    height: 18,
     alignItems: 'center',
     justifyContent: 'center',
     paddingHorizontal: 4,
-    borderWidth: 1.5,
+    borderWidth: 2,
     borderColor: '#fff',
   },
   badgeText: {

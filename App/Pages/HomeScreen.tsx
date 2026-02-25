@@ -167,7 +167,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
     { id: 1, title: 'Create Invoice', icon: 'document-text-outline', screen: 'CreateInvoice' },
     { id: 2, title: 'Pendings', icon: 'time-outline', screen: 'Pendings' },
     { id: 3, title: 'Insights', icon: 'stats-chart-outline', screen: 'Insights' },
-    { id: 4, title: 'Items', icon: 'grid-outline', screen: 'Items' },
+    { id: 4, title: 'Pricelist', icon: 'grid-outline', screen: 'Items' },
   ];
 
   const handleQuickLinkPress = (screen: string): void => {
@@ -250,7 +250,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
           <View style={styles.inviteContent}>
             <Text style={styles.inviteTitle}>Invite a friend and</Text>
             <Text style={styles.inviteTitle}>both earn Offers</Text>
-            <TouchableOpacity style={styles.inviteButton}>
+            <TouchableOpacity 
+              style={styles.inviteButton}
+              onPress={() => navigation.navigate('InviteFriends')}
+            >
               <Text style={styles.inviteButtonText}>Invite Friends</Text>
               <Ionicons name="arrow-forward" size={16} color="#fff" />
             </TouchableOpacity>

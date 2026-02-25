@@ -168,7 +168,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
     { id: 6, title: 'Linked Accounts', icon: 'link-outline', color: '#666' },
     { id: 11, title: 'Clear Storage', icon: 'trash-outline', color: '#FF9800', isClearStorage: true },
     { id: 7, title: 'Help & Support', icon: 'help-circle-outline', color: '#666' },
-    { id: 8, title: 'Rate us', icon: 'star-outline', color: '#666' },
+    { id: 8, title: 'Rate us', icon: 'star-outline', color: '#666', screen: 'RateUs' },
     { id: 9, title: 'Logout', icon: 'log-out-outline', color: '#F44336', isLogout: true },
   ];
 

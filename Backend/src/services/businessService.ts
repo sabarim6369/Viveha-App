@@ -1154,6 +1154,69 @@ export const getPaymentReport = async (clientId: string) => {
     }
 };
 
+// Get customer profile with all invoices and payments
+export const getClientCustomerProfile = async (clientId: string, clientCustomerId: string) => {
+    try {
+        // Get customer details
+        const customer = await clientCustomer.findOne({
+            _id: clientCustomerId,
+            clientId,
+        });
+
+        if (!customer) {
+            throw new Error('Customer not found');
+        }
+
+        // Get all invoices (pending and paid) for this customer
+        const allInvoices = await Invoice.find({
+            clientId,
+            clientCustomerId,
+        }).sort({ createdAt: -1 });
+
+        // Build invoices with product details
+        const invoicesWithProducts = await Promise.all(
+            allInvoices.map((inv) => buildInvoiceWithProductDetails(inv))
+        );
+
+        // Separate pending and paid invoices
+        const pendingInvoices = invoicesWithProducts.filter(
+            (inv) => inv.paidAmount < inv.totalAmount
+        );
+        const paidInvoices = invoicesWithProducts.filter(
+            (inv) => inv.paidAmount >= inv.totalAmount
+        );
+
+        // Calculate total balance (pending amount)
+        const totalBalance = pendingInvoices.reduce(
+            (sum, inv) => sum + (inv.totalAmount - inv.paidAmount),
+            0
+        );
+
+        // Get all payments for this customer
+        const payments = await Payment.find({
+            clientId,
+            invoiceId: { $in: allInvoices.map((inv) => inv._id) },
+        }).sort({ paidAt: -1 });
+
+        return {
+            success: true,
+            customer: customer.toObject(),
+            pendingInvoices,
+            paidInvoices,
+            totalBalance,
+            payments,
+            statistics: {
+                totalPendingInvoices: pendingInvoices.length,
+                totalPaidInvoices: paidInvoices.length,
+                totalInvoices: allInvoices.length,
+                totalAmountPaid: paidInvoices.reduce((sum, inv) => sum + inv.paidAmount, 0),
+            },
+        };
+    } catch (error: any) {
+        throw new Error(`Failed to fetch customer profile: ${error.message}`);
+    }
+};
+
 // ============================================================================
 // SYNC SERVICES
 // ============================================================================

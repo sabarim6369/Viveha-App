@@ -15,6 +15,7 @@ import {
     getclientCustomerByPhoneController,
     updateclientCustomerController,
     deleteclientCustomerController,
+    getClientCustomerProfileController,
 } from './controller.ts';
 import {
     createCartController,
@@ -143,6 +144,15 @@ router.put(
 router.delete(
     '/client-customers/:clientId/:clientCustomerId',
     deleteclientCustomerController,
+);
+
+/**
+ * @route   GET /api/business/client-customers/:clientId/:clientCustomerId/profile
+ * @desc    Get client customer profile with invoices and payments
+ */
+router.get(
+    '/client-customers/:clientId/:clientCustomerId/profile',
+    getClientCustomerProfileController,
 );
 
 // ============================================================================

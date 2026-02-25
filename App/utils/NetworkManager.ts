@@ -1457,6 +1457,38 @@ export const deleteClient = async (clientId: string): Promise<SaveResult<Client>
   }
 };
 
+// Get customer profile with invoices and payments
+export const getCustomerProfile = async (customerId: string): Promise<any> => {
+  try {
+    const clientId = await getClientId();
+    const token = await getToken();
+    
+    if (!clientId || !token) {
+      throw new Error('Not authenticated');
+    }
+
+    const response = await fetch(
+      `${apiurl}/business/client-customers/${clientId}/${customerId}/profile`,
+      {
+        headers: {
+          'Authorization': `Bearer ${token}`,
+        },
+      }
+    );
+
+    const data = await response.json();
+
+    if (data.success) {
+      return data;
+    } else {
+      throw new Error(data.message || 'Failed to fetch customer profile');
+    }
+  } catch (error: any) {
+    console.error('Error fetching customer profile:', error);
+    throw error;
+  }
+};
+
 // ===== INVOICE MANAGEMENT =====
 
 // Delete invoice with offline support
