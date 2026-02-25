@@ -29,7 +29,13 @@ const buildInvoiceWithProductDetails = async (invoiceDoc: any) => {
         itemGroup: product.itemGroup || '',
     }));
 
-    return { ...invoiceObj, products };
+    return { 
+        ...invoiceObj, 
+        products,
+        // Explicitly ensure date fields are included
+        invoiceDate: invoiceObj.invoiceDate || invoiceObj.createdAt,
+        dueDate: invoiceObj.dueDate || null,
+    };
 };
 
 const normalizeItemsForSyncResponse = (items: any[]) =>

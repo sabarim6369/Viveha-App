@@ -108,9 +108,12 @@ export default function ContactsScreen({ navigation }: ContactsScreenProps): Rea
     const renderItem = ({ item }: { item: Client }): React.JSX.Element => (
         <TouchableOpacity 
             style={styles.clientItem}
-            onPress={() => navigation.navigate('CustomerProfile', { 
-                customerId: item.id, 
-                customerName: item.name 
+            onPress={() => navigation.navigate('ContactInvoices', { 
+                contact: { 
+                    id: item.id, 
+                    name: item.name, 
+                    phone: item.phone 
+                }
             })}
         >
             <View style={styles.avatarContainer}>
@@ -142,7 +145,12 @@ export default function ContactsScreen({ navigation }: ContactsScreenProps): Rea
                     <Ionicons name={"arrow-back" as any} size={24} color="#333" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>My Contacts</Text>
-                <View style={{ width: 24 }} />
+                <TouchableOpacity
+                    style={styles.addButton}
+                    onPress={() => navigation.navigate('CreateCustomer')}
+                >
+                    <Ionicons name={"add" as any} size={28} color="#E88E99" />
+                </TouchableOpacity>
             </View>
 
             {/* Search Bar */}
@@ -211,6 +219,9 @@ const styles = StyleSheet.create({
         borderBottomColor: '#f0f0f0',
     },
     backButton: {
+        padding: 5,
+    },
+    addButton: {
         padding: 5,
     },
     headerTitle: {

@@ -115,6 +115,7 @@ export interface Payment {
   recordedAt?: string;
   date?: string;
   time?: string;
+  paidAt?: string;
   createdAt?: string;
   paymentType?: string;
   isOffline?: boolean;
@@ -2213,8 +2214,60 @@ export const getPayments = async (): Promise<Payment[]> => {
 // Get payments for specific invoice
 export const getInvoicePayments = async (invoiceId: string): Promise<Payment[]> => {
   try {
+    const clientId = await getClientId();
+    const token = await getToken();
+
+    // Try to fetch from backend first
+    if (clientId && token) {
+      try {
+        const netInfo = await NetInfo.fetch();
+        const isOnline = netInfo.isConnected && netInfo.isInternetReachable;
+
+        if (isOnline) {
+          const response = await fetch(
+            `${apiurl}/business/invoices/${invoiceId}/payments?clientId=${clientId}`,
+            {
+              method: 'GET',
+              headers: {
+                'Authorization': `Bearer ${token}`,
+                'Content-Type': 'application/json'
+              }
+            }
+          );
+
+          if (response.ok) {
+            const data = await response.json();
+            const payments = data.payments || [];
+
+            // Map payments to frontend format
+            const mappedPayments = payments.map((payment: any) => ({
+              id: payment._id,
+              invoiceId: invoiceId,
+              amount: payment.amount,
+              method: payment.method || 'cash',
+              paymentMethod: payment.method || 'cash',
+              note: payment.note || '',
+              notes: payment.note || '',
+              date: payment.paidAt ? new Date(payment.paidAt).toLocaleDateString() : new Date().toLocaleDateString(),
+              time: payment.paidAt ? new Date(payment.paidAt).toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }) : '',
+              paidAt: payment.paidAt,
+              createdAt: payment.paidAt || payment.createdAt,
+            }));
+
+            console.log(`💰 Fetched ${mappedPayments.length} payments for invoice ${invoiceId}`);
+            return mappedPayments;
+          }
+        }
+      } catch (backendError) {
+        console.log('Error fetching from backend, falling back to local data:', backendError);
+      }
+    }
+
+    // Fallback: get from local payments
     const payments = await getPayments();
-    return payments.filter((p: Payment) => p.invoiceId === invoiceId);
+    const invoicePayments = payments.filter((p: Payment) => p.invoiceId === invoiceId);
+    console.log(`💰 Found ${invoicePayments.length} local payments for invoice ${invoiceId}`);
+    return invoicePayments;
   } catch (error) {
     console.error('Error getting invoice payments:', error);
     return [];

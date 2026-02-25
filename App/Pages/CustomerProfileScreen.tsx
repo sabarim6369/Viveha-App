@@ -147,7 +147,7 @@ ${firstInvoice?.dueDate ? formatDate(firstInvoice.dueDate) : ''}
 
 *BILLS*
 ${pendingInvoices.map((inv, index) => 
-    `Bill ${index + 1} - ${formatBillDate(inv.invoiceDate)}  ${formatCurrency(inv.totalAmount - inv.paidAmount)}`
+    `Bill ${index + 1} - ${formatBillDate(inv.invoiceDate || inv.createdAt)}  ${formatCurrency(inv.totalAmount - inv.paidAmount)}`
 ).join('\n')}
 
 *TOTAL AMOUNT*
@@ -324,7 +324,7 @@ Friendly reminder from JK TRADERS: You have a balance of ${formatCurrency(totalB
                             pendingInvoices.map((invoice, index) => (
                                 <View key={invoice._id} style={styles.billRow}>
                                     <Text style={styles.billText}>
-                                        Bill {index + 1} - {formatBillDate(invoice.invoiceDate)}
+                                        Bill {index + 1} - {formatBillDate(invoice.invoiceDate || invoice.createdAt)}
                                     </Text>
                                     <Text style={styles.billAmount}>
                                         {formatCurrency(invoice.totalAmount - invoice.paidAmount)}
@@ -434,7 +434,7 @@ Friendly reminder from JK TRADERS: You have a balance of ${formatCurrency(totalB
                                             pendingInvoices.map((invoice, index) => (
                                                 <View key={invoice._id} style={styles.billRow}>
                                                     <Text style={styles.billText}>
-                                                        Bill {index + 1} - {formatBillDate(invoice.invoiceDate)}
+                                                        Bill {index + 1} - {formatBillDate(invoice.invoiceDate || invoice.createdAt)}
                                                     </Text>
                                                     <Text style={styles.billAmount}>
                                                         {formatCurrency(invoice.totalAmount - invoice.paidAmount)}

@@ -1,0 +1,286 @@
+import React from 'react';
+import {
+    View,
+    Text,
+    StyleSheet,
+    TouchableOpacity,
+    ScrollView,
+    Linking,
+    Alert,
+    Image,
+} from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
+import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import Footer from '../Components/Footer';
+
+interface HelpSupportScreenProps {
+    navigation: any;
+}
+
+export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps): React.JSX.Element {
+    const insets = useSafeAreaInsets();
+
+    const handleCallNow = async (): Promise<void> => {
+        const phoneNumber = '+919090721804';
+        const url = `tel:${phoneNumber}`;
+        
+        try {
+            const canOpen = await Linking.canOpenURL(url);
+            if (canOpen) {
+                await Linking.openURL(url);
+            } else {
+                Alert.alert('Error', 'Unable to make phone call');
+            }
+        } catch (error) {
+            console.error('Error making phone call:', error);
+            Alert.alert('Error', 'Failed to make phone call');
+        }
+    };
+
+    const handleSendEmail = async (): Promise<void> => {
+        const email = 'support@viveha.com';
+        const subject = 'Support Request';
+        const url = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
+        
+        try {
+            const canOpen = await Linking.canOpenURL(url);
+            if (canOpen) {
+                await Linking.openURL(url);
+            } else {
+                Alert.alert('Error', 'Unable to open email client');
+            }
+        } catch (error) {
+            console.error('Error opening email:', error);
+            Alert.alert('Error', 'Failed to open email client');
+        }
+    };
+
+    const handleWhatsAppChat = async (): Promise<void> => {
+        const phoneNumber = '919090721804';
+        const message = 'Hello, I need support with Viveha app.';
+        const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
+        
+        try {
+            const canOpen = await Linking.canOpenURL(url);
+            if (canOpen) {
+                await Linking.openURL(url);
+            } else {
+                Alert.alert('Error', 'WhatsApp is not installed on your device');
+            }
+        } catch (error) {
+            console.error('Error opening WhatsApp:', error);
+            Alert.alert('Error', 'Failed to open WhatsApp');
+        }
+    };
+
+    return (
+        <View style={styles.container}>
+            {/* Header */}
+            <View style={[styles.header, { paddingTop: insets.top }]}>
+                <TouchableOpacity onPress={() => navigation.goBack()}>
+                    <Ionicons name="close" size={24} color="#333" />
+                </TouchableOpacity>
+                <Text style={styles.headerTitle}>Help & Support</Text>
+                <View style={styles.headerSpacer} />
+            </View>
+
+            <ScrollView 
+                style={styles.scrollView}
+                contentContainerStyle={{ paddingBottom: insets.bottom + 100 }}
+                showsVerticalScrollIndicator={false}
+            >
+                {/* Illustration */}
+                <View style={styles.illustrationContainer}>
+                    <View style={styles.illustrationBackground}>
+                        <Ionicons name="headset" size={120} color="#E88E99" />
+                    </View>
+                    <Text style={styles.illustrationText}>We're here to help you</Text>
+                </View>
+
+                {/* Contact Options */}
+                <View style={styles.contactContainer}>
+                    {/* Call Us */}
+                    <View style={styles.contactCard}>
+                        <View style={styles.contactLeft}>
+                            <View style={styles.iconCircle}>
+                                <Ionicons name="call" size={24} color="#4CAF50" />
+                            </View>
+                            <View style={styles.contactInfo}>
+                                <Text style={styles.contactTitle}>Call Us</Text>
+                                <Text style={styles.contactDetails}>+91-9090721804</Text>
+                            </View>
+                        </View>
+                        <TouchableOpacity style={styles.actionButton} onPress={handleCallNow}>
+                            <Text style={styles.actionButtonText}>Call Now</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* Email Us */}
+                    <View style={styles.contactCard}>
+                        <View style={styles.contactLeft}>
+                            <View style={styles.iconCircle}>
+                                <Ionicons name="mail" size={24} color="#2196F3" />
+                            </View>
+                            <View style={styles.contactInfo}>
+                                <Text style={styles.contactTitle}>Email Us</Text>
+                                <Text style={styles.contactDetails}>support@viveha.com</Text>
+                            </View>
+                        </View>
+                        <TouchableOpacity style={styles.actionButton} onPress={handleSendEmail}>
+                            <Text style={styles.actionButtonText}>Send Email</Text>
+                        </TouchableOpacity>
+                    </View>
+
+                    {/* WhatsApp Support */}
+                    <View style={styles.contactCard}>
+                        <View style={styles.contactLeft}>
+                            <View style={styles.iconCircle}>
+                                <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
+                            </View>
+                            <View style={styles.contactInfo}>
+                                <Text style={styles.contactTitle}>WhatsApp Support</Text>
+                                <Text style={styles.contactDetails}>Online Now</Text>
+                            </View>
+                        </View>
+                        <TouchableOpacity style={styles.actionButton} onPress={handleWhatsAppChat}>
+                            <Text style={styles.actionButtonText}>Chat</Text>
+                        </TouchableOpacity>
+                    </View>
+                </View>
+
+                {/* Additional Info */}
+                <View style={styles.infoContainer}>
+                    <Text style={styles.infoTitle}>Working Hours</Text>
+                    <Text style={styles.infoText}>Monday - Saturday: 9:00 AM - 6:00 PM</Text>
+                    <Text style={styles.infoText}>Sunday: Closed</Text>
+                </View>
+            </ScrollView>
+
+            <Footer navigation={navigation} activeTab="Profile" />
+        </View>
+    );
+}
+
+const styles = StyleSheet.create({
+    container: {
+        flex: 1,
+        backgroundColor: '#F5F5F5',
+    },
+    header: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 20,
+        paddingVertical: 15,
+        backgroundColor: '#fff',
+        borderBottomWidth: 1,
+        borderBottomColor: '#E5E5E5',
+    },
+    headerTitle: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#333',
+        flex: 1,
+        textAlign: 'center',
+    },
+    headerSpacer: {
+        width: 24,
+    },
+    scrollView: {
+        flex: 1,
+    },
+    illustrationContainer: {
+        alignItems: 'center',
+        paddingVertical: 40,
+        paddingHorizontal: 20,
+    },
+    illustrationBackground: {
+        width: 200,
+        height: 200,
+        borderRadius: 100,
+        backgroundColor: '#FFF0F3',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginBottom: 20,
+    },
+    illustrationText: {
+        fontSize: 18,
+        fontWeight: '600',
+        color: '#333',
+        marginTop: 10,
+    },
+    contactContainer: {
+        paddingHorizontal: 20,
+        marginBottom: 20,
+    },
+    contactCard: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        backgroundColor: '#fff',
+        padding: 15,
+        borderRadius: 12,
+        marginBottom: 15,
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 2 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
+    },
+    contactLeft: {
+        flexDirection: 'row',
+        alignItems: 'center',
+        flex: 1,
+    },
+    iconCircle: {
+        width: 50,
+        height: 50,
+        borderRadius: 25,
+        backgroundColor: '#F5F5F5',
+        justifyContent: 'center',
+        alignItems: 'center',
+        marginRight: 15,
+    },
+    contactInfo: {
+        flex: 1,
+    },
+    contactTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 4,
+    },
+    contactDetails: {
+        fontSize: 13,
+        color: '#666',
+    },
+    actionButton: {
+        backgroundColor: '#E88E99',
+        paddingHorizontal: 20,
+        paddingVertical: 10,
+        borderRadius: 8,
+    },
+    actionButtonText: {
+        color: '#fff',
+        fontSize: 14,
+        fontWeight: '600',
+    },
+    infoContainer: {
+        marginHorizontal: 20,
+        backgroundColor: '#fff',
+        padding: 20,
+        borderRadius: 12,
+        marginBottom: 20,
+    },
+    infoTitle: {
+        fontSize: 16,
+        fontWeight: '600',
+        color: '#333',
+        marginBottom: 12,
+    },
+    infoText: {
+        fontSize: 14,
+        color: '#666',
+        marginBottom: 6,
+    },
+});

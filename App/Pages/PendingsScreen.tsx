@@ -80,6 +80,14 @@ interface PaymentResult {
   error?: string;
 }
 
+interface GroupedCustomer {
+  clientName: string;
+  clientPhone: string;
+  totalPending: number;
+  invoiceCount: number;
+  invoices: PendingInvoice[];
+}
+
 export default function PendingsScreen({ navigation }: PendingsScreenProps): React.JSX.Element {
   const [pendings, setPendings] = useState<PendingInvoice[]>([]);
   const [refreshing, setRefreshing] = useState<boolean>(false);
@@ -239,18 +247,45 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
     return pendings.reduce((sum, p) => sum + p.amount, 0);
   };
 
-  // Filter pendings based on search query
-  const filteredPendings = pendings.filter((pending) => {
+  // Group pendings by customer
+  const groupedCustomers = (): GroupedCustomer[] => {
+    const customerMap = new Map<string, GroupedCustomer>();
+
+    pendings.forEach((pending) => {
+      const key = `${pending.clientName}-${pending.clientPhone}`;
+      
+      if (customerMap.has(key)) {
+        const existing = customerMap.get(key)!;
+        existing.totalPending += pending.amount;
+        existing.invoiceCount += 1;
+        existing.invoices.push(pending);
+      } else {
+        customerMap.set(key, {
+          clientName: pending.clientName,
+          clientPhone: pending.clientPhone,
+          totalPending: pending.amount,
+          invoiceCount: 1,
+          invoices: [pending],
+        });
+      }
+    });
+
+    return Array.from(customerMap.values());
+  };
+
+  const handleCustomerPress = (customer: GroupedCustomer): void => {
+    navigation.navigate('CustomerInvoices', { customer });
+  };
+
+  // Filter customers based on search query
+  const filteredCustomers = groupedCustomers().filter((customer) => {
     if (!searchQuery.trim()) return true;
 
     const query = searchQuery.toLowerCase().trim();
-    const clientName = (pending.clientName || '').toLowerCase();
-    const clientPhone = (pending.clientPhone || '').toLowerCase();
-    const invoiceNumber = (pending.invoiceNumber || '').toLowerCase();
+    const clientName = (customer.clientName || '').toLowerCase();
+    const clientPhone = (customer.clientPhone || '').toLowerCase();
 
-    return clientName.includes(query) ||
-      clientPhone.includes(query) ||
-      invoiceNumber.includes(query);
+    return clientName.includes(query) || clientPhone.includes(query);
   });
 
   const handlePayPress = (pending: PendingInvoice): void => {
@@ -530,7 +565,7 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
           <Ionicons name={"search" as any} size={20} color="#999" style={styles.searchIcon} />
           <TextInput
             style={styles.searchInput}
-            placeholder="Search by name, phone or invoice number..."
+            placeholder="Search by customer name or phone..."
             placeholderTextColor="#999"
             value={searchQuery}
             onChangeText={setSearchQuery}
@@ -560,21 +595,21 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
                 <Ionicons name={"cash-outline" as any} size={16} color="#FF6B6B" />
               </View>
             </View>
-            <Text style={styles.summaryNumber}>{pendings.length}</Text>
+            <Text style={styles.summaryNumber}>{groupedCustomers().length}</Text>
             <Text style={styles.summarySubtext}>Rs.{getTotalPending().toFixed(2)}</Text>
           </View>
 
           <View style={[styles.summaryCard, styles.deliveryCard]}>
             <View style={styles.summaryHeader}>
-              <Text style={styles.summaryLabel}>Today</Text>
+              <Text style={styles.summaryLabel}>Total Invoices</Text>
               <View style={styles.deliveryBadge}>
                 <Text style={styles.deliveryBadgeText}>
-                  {pendings.filter(p => p.date === new Date().toLocaleDateString()).length}
+                  {pendings.length}
                 </Text>
               </View>
             </View>
             <Text style={styles.summaryNumber}>
-              {pendings.filter(p => p.date === new Date().toLocaleDateString()).length}
+              {pendings.length}
             </Text>
             <Text style={styles.summarySubtext}>invoices</Text>
           </View>
@@ -583,10 +618,10 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
         {/* Action Required Section */}
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
-            <Text style={styles.sectionTitle}>Pending Invoices</Text>
+            <Text style={styles.sectionTitle}>Pending Customers</Text>
             {searchQuery.length > 0 && (
               <Text style={styles.resultCount}>
-                {filteredPendings.length} result{filteredPendings.length !== 1 ? 's' : ''}
+                {filteredCustomers.length} result{filteredCustomers.length !== 1 ? 's' : ''}
               </Text>
             )}
           </View>
@@ -596,7 +631,7 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
               <ActivityIndicator size="large" color="#E88E99" />
               <Text style={styles.loadingText}>Loading pending invoices...</Text>
             </View>
-          ) : filteredPendings.length === 0 ? (
+          ) : filteredCustomers.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name={(searchQuery.length > 0 ? "search-outline" : "receipt-outline") as any} size={60} color="#ccc" />
               <Text style={styles.emptyText}>
@@ -607,51 +642,40 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
               </Text>
             </View>
           ) : (
-            filteredPendings.map((pending) => (
-              <View key={pending.id} style={styles.pendingCard}>
-                <View style={styles.pendingCardHeader}>
-                  <View style={styles.pendingLeft}>
-                    <View style={styles.avatarPlaceholder}>
-                      <Ionicons name={"person" as any} size={20} color="#E88E99" />
-                    </View>
-                    <View style={styles.pendingInfo}>
-                      <Text style={styles.pendingName}>{pending.clientName}</Text>
-                      <Text style={styles.pendingPhone}>{pending.clientPhone}</Text>
-                      <Text style={styles.pendingInvoice}>{pending.invoiceNumber}</Text>
-                    </View>
-                  </View>
-                  <View style={styles.pendingRight}>
-                    <Text style={styles.pendingAmount}>Rs.{pending.amount.toFixed(2)}</Text>
-                    <Text style={styles.pendingTime}>{pending.date}</Text>
-                    <Text style={styles.pendingTimeSmall}>{pending.time}</Text>
-                  </View>
-                </View>
+            filteredCustomers.map((customer) => {
+              const customerKey = `${customer.clientName}-${customer.clientPhone}`;
 
-                <View style={styles.pendingActions}>
-                  <TouchableOpacity
-                    style={styles.viewInvoiceButton}
-                    onPress={() => handleViewInvoice(pending)}
-                  >
-                    <Ionicons name={"document-text-outline" as any} size={16} color="#4A90E2" />
-                    <Text style={styles.viewInvoiceText}>View</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.reminderButton}
-                    onPress={() => handleSendReminder(pending)}
-                  >
-                    <Ionicons name={"send-outline" as any} size={16} color="#fff" />
-                    <Text style={styles.reminderButtonText}>Remind</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.markPaidButton}
-                    onPress={() => handlePayPress(pending)}
-                  >
-                    <Ionicons name={"cash-outline" as any} size={16} color="#fff" />
-                    <Text style={styles.markPaidText}>Pay</Text>
-                  </TouchableOpacity>
-                </View>
-              </View>
-            ))
+              return (
+                <TouchableOpacity
+                  key={customerKey}
+                  style={styles.customerCard}
+                  onPress={() => handleCustomerPress(customer)}
+                  activeOpacity={0.7}
+                >
+                  {/* Customer Header */}
+                  <View style={styles.customerHeader}>
+                    <View style={styles.customerLeft}>
+                      <View style={styles.avatarPlaceholder}>
+                        <Ionicons name={"person" as any} size={24} color="#E88E99" />
+                      </View>
+                      <View style={styles.customerInfo}>
+                        <Text style={styles.customerName}>{customer.clientName}</Text>
+                        <Text style={styles.customerPhone}>{customer.clientPhone}</Text>
+                        <Text style={styles.customerInvoiceCount}>
+                          {customer.invoiceCount} invoice{customer.invoiceCount !== 1 ? 's' : ''}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.customerRight}>
+                      <Text style={styles.customerTotalAmount}>Rs.{customer.totalPending.toFixed(2)}</Text>
+                      <View style={styles.viewIconContainer}>
+                        <Ionicons name={"chevron-forward" as any} size={20} color="#666" />
+                      </View>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+              );
+            })
           )}
         </View>
 
@@ -1116,6 +1140,64 @@ const styles = StyleSheet.create({
     color: '#fff',
     fontSize: 13,
     fontWeight: '600',
+  },
+  customerCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    marginBottom: 12,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 1,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 2,
+    elevation: 2,
+  },
+  customerHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 16,
+    backgroundColor: '#fff',
+  },
+  customerLeft: {
+    flexDirection: 'row',
+    flex: 1,
+    alignItems: 'center',
+  },
+  customerInfo: {
+    flex: 1,
+    marginLeft: 12,
+  },
+  customerName: {
+    fontSize: 17,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 3,
+  },
+  customerPhone: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 3,
+  },
+  customerInvoiceCount: {
+    fontSize: 11,
+    color: '#4A90E2',
+    fontWeight: '600',
+  },
+  customerRight: {
+    alignItems: 'flex-end',
+  },
+  customerTotalAmount: {
+    fontSize: 18,
+    fontWeight: '700',
+    color: '#E88E99',
+    marginBottom: 4,
+  },
+  viewIconContainer: {
+    marginTop: 4,
   },
   pendingCard: {
     backgroundColor: '#fff',

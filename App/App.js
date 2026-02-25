@@ -72,6 +72,8 @@ import VerificationCodeScreen from './Pages/VerificationCodeScreen';
 import SuccessScreen from './Pages/SuccessScreen';
 import HomeScreen from './Pages/HomeScreen';
 import PendingsScreen from './Pages/PendingsScreen';
+import CustomerInvoicesScreen from './Pages/CustomerInvoicesScreen';
+import ContactInvoicesScreen from './Pages/ContactInvoicesScreen';
 import CreateInvoiceScreen from './Pages/CreateInvoiceScreen';
 import InvoicePreviewScreen from './Pages/InvoicePreviewScreen';
 import ProfileScreen from './Pages/ProfileScreen';
@@ -92,6 +94,8 @@ import ContactsScreen from './Pages/ContactsScreen';
 import SettingsScreen from './Pages/SettingsScreen';
 import InviteFriendsScreen from './Pages/InviteFriendsScreen';
 import CustomerProfileScreen from './Pages/CustomerProfileScreen';
+import CreateCustomerScreen from './Pages/CreateCustomerScreen';
+import HelpSupportScreen from './Pages/HelpSupportScreen';
 import RateUsScreen from './Pages/RateUsScreen';
 
 const Stack = createNativeStackNavigator();
@@ -163,6 +167,8 @@ export default function App() {
           {/* <Stack.Screen name="Onboarding4" component={OnboardingScreen4} /> */}
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Pendings" component={PendingsScreen} />
+          <Stack.Screen name="CustomerInvoices" component={CustomerInvoicesScreen} />
+          <Stack.Screen name="ContactInvoices" component={ContactInvoicesScreen} />
           <Stack.Screen name="Items" component={ItemsScreen} />
           <Stack.Screen name="AddInvoice" component={CreateInvoiceScreen} />
           <Stack.Screen name="CreateInvoice" component={CreateInvoiceScreen} />
@@ -176,8 +182,10 @@ export default function App() {
           <Stack.Screen name="Insights" component={InsightsScreen} />
           <Stack.Screen name="TaxAndDiscount" component={TaxAndDiscountScreen} />
           <Stack.Screen name="MyContacts" component={ContactsScreen} />
+          <Stack.Screen name="CreateCustomer" component={CreateCustomerScreen} />
           <Stack.Screen name="InviteFriends" component={InviteFriendsScreen} />
           <Stack.Screen name="CustomerProfile" component={CustomerProfileScreen} />
+          <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
           <Stack.Screen name="RateUs" component={RateUsScreen} />
         </Stack.Navigator>
       </NavigationContainer>

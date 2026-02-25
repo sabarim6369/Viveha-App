@@ -12,6 +12,7 @@ import {
   TextInput,
   Platform,
 } from 'react-native';
+import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
 import { Ionicons } from '@expo/vector-icons';
 import * as Contacts from 'expo-contacts';
@@ -191,6 +192,56 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
     email: '',
     gstNo: '',
   });
+
+  // Reset form when screen comes into focus
+  useFocusEffect(
+    React.useCallback(() => {
+      // Reset all form state
+      setItems([]);
+      setClientInfo({
+        name: '',
+        phone: '',
+        address: '',
+        email: '',
+        gstNo: '',
+      });
+      setClientName('');
+      setClientAddress('');
+      setClientEmail('');
+      setClientGstNo('');
+      setPhoneSearch('');
+      setShowNameInput(false);
+      setItemSearchQuery('');
+      setClientSearchQuery('');
+      setContactSearchQuery('');
+      
+      // Reset modal states
+      setSelectItemModalVisible(false);
+      setSelectClientModalVisible(false);
+      setContactsModalVisible(false);
+      setShowDueDatePicker(false);
+      
+      // Reset dates
+      const now = new Date();
+      const dueDateDefault = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
+      setSelectedDueDate(dueDateDefault);
+      setInvoiceDetails({
+        number: '#000002',
+        invoiceDate: formatDate(now),
+        dueDate: formatDate(dueDateDefault),
+      });
+      
+      // Reload fresh data
+      loadLocalData();
+      loadAvailableItems();
+      loadClients();
+      loadCustomerFieldSettings();
+      
+      return () => {
+        // Cleanup if needed
+      };
+    }, [])
+  );
 
   // Load data from local storage on mount
   useEffect(() => {
