@@ -19,6 +19,7 @@ async function clearAllStorage() {
       '@viveha_payments',
       '@viveha_drafts',
       '@last_sync',
+
       '@viveha_last_sync',
       '@sync_status',
       '@viveha_pending_invoices',
