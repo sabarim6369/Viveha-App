@@ -685,7 +685,7 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
                       <View style={styles.customerInfo}>
                         <Text style={styles.customerName}>{customer.clientName}</Text>
                         <Text style={styles.customerPaymentFinalized}>
-                          Payment finalized: {daysSince} day{daysSince !== 1 ? 's' : ''} ago
+                          {customer.clientPhone}
                         </Text>
                       </View>
                     </View>
