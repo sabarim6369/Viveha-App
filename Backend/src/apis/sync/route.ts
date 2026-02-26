@@ -2,8 +2,8 @@ import express from 'express';
 import {
     readyToSyncController,
     syncController,
-} from './controller.ts';
-import { authenticateToken } from '../../middleware/authMiddleware.ts';
+} from './controller.js';
+import { authenticateToken } from '../../middleware/authMiddleware.js';
 
 const router = express.Router();
 

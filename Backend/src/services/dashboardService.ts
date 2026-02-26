@@ -1,5 +1,5 @@
 import mongoose from 'mongoose';
-import { Invoice } from '../models/Model.ts';
+import { Invoice } from '../models/Model.js';
 
 const MONTH_LABELS = [
     'Jan',

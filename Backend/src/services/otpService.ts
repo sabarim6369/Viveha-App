@@ -1,4 +1,4 @@
-import { Client, OtpSession } from '../models/Model.ts'; // Note: Model.js is used because we use allowImportingTsExtensions: true, but practically we might want to update this to .js if we were emitting, but validation said .ts imports. Actually I should import from .js if I want to run with node, but I am using ts-node.
+import { Client, OtpSession } from '../models/Model.js'; // Note: Model.js is used because we use allowImportingTsExtensions: true, but practically we might want to update this to .js if we were emitting, but validation said .ts imports. Actually I should import from .js if I want to run with node, but I am using ts-node.
 // Wait, in previous step I updated imports in JS files to .ts.
 // In TS files, if I use `allowImportingTsExtensions: true`, I can import .ts files. 
 // BUT, standardization: The user wants to convert to TS.

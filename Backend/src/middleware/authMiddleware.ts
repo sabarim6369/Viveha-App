@@ -1,6 +1,6 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt, { JwtPayload } from 'jsonwebtoken';
-import { Client, DeviceSession } from '../models/Model.ts';
+import { Client, DeviceSession } from '../models/Model.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 

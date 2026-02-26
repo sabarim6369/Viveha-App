@@ -1,5 +1,5 @@
 import express from 'express';
-import { sendOTPController } from './controller.ts';
+import { sendOTPController } from './controller.js';
 
 const router = express.Router();
 

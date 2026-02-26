@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { sendOTP } from '../../services/mockOtpService.ts';
+import { sendOTP } from '../../services/mockOtpService.js';
 
 export const sendOTPController = async (req: Request, res: Response) => {
     try {

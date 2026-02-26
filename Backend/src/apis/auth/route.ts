@@ -3,8 +3,8 @@ import {
     registerController,
     loginController,
     logoutController,
-} from './controller.ts';
-import { authenticateToken } from '../../middleware/authMiddleware.ts';
+} from './controller.js';
+import { authenticateToken } from '../../middleware/authMiddleware.js';
 
 const router = express.Router();
 

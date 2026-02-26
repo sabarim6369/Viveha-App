@@ -2,7 +2,7 @@ import { Request, Response } from 'express';
 import {
     getClientDetails,
     updateClientProfile,
-} from '../../services/clientService.ts';
+} from '../../services/clientService.js';
 
 export const getClientController = async (req: Request, res: Response) => {
     try {

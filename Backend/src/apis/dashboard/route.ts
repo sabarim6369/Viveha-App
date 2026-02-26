@@ -4,8 +4,8 @@ import {
     getSalesTrendsController,
     getTopItemsController,
     getDashboardController,
-} from './controller.ts';
-import { authenticateToken } from '../../middleware/authMiddleware.ts';
+} from './controller.js';
+import { authenticateToken } from '../../middleware/authMiddleware.js';
 
 const router = express.Router();
 

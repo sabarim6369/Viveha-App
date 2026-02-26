@@ -2,17 +2,17 @@ import express, { Request, Response, NextFunction } from 'express';
 import dotenv from 'dotenv';
 // @ts-ignore
 import cors from 'cors';
-import { connectDB } from './src/config/db.ts';
+import { connectDB } from './src/config/db.js';
 
 // Import routes
-import otpRoutes from './src/apis/otp/route.ts';
-import mockOtpRouter from './src/apis/mockOtp/route.ts';
-import authRoutes from './src/apis/auth/route.ts';
-import clientRoutes from './src/apis/client/route.ts';
-import businessRoutes from './src/apis/business/route.ts';
-import dashboardRoutes from './src/apis/dashboard/route.ts';
-import adminRoutes from './src/apis/admin/route.ts';
-import syncRoutes from './src/apis/sync/route.ts';
+import otpRoutes from './src/apis/otp/route.js';
+import mockOtpRouter from './src/apis/mockOtp/route.js';
+import authRoutes from './src/apis/auth/route.js';
+import clientRoutes from './src/apis/client/route.js';
+import businessRoutes from './src/apis/business/route.js';
+import dashboardRoutes from './src/apis/dashboard/route.js';
+import adminRoutes from './src/apis/admin/route.js';
+import syncRoutes from './src/apis/sync/route.js';
 
 // Load environment variables
 dotenv.config();

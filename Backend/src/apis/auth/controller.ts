@@ -3,7 +3,7 @@ import {
     registerClient,
     loginClient,
     logoutClient,
-} from '../../services/authService.ts';
+} from '../../services/authService.js';
 
 interface AuthenticatedRequest extends Request {
     auth?: {

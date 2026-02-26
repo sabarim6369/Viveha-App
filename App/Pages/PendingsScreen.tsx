@@ -52,6 +52,7 @@ interface PendingInvoice {
   invoiceNumber: string;
   clientName: string;
   clientPhone: string;
+  clientCustomerId?: string;
   amount: number;
   totalAmount: number;
   paidAmount: number;
@@ -83,6 +84,7 @@ interface PaymentResult {
 interface GroupedCustomer {
   clientName: string;
   clientPhone: string;
+  clientCustomerId?: string;
   totalPending: number;
   invoiceCount: number;
   invoices: PendingInvoice[];
@@ -136,7 +138,9 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
           invoiceNumber: inv.invoiceNumber,
           totalAmount: inv.totalAmount,
           paidAmount: inv.paidAmount,
-          pendingAmount: inv.pendingAmount
+          pendingAmount: inv.pendingAmount,
+          clientCustomerId: inv.clientCustomerId,
+          clientCustomerName: inv.clientCustomerName
         })));
       }
 
@@ -186,6 +190,7 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
             invoiceNumber: inv.invoiceNumber || `INV-${shortId}`,
             clientName: inv.clientCustomerName || 'Unknown Client',
             clientPhone: inv.clientCustomerPhone || '',
+            clientCustomerId: inv.clientCustomerId,
             amount: pendingAmount,
             totalAmount: totalAmount,
             paidAmount: paidAmount,
@@ -259,10 +264,15 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
         existing.totalPending += pending.amount;
         existing.invoiceCount += 1;
         existing.invoices.push(pending);
+        // Update clientCustomerId if not already set
+        if (!existing.clientCustomerId && pending.clientCustomerId) {
+          existing.clientCustomerId = pending.clientCustomerId;
+        }
       } else {
         customerMap.set(key, {
           clientName: pending.clientName,
           clientPhone: pending.clientPhone,
+          clientCustomerId: pending.clientCustomerId,
           totalPending: pending.amount,
           invoiceCount: 1,
           invoices: [pending],
@@ -274,6 +284,13 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
   };
 
   const handleCustomerPress = (customer: GroupedCustomer): void => {
+    console.log('🚀 Navigating to CustomerInvoices with customer:', {
+      clientName: customer.clientName,
+      clientPhone: customer.clientPhone,
+      clientCustomerId: customer.clientCustomerId,
+      invoiceCount: customer.invoiceCount,
+      firstInvoiceCustomerId: customer.invoices[0]?.clientCustomerId
+    });
     navigation.navigate('CustomerInvoices', { customer });
   };
 
@@ -644,36 +661,76 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
           ) : (
             filteredCustomers.map((customer) => {
               const customerKey = `${customer.clientName}-${customer.clientPhone}`;
+              
+              // Calculate days since last invoice
+              const lastInvoiceDate = customer.invoices && customer.invoices[0] && customer.invoices[0].createdAt 
+                ? new Date(customer.invoices[0].createdAt) 
+                : new Date();
+              const daysSince = Math.floor((Date.now() - lastInvoiceDate.getTime()) / (1000 * 60 * 60 * 24));
 
               return (
-                <TouchableOpacity
+                <View
                   key={customerKey}
                   style={styles.customerCard}
-                  onPress={() => handleCustomerPress(customer)}
-                  activeOpacity={0.7}
                 >
-                  {/* Customer Header */}
-                  <View style={styles.customerHeader}>
+                  <TouchableOpacity
+                    style={styles.customerHeader}
+                    onPress={() => handleCustomerPress(customer)}
+                    activeOpacity={0.7}
+                  >
                     <View style={styles.customerLeft}>
                       <View style={styles.avatarPlaceholder}>
                         <Ionicons name={"person" as any} size={24} color="#E88E99" />
                       </View>
                       <View style={styles.customerInfo}>
                         <Text style={styles.customerName}>{customer.clientName}</Text>
-                        <Text style={styles.customerPhone}>{customer.clientPhone}</Text>
-                        <Text style={styles.customerInvoiceCount}>
-                          {customer.invoiceCount} invoice{customer.invoiceCount !== 1 ? 's' : ''}
+                        <Text style={styles.customerPaymentFinalized}>
+                          Payment finalized: {daysSince} day{daysSince !== 1 ? 's' : ''} ago
                         </Text>
                       </View>
                     </View>
                     <View style={styles.customerRight}>
-                      <Text style={styles.customerTotalAmount}>Rs.{customer.totalPending.toFixed(2)}</Text>
-                      <View style={styles.viewIconContainer}>
-                        <Ionicons name={"chevron-forward" as any} size={20} color="#666" />
-                      </View>
+                      <Text style={styles.customerTotalAmountRed}>Rs {customer.totalPending.toFixed(2)}</Text>
+                      <Text style={styles.customerAvailable}>Available</Text>
                     </View>
+                  </TouchableOpacity>
+                  
+                  {/* Action Buttons */}
+                  <View style={styles.customerActions}>
+                    <TouchableOpacity
+                      style={styles.sendReminderButton}
+                      onPress={() => {
+                        // Send reminder functionality
+                        Toast.show({
+                          type: 'success',
+                          text1: 'Reminder Sent',
+                          text2: `Reminder sent to ${customer.clientName}`,
+                          position: 'bottom',
+                        });
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name={"send" as any} size={18} color="#fff" />
+                      <Text style={styles.sendReminderButtonText}>Send Remainder</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={styles.phoneIconButton}
+                      onPress={() => {
+                        // Phone call functionality
+                        Toast.show({
+                          type: 'info',
+                          text1: 'Calling',
+                          text2: customer.clientPhone,
+                          position: 'bottom',
+                        });
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name={"call" as any} size={20} color="#666" />
+                    </TouchableOpacity>
                   </View>
-                </TouchableOpacity>
+                </View>
               );
             })
           )}
@@ -1182,6 +1239,11 @@ const styles = StyleSheet.create({
     color: '#666',
     marginBottom: 3,
   },
+  customerPaymentFinalized: {
+    fontSize: 12,
+    color: '#999',
+    marginTop: 2,
+  },
   customerInvoiceCount: {
     fontSize: 11,
     color: '#4A90E2',
@@ -1195,6 +1257,46 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#E88E99',
     marginBottom: 4,
+  },
+  customerTotalAmountRed: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#FF6B6B',
+    marginBottom: 2,
+  },
+  customerAvailable: {
+    fontSize: 11,
+    color: '#4CAF50',
+    fontWeight: '500',
+  },
+  customerActions: {
+    flexDirection: 'row',
+    paddingHorizontal: 16,
+    paddingBottom: 16,
+    gap: 10,
+  },
+  sendReminderButton: {
+    flex: 1,
+    flexDirection: 'row',
+    backgroundColor: '#FF6B6B',
+    borderRadius: 25,
+    paddingVertical: 12,
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+  },
+  sendReminderButtonText: {
+    color: '#fff',
+    fontSize: 14,
+    fontWeight: '600',
+  },
+  phoneIconButton: {
+    width: 48,
+    height: 48,
+    borderRadius: 24,
+    backgroundColor: '#F5F5F5',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   viewIconContainer: {
     marginTop: 4,

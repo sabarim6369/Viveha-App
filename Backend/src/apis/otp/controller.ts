@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { sendOTP } from '../../services/otpService.ts';
+import { sendOTP } from '../../services/otpService.js';
 
 export const sendOTPController = async (req: Request, res: Response) => {
     try {

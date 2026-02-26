@@ -1,7 +1,7 @@
 import jwt from 'jsonwebtoken';
-import { Client, DeviceSession } from '../models/Model.ts';
-import { verifyOTP } from './otpService.ts';
-import { defaultCustomerFieldSettings } from './clientService.ts';
+import { Client, DeviceSession } from '../models/Model.js';
+import { verifyOTP } from './otpService.js';
+import { defaultCustomerFieldSettings } from './clientService.js';
 
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 

@@ -76,6 +76,7 @@ interface Invoice {
   clientInfo?: ClientInfo;
   clientName?: string;
   clientPhone?: string;
+  clientCustomerId?: string;
   clientAddress?: string;
   clientEmailId?: string;
   clientGstNo?: string;
@@ -1655,6 +1656,15 @@ export const getPendingInvoices = async (): Promise<any[]> => {
         if (data.success && data.pendingInvoices) {
           backendPendings = data.pendingInvoices;
           console.log(`✅ Fetched ${backendPendings.length} pending invoices from backend`);
+          if (backendPendings.length > 0) {
+            console.log('Sample backend invoice:', {
+              _id: backendPendings[0]._id,
+              invoiceNumber: backendPendings[0].invoiceNumber,
+              clientCustomerId: backendPendings[0].clientCustomerId,
+              clientCustomerName: backendPendings[0].clientCustomerName,
+              clientCustomerPhone: backendPendings[0].clientCustomerPhone
+            });
+          }
 
           // CRITICAL: Save backend pendings to INVOICES storage so they can be updated when payments are recorded
           const invoicesToStore: Invoice[] = backendPendings.map((inv: any) => ({
@@ -1668,6 +1678,7 @@ export const getPendingInvoices = async (): Promise<any[]> => {
             },
             clientName: inv.clientCustomerName || '',
             clientPhone: inv.clientCustomerPhone || '',
+            clientCustomerId: inv.clientCustomerId,
             items: (inv.products || []).map((p: any) => ({
               name: p.itemName,
               itemName: p.itemName,
@@ -1739,6 +1750,7 @@ export const getPendingInvoices = async (): Promise<any[]> => {
         invoiceNumber: inv.number || inv.invoiceNumber,
         clientCustomerName: inv.clientInfo?.name || inv.clientName || '',
         clientCustomerPhone: inv.clientInfo?.phone || inv.clientPhone || '',
+        clientCustomerId: inv.clientCustomerId,
         totalAmount: inv.total || inv.totalAmount || inv.grandTotal || 0,
         paidAmount: inv.paidAmount || 0,
         pendingAmount: (inv.total || inv.totalAmount || inv.grandTotal || 0) - (inv.paidAmount || 0),
@@ -1760,7 +1772,9 @@ export const getPendingInvoices = async (): Promise<any[]> => {
         invoiceNumber: localPendings[0].invoiceNumber,
         totalAmount: localPendings[0].totalAmount,
         paidAmount: localPendings[0].paidAmount,
-        pendingAmount: localPendings[0].pendingAmount
+        pendingAmount: localPendings[0].pendingAmount,
+        clientCustomerId: localPendings[0].clientCustomerId,
+        clientCustomerName: localPendings[0].clientCustomerName
       });
     }
 

@@ -10,7 +10,7 @@ import {
     PurchaseHistory,
     Payment,
     IInvoice
-} from '../models/Model.ts';
+} from '../models/Model.js';
 
 // Helper to return invoice products as stored snapshots
 const buildInvoiceWithProductDetails = async (invoiceDoc: any) => {

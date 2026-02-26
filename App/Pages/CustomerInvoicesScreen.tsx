@@ -17,7 +17,6 @@ import {
   getInvoices,
   getPendingInvoices,
   recordPayment,
-  getInvoicePayments,
 } from '../utils/NetworkManager';
 
 interface Product {
@@ -40,6 +39,7 @@ interface PendingInvoice {
   invoiceNumber: string;
   clientName: string;
   clientPhone: string;
+  clientCustomerId?: string;
   amount: number;
   totalAmount: number;
   paidAmount: number;
@@ -62,18 +62,6 @@ interface PaymentRecord {
   paymentType: 'full' | 'partial';
 }
 
-interface PaymentHistoryItem {
-  id: string;
-  amount: number;
-  method?: string;
-  paymentMethod?: string;
-  date: string;
-  time: string;
-  note?: string;
-  paidAt?: string;
-  createdAt?: string;
-}
-
 interface PaymentResult {
   success: boolean;
   synced?: boolean;
@@ -94,9 +82,6 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
   const [selectedInvoice, setSelectedInvoice] = useState<PendingInvoice | null>(null);
   const [partialPaymentModalVisible, setPartialPaymentModalVisible] = useState<boolean>(false);
   const [partialAmount, setPartialAmount] = useState<string>('');
-  const [paymentHistoryModalVisible, setPaymentHistoryModalVisible] = useState<boolean>(false);
-  const [paymentHistory, setPaymentHistory] = useState<PaymentHistoryItem[]>([]);
-  const [loadingHistory, setLoadingHistory] = useState<boolean>(false);
 
   const getTotalPending = (): number => {
     return invoices.reduce((sum, inv) => sum + inv.amount, 0);
@@ -186,49 +171,39 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
     });
   };
 
-  const handleShowPaymentHistory = async (invoice: PendingInvoice): Promise<void> => {
-    try {
-      setLoadingHistory(true);
-      setSelectedInvoice(invoice);
-      setPaymentHistoryModalVisible(true);
+  const getCustomerId = (): string | undefined => {
+    // Try multiple sources for customer ID
+    return customer.clientCustomerId || 
+           (customer.invoices && customer.invoices[0]?.clientCustomerId) || 
+           (invoices && invoices[0]?.clientCustomerId);
+  };
 
-      // Fetch payment history for this invoice
-      const payments = await getInvoicePayments(invoice.invoiceId);
-      
-      console.log('📜 Payment history for invoice:', invoice.invoiceId, payments);
-      
-      // Map payments to PaymentHistoryItem format
-      const mappedPayments: PaymentHistoryItem[] = payments.map(payment => ({
-        id: payment.id || '',
-        amount: payment.amount || 0,
-        method: payment.method,
-        paymentMethod: payment.paymentMethod,
-        date: payment.date || '',
-        time: payment.time || '',
-        note: payment.note,
-        paidAt: payment.paidAt,
-        createdAt: payment.createdAt,
-      }));
-      
-      // Sort payments by timestamp (oldest first for Bill 1, Bill 2...)
-      const sortedPayments = mappedPayments.sort((a, b) => {
-        const timeA = new Date(a.paidAt || a.createdAt || 0).getTime();
-        const timeB = new Date(b.paidAt || b.createdAt || 0).getTime();
-        return timeA - timeB; // Ascending order: oldest payment = Bill 1
-      });
-      
-      setPaymentHistory(sortedPayments);
-    } catch (error) {
-      console.error('Error fetching payment history:', error);
+  const handleShowPaymentHistory = async (invoice: PendingInvoice): Promise<void> => {
+    // Navigate to Customer Profile Screen which shows all bills/payments
+    const customerId = getCustomerId() || invoice.clientCustomerId;
+    
+    console.log('🔍 Customer ID lookup:', {
+      fromCustomer: customer.clientCustomerId,
+      fromInvoice: invoice.clientCustomerId,
+      fromFirstInvoice: customer.invoices?.[0]?.clientCustomerId,
+      finalCustomerId: customerId,
+      customer: customer
+    });
+    
+    if (!customerId) {
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'Failed to load payment history',
+        text2: 'Customer ID not found',
         position: 'bottom',
       });
-    } finally {
-      setLoadingHistory(false);
+      return;
     }
+    
+    navigation.navigate('CustomerProfile', {
+      customerId: customerId,
+      customerName: customer.clientName || invoice.clientName,
+    });
   };
 
   const handlePayPress = (invoice: PendingInvoice): void => {
@@ -499,6 +474,36 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
         </View>
       </View>
 
+      {/* Payment History Button */}
+      <View style={styles.paymentHistoryButtonContainer}>
+        <TouchableOpacity
+          style={styles.paymentHistoryMainButton}
+          onPress={() => {
+            const customerId = getCustomerId();
+            
+            if (!customerId) {
+              Toast.show({
+                type: 'error',
+                text1: 'Error',
+                text2: 'Customer ID not found',
+                position: 'bottom',
+              });
+              return;
+            }
+            
+            navigation.navigate('CustomerProfile', {
+              customerId: customerId,
+              customerName: customer.clientName,
+            });
+          }}
+          activeOpacity={0.8}
+        >
+          <Ionicons name={"time-outline" as any} size={20} color="#4A90E2" />
+          <Text style={styles.paymentHistoryMainButtonText}>Payment History</Text>
+          <Ionicons name={"chevron-forward" as any} size={20} color="#4A90E2" />
+        </TouchableOpacity>
+      </View>
+
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Invoice List */}
         <View style={styles.invoicesSection}>
@@ -564,11 +569,11 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
                     <Text style={styles.viewButtonText}>View</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
-                    style={styles.reminderButton}
-                    onPress={() => handleSendReminder(invoice)}
+                    style={styles.paymentHistoryButton}
+                    onPress={() => handleShowPaymentHistory(invoice)}
                   >
-                    <Ionicons name={"send-outline" as any} size={16} color="#fff" />
-                    <Text style={styles.reminderButtonText}>Remind</Text>
+                    <Ionicons name={"time-outline" as any} size={16} color="#666" />
+                    <Text style={styles.paymentHistoryText}>History</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
                     style={styles.payButton}
@@ -693,87 +698,6 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
           </View>
         </View>
       </Modal>
-
-      {/* Payment History Modal */}
-      <Modal
-        animationType="slide"
-        transparent={true}
-        visible={paymentHistoryModalVisible}
-        onRequestClose={() => setPaymentHistoryModalVisible(false)}
-      >
-        <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
-            <View style={styles.modalHeader}>
-              <Text style={styles.modalTitle}>Payment History</Text>
-              <TouchableOpacity onPress={() => setPaymentHistoryModalVisible(false)}>
-                <Ionicons name={"close" as any} size={24} color="#666" />
-              </TouchableOpacity>
-            </View>
-
-            {selectedInvoice && (
-              <View>
-                <View style={styles.historyInvoiceInfo}>
-                  <Text style={styles.historyInvoiceNumber}>{selectedInvoice.invoiceNumber}</Text>
-                  <Text style={styles.historyInvoiceDetails}>
-                    Total: Rs.{selectedInvoice.totalAmount.toFixed(2)} | 
-                    Paid: Rs.{selectedInvoice.paidAmount.toFixed(2)} | 
-                    Pending: Rs.{selectedInvoice.amount.toFixed(2)}
-                  </Text>
-                </View>
-
-                {loadingHistory ? (
-                  <View style={styles.historyLoadingContainer}>
-                    <ActivityIndicator size="large" color="#4A90E2" />
-                    <Text style={styles.historyLoadingText}>Loading payment history...</Text>
-                  </View>
-                ) : paymentHistory.length === 0 ? (
-                  <View style={styles.historyEmptyState}>
-                    <Ionicons name={"receipt-outline" as any} size={50} color="#ccc" />
-                    <Text style={styles.historyEmptyText}>No payment history</Text>
-                    <Text style={styles.historyEmptySubtext}>No payments have been made for this invoice yet</Text>
-                  </View>
-                ) : (
-                  <ScrollView style={styles.historyScrollView} showsVerticalScrollIndicator={false}>
-                    {paymentHistory.map((payment, index) => (
-                      <View key={payment.id || index} style={styles.paymentHistoryItem}>
-                        <View style={styles.paymentHistoryLeft}>
-                          <View style={styles.paymentIconContainer}>
-                            <Ionicons 
-                              name={
-                                payment.method === 'cash' || payment.paymentMethod === 'cash' ? "cash-outline" :
-                                payment.method === 'card' || payment.paymentMethod === 'card' ? "card-outline" :
-                                payment.method === 'upi' || payment.paymentMethod === 'upi' ? "phone-portrait-outline" :
-                                payment.method === 'bank' || payment.paymentMethod === 'bank' ? "business-outline" :
-                                "wallet-outline" as any
-                              } 
-                              size={22} 
-                              color="#4CAF50" 
-                            />
-                          </View>
-                          <View style={styles.paymentHistoryInfo}>
-                            <Text style={styles.paymentBillNumber}>Bill {index + 1}</Text>
-                            <Text style={styles.paymentHistoryAmount}>Rs.{payment.amount.toFixed(2)}</Text>
-                            <Text style={styles.paymentHistoryMethod}>
-                              {(payment.method || payment.paymentMethod || 'cash').toUpperCase()}
-                            </Text>
-                            {payment.note && (
-                              <Text style={styles.paymentHistoryNote}>{payment.note}</Text>
-                            )}
-                          </View>
-                        </View>
-                        <View style={styles.paymentHistoryRight}>
-                          <Text style={styles.paymentHistoryDate}>{payment.date}</Text>
-                          <Text style={styles.paymentHistoryTime}>{payment.time}</Text>
-                        </View>
-                      </View>
-                    ))}
-                  </ScrollView>
-                )}
-              </View>
-            )}
-          </View>
-        </View>
-      </Modal>
     </SafeAreaView>
   );
 }
@@ -859,6 +783,29 @@ const styles = StyleSheet.create({
   summaryCount: {
     fontSize: 20,
     fontWeight: '700',
+    color: '#4A90E2',
+  },
+  paymentHistoryButtonContainer: {
+    paddingHorizontal: 16,
+    paddingBottom: 12,
+    backgroundColor: '#fff',
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  paymentHistoryMainButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0F7FF',
+    borderRadius: 12,
+    paddingVertical: 14,
+    gap: 8,
+    borderWidth: 1,
+    borderColor: '#4A90E2',
+  },
+  paymentHistoryMainButtonText: {
+    fontSize: 15,
+    fontWeight: '600',
     color: '#4A90E2',
   },
   scrollView: {
@@ -995,18 +942,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     fontWeight: '600',
   },
-  reminderButton: {
+  paymentHistoryButton: {
     flex: 1,
     flexDirection: 'row',
-    backgroundColor: '#FF9800',
+    backgroundColor: '#F5F5F5',
     borderRadius: 8,
     paddingVertical: 10,
     alignItems: 'center',
     justifyContent: 'center',
     gap: 6,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
   },
-  reminderButtonText: {
-    color: '#fff',
+  paymentHistoryText: {
+    color: '#666',
     fontSize: 13,
     fontWeight: '600',
   },
@@ -1148,118 +1097,5 @@ const styles = StyleSheet.create({
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
-  },
-  historyInvoiceInfo: {
-    backgroundColor: '#F5F5F5',
-    padding: 14,
-    borderRadius: 12,
-    marginBottom: 16,
-  },
-  historyInvoiceNumber: {
-    fontSize: 16,
-    fontWeight: '700',
-    color: '#000',
-    marginBottom: 6,
-  },
-  historyInvoiceDetails: {
-    fontSize: 12,
-    color: '#666',
-    lineHeight: 18,
-  },
-  historyLoadingContainer: {
-    padding: 40,
-    alignItems: 'center',
-  },
-  historyLoadingText: {
-    marginTop: 12,
-    fontSize: 14,
-    color: '#999',
-  },
-  historyEmptyState: {
-    alignItems: 'center',
-    justifyContent: 'center',
-    paddingVertical: 50,
-  },
-  historyEmptyText: {
-    fontSize: 16,
-    fontWeight: '600',
-    color: '#000',
-    marginTop: 12,
-  },
-  historyEmptySubtext: {
-    fontSize: 13,
-    color: '#666',
-    marginTop: 6,
-    textAlign: 'center',
-    paddingHorizontal: 30,
-  },
-  historyScrollView: {
-    maxHeight: 400,
-  },
-  paymentHistoryItem: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    padding: 14,
-    backgroundColor: '#F9F9F9',
-    borderRadius: 10,
-    marginBottom: 10,
-    borderLeftWidth: 4,
-    borderLeftColor: '#4CAF50',
-  },
-  paymentHistoryLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  paymentIconContainer: {
-    width: 42,
-    height: 42,
-    borderRadius: 21,
-    backgroundColor: '#E8F5E9',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  paymentHistoryInfo: {
-    flex: 1,
-  },
-  paymentBillNumber: {
-    fontSize: 13,
-    fontWeight: '700',
-    color: '#4A90E2',
-    marginBottom: 4,
-    letterSpacing: 0.5,
-  },
-  paymentHistoryAmount: {
-    fontSize: 17,
-    fontWeight: '700',
-    color: '#4CAF50',
-    marginBottom: 3,
-  },
-  paymentHistoryMethod: {
-    fontSize: 11,
-    color: '#666',
-    fontWeight: '600',
-    marginBottom: 2,
-  },
-  paymentHistoryNote: {
-    fontSize: 11,
-    color: '#999',
-    fontStyle: 'italic',
-    marginTop: 2,
-  },
-  paymentHistoryRight: {
-    alignItems: 'flex-end',
-  },
-  paymentHistoryDate: {
-    fontSize: 12,
-    color: '#333',
-    fontWeight: '500',
-    marginBottom: 3,
-  },
-  paymentHistoryTime: {
-    fontSize: 11,
-    color: '#999',
   },
 });

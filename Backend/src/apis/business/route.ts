@@ -8,7 +8,7 @@ import {
     getItemsController,
     updateItemController,
     deleteItemController,
-} from './controller.ts';
+} from './controller.js';
 import {
     createclientCustomerController,
     getclientCustomersController,
@@ -16,14 +16,14 @@ import {
     updateclientCustomerController,
     deleteclientCustomerController,
     getClientCustomerProfileController,
-} from './controller.ts';
+} from './controller.js';
 import {
     createCartController,
     addToCartController,
     removeFromCartController,
     getCartController,
     clearCartController,
-} from './controller.ts';
+} from './controller.js';
 import {
     generateInvoiceController,
     generateInvoiceWithProductsController,
@@ -35,8 +35,8 @@ import {
     getPaymentReportController,
     getPendingInvoicesByClientCustomerController,
     getPaidInvoicesByClientCustomerController,
-} from './controller.ts';
-import { authenticateToken } from '../../middleware/authMiddleware.ts';
+} from './controller.js';
+import { authenticateToken } from '../../middleware/authMiddleware.js';
 
 const router = express.Router();
 

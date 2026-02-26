@@ -1,4 +1,4 @@
-import { Client, IClient } from '../models/Model.ts';
+import { Client, IClient } from '../models/Model.js';
 
 export interface CustomerFieldSettings {
     address: boolean;

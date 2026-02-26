@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import * as businessService from '../../services/businessService.ts';
+import * as businessService from '../../services/businessService.js';
 
 const badRequest = (res: Response, msg: string) =>
     res.status(400).json({ success: false, message: msg });
