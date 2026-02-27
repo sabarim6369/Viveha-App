@@ -66,7 +66,17 @@ export const sendOTP = async (phoneNumber: string, purpose: string) => {
             }
         }
 
-        const otp = generateOtp();
+        // COMMENTED OUT: Real OTP generation and sending
+        // const otp = generateOtp();
+        // const result = await sendOtpNotification(phoneNumber, otp);
+        // if (!result.status) {
+        //     throw new Error(result.message);
+        // }
+        
+        // DUMMY OTP for development
+        const otp = 1234;
+        console.log(`[DEV MODE] Dummy OTP for ${phoneNumber}: ${otp}`);
+        
         const expiresAt = new Date(Date.now() + OTP_TTL_SECONDS * 1000);
 
         await OtpSession.deleteMany({ phoneNumber, purpose: normalizedPurpose });
@@ -79,12 +89,6 @@ export const sendOTP = async (phoneNumber: string, purpose: string) => {
             isVerified: false,
             attempts: 0,
         });
-
-        const result = await sendOtpNotification(phoneNumber, otp);
-
-        if (!result.status) {
-            throw new Error(result.message);
-        }
         return {
             success: true,
             message: 'OTP sent successfully',

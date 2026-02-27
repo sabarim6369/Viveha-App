@@ -35,8 +35,9 @@
     },
     "extra": {
       "eas": {
-        "projectId": "c553f67a-f36c-457c-a687-83b0b39b9714"
+        "projectId": "d0ce4ead-b03e-45ea-8c26-241042e64bb4"
       }
-    }
+    },
+    "owner": "isaii"
   }
 }
