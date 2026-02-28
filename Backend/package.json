@@ -10,7 +10,7 @@
     "test": "node --loader ts-node/esm tests/test.ts",
     "test:watch": "nodemon --exec node --loader ts-node/esm tests/test.ts",
     "build": "tsc",
-"start:prod": "node dist/index.js"
+    "start:prod": "node dist/index.js"
   },
   "keywords": [
     "billing",

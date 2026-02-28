@@ -32,4 +32,4 @@ COPY --from=builder /app/dist ./dist
 
 EXPOSE 10000
 
-CMD ["npm", "start"]
+CMD ["npm", "run", "start:prod"]
