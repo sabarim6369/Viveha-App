@@ -30,6 +30,8 @@ interface InvoiceItem {
   name: string;
   quantity: number;
   price: number;
+  tax: number;
+  discount: number;
 }
 
 interface Invoice {
@@ -109,17 +111,33 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
   };
 
   const generateInvoiceHtml = (invoice: Invoice): string => {
-    const totalAmount = (invoice.total || invoice.grandTotal || 0).toFixed(2);
+    // Calculate values from items if not provided in invoice
+    let calculatedSubTotal = 0;
+    let calculatedTax = 0;
+    let calculatedDiscount = 0;
+    
+    (invoice.items || []).forEach(item => {
+      const itemSubtotal = (item.price || 0) * (item.quantity || 0);
+      calculatedSubTotal += itemSubtotal;
+      calculatedTax += (itemSubtotal * (item.tax || 0)) / 100;
+      calculatedDiscount += (itemSubtotal * (item.discount || 0)) / 100;
+    });
 
-    // User requested specific logic:
-    const subTotalDisplay = totalAmount;
-    const taxableAmountDisplay = "0.00";
-    const taxDisplay = "0.00";
-    const discountDisplay = "0.00";
+    // Use calculated values as fallback
+    const subTotal = invoice.subTotal !== undefined ? invoice.subTotal.toFixed(2) : calculatedSubTotal.toFixed(2);
+    const tax = invoice.tax !== undefined ? invoice.tax.toFixed(2) : calculatedTax.toFixed(2);
+    const discount = invoice.discount !== undefined ? invoice.discount.toFixed(2) : calculatedDiscount.toFixed(2);
+    
+    // Calculate final total
+    const calculatedTotal = calculatedSubTotal + calculatedTax - calculatedDiscount;
+    const totalAmount = (invoice.total || invoice.grandTotal || calculatedTotal).toFixed(2);
 
-    // const subTotal = (invoice.subTotal || 0).toFixed(2);
-    // const tax = (invoice.tax || 0).toFixed(2);
-    // const discount = (invoice.discount || 0).toFixed(2);
+    // Calculate taxable amount (subtotal - discount)
+    const taxableAmount = (parseFloat(subTotal) - parseFloat(discount)).toFixed(2);
+    
+    // Split tax into SGST and CGST (half each for GST)
+    const sgst = (parseFloat(tax) / 2).toFixed(2);
+    const cgst = (parseFloat(tax) / 2).toFixed(2);
 
     const shopName = shopDetails?.shopName || 'Studio Den';
     const shopLocation = shopDetails?.location || '123, Main Street, City';
@@ -128,18 +146,25 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     // Number to words for HTML
     const amountInWords = numberToWords(parseFloat(totalAmount));
 
-    const itemsRows = (invoice.items || []).map((item, index) => `
+    const itemsRows = (invoice.items || []).map((item, index) => {
+      const itemSubtotal = (item.price || 0) * (item.quantity || 0);
+      const itemTaxAmount = (itemSubtotal * (item.tax || 0)) / 100;
+      const itemDiscountAmount = (itemSubtotal * (item.discount || 0)) / 100;
+      const itemTotal = itemSubtotal + itemTaxAmount - itemDiscountAmount;
+      
+      return `
       <tr style="background-color: ${index % 2 === 0 ? '#FFFFFF' : '#F9FAFB'};">
         <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151;">${item.name}</td>
         <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">02</td>
         <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">${item.quantity || 0}</td>
-        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">7%</td>
-        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: right;">${(item.price || 0).toFixed(2)}</td>
-        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">₹0.00</td>
-        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">₹0.00</td>
-        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: right; font-weight: bold;">₹${((item.price || 0) * (item.quantity || 0)).toFixed(2)}</td>
+        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">${(item.tax || 0)}%</td>
+        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: right;">₹${itemSubtotal.toFixed(2)}</td>
+        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">₹${(itemTaxAmount / 2).toFixed(2)}</td>
+        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">₹${(itemTaxAmount / 2).toFixed(2)}</td>
+        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: right; font-weight: bold;">₹${itemTotal.toFixed(2)}</td>
       </tr>
-    `).join('');
+    `;
+    }).join('');
 
     return `
       <html>
@@ -261,24 +286,28 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
             <div class="calculations">
               <div class="calc-row">
                 <span class="calc-label">Sub Total</span>
-                <span class="calc-value">₹${subTotalDisplay}</span>
+                <span class="calc-value">₹${subTotal}</span>
               </div>
+              ${parseFloat(discount) > 0 ? `
               <div class="calc-row">
-                <span class="calc-label">Discount(10%)</span>
-                <span class="calc-value">₹${discountDisplay}</span>
+                <span class="calc-label">Discount</span>
+                <span class="calc-value">-₹${discount}</span>
               </div>
+              ` : ''}
               <div class="calc-row">
                 <span class="calc-label">Taxable Amount</span>
-                <span class="calc-value">₹${taxableAmountDisplay}</span>
+                <span class="calc-value">₹${taxableAmount}</span>
               </div>
+              ${parseFloat(tax) > 0 ? `
               <div class="calc-row">
                 <span class="calc-label">SGST</span>
-                <span class="calc-value">₹${taxDisplay}</span>
+                <span class="calc-value">₹${sgst}</span>
               </div>
               <div class="calc-row">
                 <span class="calc-label">CGST</span>
-                <span class="calc-value">₹${taxDisplay}</span>
+                <span class="calc-value">₹${cgst}</span>
               </div>
+              ` : ''}
               <div class="calc-row calc-total">
                 <span class="calc-label">Total Due</span>
                 <span class="calc-value">₹${totalAmount}</span>
@@ -387,11 +416,24 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
   const totalAmount = (invoice.total || invoice.grandTotal || 0).toFixed(2);
   const amountWords = numberToWords(parseFloat(totalAmount));
 
-  // User requested specific logic:
-  const subTotalDisplay = totalAmount; // "subtotal make as that toal amount"
-  const taxableAmountDisplay = "0.00"; // "mke taxable amount as 0"
-  const taxDisplay = "0.00";
-  const discountDisplay = "0.00";
+  // Calculate actual values from items
+  let calculatedSubTotal = 0;
+  let calculatedTax = 0;
+  let calculatedDiscount = 0;
+  
+  (invoice.items || []).forEach(item => {
+    const itemSubtotal = (item.price || 0) * (item.quantity || 0);
+    calculatedSubTotal += itemSubtotal;
+    calculatedTax += (itemSubtotal * (item.tax || 0)) / 100;
+    calculatedDiscount += (itemSubtotal * (item.discount || 0)) / 100;
+  });
+
+  const subTotalDisplay = (invoice.subTotal !== undefined ? invoice.subTotal : calculatedSubTotal).toFixed(2);
+  const taxDisplay = (invoice.tax !== undefined ? invoice.tax : calculatedTax).toFixed(2);
+  const discountDisplay = (invoice.discount !== undefined ? invoice.discount : calculatedDiscount).toFixed(2);
+  const taxableAmountDisplay = (parseFloat(subTotalDisplay) - parseFloat(discountDisplay)).toFixed(2);
+  const sgstDisplay = (parseFloat(taxDisplay) / 2).toFixed(2);
+  const cgstDisplay = (parseFloat(taxDisplay) / 2).toFixed(2);
 
   return (
     <SafeAreaView style={styles.container}>
@@ -479,16 +521,20 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
             </View>
 
             {invoice.items && invoice.items.map((item, idx) => {
-              const lineTotal = (item.price || 0) * (item.quantity || 0);
+              const itemSubtotal = (item.price || 0) * (item.quantity || 0);
+              const itemTaxAmount = (itemSubtotal * (item.tax || 0)) / 100;
+              const itemDiscountAmount = (itemSubtotal * (item.discount || 0)) / 100;
+              const lineTotal = itemSubtotal + itemTaxAmount - itemDiscountAmount;
+              
               return (
                 <View key={idx} style={[styles.tableRow, idx % 2 !== 0 && styles.rowAlt]}>
                   <Text style={[styles.td, styles.colDesc]}>{item.name}</Text>
                   <Text style={[styles.td, styles.colBrief, { textAlign: 'center' }]}>02</Text>
                   <Text style={[styles.td, styles.colBrief, { textAlign: 'center' }]}>{item.quantity}</Text>
-                  <Text style={[styles.td, styles.colBrief, { textAlign: 'center' }]}>9%</Text>
-                  <Text style={[styles.td, styles.colAmount, { textAlign: 'right' }]}>₹{(item.price || 0).toFixed(2)}</Text>
-                  <Text style={[styles.td, styles.colDetail, { textAlign: 'center' }]}>₹0.00</Text>
-                  <Text style={[styles.td, styles.colDetail, { textAlign: 'center' }]}>₹0.00</Text>
+                  <Text style={[styles.td, styles.colBrief, { textAlign: 'center' }]}>{(item.tax || 0)}%</Text>
+                  <Text style={[styles.td, styles.colAmount, { textAlign: 'right' }]}>₹{itemSubtotal.toFixed(2)}</Text>
+                  <Text style={[styles.td, styles.colDetail, { textAlign: 'center' }]}>₹{(itemTaxAmount / 2).toFixed(2)}</Text>
+                  <Text style={[styles.td, styles.colDetail, { textAlign: 'center' }]}>₹{(itemTaxAmount / 2).toFixed(2)}</Text>
                   <Text style={[styles.td, styles.colAmount, { textAlign: 'right', fontWeight: 'bold' }]}>₹{lineTotal.toFixed(2)}</Text>
                 </View>
               );
@@ -512,22 +558,28 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
                 <Text style={styles.sumLabel}>Sub Total</Text>
                 <Text style={styles.sumValue}>₹{subTotalDisplay}</Text>
               </View>
-              <View style={styles.sumRow}>
-                <Text style={styles.sumLabel}>Discount(10%)</Text>
-                <Text style={styles.sumValue}>₹{discountDisplay}</Text>
-              </View>
+              {parseFloat(discountDisplay) > 0 && (
+                <View style={styles.sumRow}>
+                  <Text style={styles.sumLabel}>Discount</Text>
+                  <Text style={styles.sumValue}>-₹{discountDisplay}</Text>
+                </View>
+              )}
               <View style={styles.sumRow}>
                 <Text style={styles.sumLabel}>Taxable Amount</Text>
                 <Text style={styles.sumValue}>₹{taxableAmountDisplay}</Text>
               </View>
-              <View style={styles.sumRow}>
-                <Text style={styles.sumLabel}>SGST</Text>
-                <Text style={styles.sumValue}>₹{taxDisplay}</Text>
-              </View>
-              <View style={styles.sumRow}>
-                <Text style={styles.sumLabel}>CGST</Text>
-                <Text style={styles.sumValue}>₹{taxDisplay}</Text>
-              </View>
+              {parseFloat(taxDisplay) > 0 && (
+                <>
+                  <View style={styles.sumRow}>
+                    <Text style={styles.sumLabel}>SGST</Text>
+                    <Text style={styles.sumValue}>₹{sgstDisplay}</Text>
+                  </View>
+                  <View style={styles.sumRow}>
+                    <Text style={styles.sumLabel}>CGST</Text>
+                    <Text style={styles.sumValue}>₹{cgstDisplay}</Text>
+                  </View>
+                </>
+              )}
 
               <View style={[styles.sumRow, { marginTop: 10 }]}>
                 <Text style={styles.totalDueLabel}>Total Due</Text>

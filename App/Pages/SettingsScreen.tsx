@@ -50,6 +50,8 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
     enableTaxCalculation: false,
     primaryTaxRate: 0,
   });
+  const [tempTaxRate, setTempTaxRate] = useState<string>('0');
+  const [isTaxRateModified, setIsTaxRateModified] = useState<boolean>(false);
 
   useEffect(() => {
     fetchSettings();
@@ -99,6 +101,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
         console.log('💰 Tax settings loaded:', taxConfig);
         setCustomerFields(settings);
         setTaxSettings(taxConfig);
+        setTempTaxRate(String(taxConfig.primaryTaxRate || 0));
         
         // Save to AsyncStorage for offline access
         await AsyncStorage.setItem('@viveha_customer_field_settings', JSON.stringify(settings));
@@ -118,7 +121,9 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
           console.log('📂 Loaded cached settings');
           setCustomerFields(JSON.parse(cachedSettings));
           if (cachedTaxSettings) {
-            setTaxSettings(JSON.parse(cachedTaxSettings));
+            const taxConfig = JSON.parse(cachedTaxSettings);
+            setTaxSettings(taxConfig);
+            setTempTaxRate(String(taxConfig.primaryTaxRate || 0));
           }
           Toast.show({
             type: 'info',
@@ -420,27 +425,56 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
               {taxSettings.enableTaxCalculation && (
                 <>
                   <View style={styles.divider} />
-                  <View style={styles.settingRow}>
-                    <View style={styles.settingLeft}>
-                      <Text style={styles.settingLabel}>Primary tax (GST/VAT)%</Text>
+                  <View style={styles.settingColumn}>
+                    <View style={styles.settingRow}>
+                      <View style={styles.settingLeft}>
+                        <Text style={styles.settingLabel}>Primary tax (GST/VAT)%</Text>
+                        <Text style={styles.settingDescription}>
+                          Enter percentage to apply on all invoices
+                        </Text>
+                      </View>
+                      <View style={styles.taxInputContainer}>
+                        <TextInput
+                          style={styles.taxInput}
+                          value={tempTaxRate}
+                          onChangeText={(text) => {
+                            // Allow empty string or valid decimal numbers
+                            if (text === '' || /^\d*\.?\d*$/.test(text)) {
+                              const numValue = parseFloat(text) || 0;
+                              if (numValue <= 100) {
+                                setTempTaxRate(text);
+                                setIsTaxRateModified(true);
+                              }
+                            }
+                          }}
+                          keyboardType="decimal-pad"
+                          placeholder="0.00"
+                          maxLength={5}
+                          editable={!updating}
+                        />
+                        <Text style={styles.percentSymbol}>%</Text>
+                      </View>
                     </View>
-                    <View style={styles.taxInputContainer}>
-                      <TextInput
-                        style={styles.taxInput}
-                        value={String(taxSettings.primaryTaxRate)}
-                        onChangeText={(text) => {
-                          const numValue = parseFloat(text) || 0;
-                          if (numValue >= 0 && numValue <= 100) {
-                            updateSetting('primaryTaxRate', numValue, true);
-                          }
+                    {isTaxRateModified && (
+                      <TouchableOpacity
+                        style={[styles.saveTaxButton, updating && styles.saveTaxButtonDisabled]}
+                        onPress={async () => {
+                          const numValue = parseFloat(tempTaxRate) || 0;
+                          await updateSetting('primaryTaxRate', numValue, true);
+                          setIsTaxRateModified(false);
                         }}
-                        keyboardType="decimal-pad"
-                        placeholder="0.00"
-                        maxLength={5}
-                        editable={!updating}
-                      />
-                      <Text style={styles.percentSymbol}>%</Text>
-                    </View>
+                        disabled={updating}
+                      >
+                        {updating ? (
+                          <ActivityIndicator size="small" color="#fff" />
+                        ) : (
+                          <>
+                            <Ionicons name={"checkmark-circle" as any} size={18} color="#fff" />
+                            <Text style={styles.saveTaxButtonText}>Save Tax Rate</Text>
+                          </>
+                        )}
+                      </TouchableOpacity>
+                    )}
                   </View>
                 </>
               )}
@@ -682,5 +716,34 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#1565C0',
     lineHeight: 18,
+  },
+  settingColumn: {
+    paddingHorizontal: 20,
+    paddingVertical: 16,
+  },
+  saveTaxButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#E88E99',
+    borderRadius: 10,
+    paddingVertical: 12,
+    paddingHorizontal: 20,
+    marginTop: 12,
+    gap: 8,
+    shadowColor: '#E88E99',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.3,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  saveTaxButtonDisabled: {
+    backgroundColor: '#D1D5DB',
+    shadowOpacity: 0,
+  },
+  saveTaxButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#fff',
   },
 });

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -7,13 +7,25 @@ import {
   TouchableOpacity,
   ScrollView,
   Alert,
-  Modal,
   Platform,
+  ActivityIndicator,
+  Modal,
+  FlatList,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import AsyncStorage from '@react-native-async-storage/async-storage';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import * as FileSystem from 'expo-file-system';
 import * as Sharing from 'expo-sharing';
+import * as Print from 'expo-print';
+import Toast from 'react-native-toast-message';
+import {
+  getInvoices,
+  getItems,
+  getClients,
+  getPayments,
+  getPendingInvoices,
+  getItemGroups,
+} from '../utils/NetworkManager';
 import Footer from '../Components/Footer';
 
 interface ExportCenterScreenProps {
@@ -22,15 +34,73 @@ interface ExportCenterScreenProps {
 
 type ReportType = 'insights' | 'inventory' | 'tax' | 'outstanding';
 type DateRangeType = 'preview' | 'week' | 'month' | 'custom';
-type FormatType = 'pdf' | 'excel' | 'csv';
+type FormatType = 'pdf' | 'csv';
+
+interface ReportData {
+  type: string;
+  invoices?: any[];
+  payments?: any[];
+  pending?: any[];
+  items?: any[];
+  startDate: string;
+  endDate: string;
+  customerName?: string;
+  customerPhone?: string;
+}
 
 export default function ExportCenterScreen({ navigation }: ExportCenterScreenProps): React.JSX.Element {
   const [selectedReport, setSelectedReport] = useState<ReportType>('insights');
-  const [selectedDateRange, setSelectedDateRange] = useState<DateRangeType>('preview');
+  const [selectedDateRange, setSelectedDateRange] = useState<DateRangeType>('month');
   const [selectedFormat, setSelectedFormat] = useState<FormatType>('pdf');
-  const [startDate, setStartDate] = useState('Dec 12, 2025');
-  const [endDate, setEndDate] = useState('Jan 19, 2026');
+  const [startDate, setStartDate] = useState<Date>(new Date(new Date().setDate(new Date().getDate() - 30)));
+  const [endDate, setEndDate] = useState<Date>(new Date());
   const [isGenerating, setIsGenerating] = useState(false);
+  const [showStartDatePicker, setShowStartDatePicker] = useState(false);
+  const [showEndDatePicker, setShowEndDatePicker] = useState(false);
+  const [loading, setLoading] = useState(false);
+  const [customers, setCustomers] = useState<any[]>([]);
+  const [selectedCustomer, setSelectedCustomer] = useState<any>(null);
+  const [showCustomerSelector, setShowCustomerSelector] = useState(false);
+  const [previewData, setPreviewData] = useState<ReportData | null>(null);
+  const [showPreview, setShowPreview] = useState(false);
+
+  // Load customers on mount
+  useEffect(() => {
+    loadCustomers();
+  }, []);
+
+  // Update date range when preset is selected
+  useEffect(() => {
+    const now = new Date();
+    let start = new Date();
+    
+    switch (selectedDateRange) {
+      case 'preview':
+        start = new Date(now.setDate(now.getDate() - 7));
+        break;
+      case 'week':
+        start = new Date(now.setDate(now.getDate() - 7));
+        break;
+      case 'month':
+        start = new Date(now.setMonth(now.getMonth() - 1));
+        break;
+      case 'custom':
+        // Keep existing dates for custom
+        return;
+    }
+    
+    setStartDate(start);
+    setEndDate(new Date());
+  }, [selectedDateRange]);
+
+  const loadCustomers = async () => {
+    try {
+      const clientsData = await getClients();
+      setCustomers(clientsData);
+    } catch (error) {
+      console.error('Error loading customers:', error);
+    }
+  };
 
   const reportTypes = [
     {
@@ -38,7 +108,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
       title: 'Insights',
       description: 'Sales, Payments, and trends',
       icon: 'analytics-outline',
-      badge: true,
+      badge: false,
       locked: false,
     },
     {
@@ -47,7 +117,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
       description: 'Stock tracking and analysis',
       icon: 'cube-outline',
       badge: false,
-      locked: true,
+      locked: false,
     },
     {
       id: 'tax' as ReportType,
@@ -69,7 +139,6 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
 
   const formatOptions = [
     { id: 'pdf' as FormatType, icon: 'document-text', label: 'PDF', color: '#FF6B6B' },
-    { id: 'excel' as FormatType, icon: 'grid', label: 'Excel', color: '#51CF66' },
     { id: 'csv' as FormatType, icon: 'list', label: 'CSV', color: '#4A90E2' },
   ];
 
@@ -85,179 +154,557 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
     setSelectedReport(reportId);
   };
 
-  const handleDateRangeChange = () => {
-    Alert.alert(
-      'Select Date Range',
-      'Date picker functionality would go here',
-      [{ text: 'OK' }]
-    );
+  const onStartDateChange = (event: any, selectedDate?: Date) => {
+    setShowStartDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setStartDate(selectedDate);
+      setSelectedDateRange('custom');
+    }
   };
 
-  const generateReportData = async () => {
+  const onEndDateChange = (event: any, selectedDate?: Date) => {
+    setShowEndDatePicker(Platform.OS === 'ios');
+    if (selectedDate) {
+      setEndDate(selectedDate);
+      setSelectedDateRange('custom');
+    }
+  };
+
+  const formatDate = (date: Date): string => {
+    return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' });
+  };
+
+  const filterByDateRange = (items: any[], dateField: string = 'createdAt'): any[] => {
+    return items.filter(item => {
+      const itemDate = new Date(item[dateField] || item.date || item.invoiceDate);
+      return itemDate >= startDate && itemDate <= endDate;
+    });
+  };
+
+  const generateReportData = async (): Promise<ReportData | null> => {
     try {
-      // Get data from AsyncStorage based on report type
-      let reportData: any = {};
+      setLoading(true);
+      let reportData: ReportData = {
+        type: '',
+        startDate: formatDate(startDate),
+        endDate: formatDate(endDate),
+        customerName: selectedCustomer?.name,
+        customerPhone: selectedCustomer?.phone,
+      };
 
       switch (selectedReport) {
         case 'insights':
-          const invoices = await AsyncStorage.getItem('@viveha_invoices');
-          const payments = await AsyncStorage.getItem('@viveha_payments');
+          let invoices = await getInvoices();
+          let payments = await getPayments();
+          const filteredInvoices = filterByDateRange(invoices);
+          const filteredPayments = filterByDateRange(payments);
+          
+          // Filter by customer if selected
+          if (selectedCustomer) {
+            invoices = filteredInvoices.filter(inv => 
+              inv.clientCustomerId === selectedCustomer.id ||
+              inv.clientCustomerId === selectedCustomer.serverId ||
+              inv.clientPhone === selectedCustomer.phone ||
+              inv.clientName === selectedCustomer.name
+            );
+            const invoiceIds = new Set(invoices.map(inv => inv.id || inv.serverId || inv.number || inv.invoiceNumber));
+            payments = filteredPayments.filter(payment => 
+              invoiceIds.has(payment.invoiceId) ||
+              invoices.some(inv => 
+                inv.number === payment.invoiceNumber ||
+                inv.invoiceNumber === payment.invoiceNumber
+              )
+            );
+          } else {
+            invoices = filteredInvoices;
+            payments = filteredPayments;
+          }
+          
           reportData = {
+            ...reportData,
             type: 'Insights Report',
-            invoices: invoices ? JSON.parse(invoices) : [],
-            payments: payments ? JSON.parse(payments) : [],
+            invoices: invoices,
+            payments: payments,
           };
           break;
 
         case 'tax':
-          const taxInvoices = await AsyncStorage.getItem('@viveha_invoices');
+          let taxInvoices = await getInvoices();
+          const filteredTaxInvoices = filterByDateRange(taxInvoices);
+          
+          // Filter by customer if selected
+          if (selectedCustomer) {
+            taxInvoices = filteredTaxInvoices.filter(inv => 
+              inv.clientCustomerId === selectedCustomer.id ||
+              inv.clientCustomerId === selectedCustomer.serverId ||
+              inv.clientPhone === selectedCustomer.phone ||
+              inv.clientName === selectedCustomer.name
+            );
+          } else {
+            taxInvoices = filteredTaxInvoices;
+          }
+          
           reportData = {
+            ...reportData,
             type: 'Tax Report',
-            invoices: taxInvoices ? JSON.parse(taxInvoices) : [],
+            invoices: taxInvoices,
           };
           break;
 
         case 'outstanding':
-          const pendingPayments = await AsyncStorage.getItem('@viveha_pendings');
+          let pendingPayments = await getPendingInvoices();
+          
+          // Filter by customer if selected
+          if (selectedCustomer) {
+            pendingPayments = pendingPayments.filter(payment => 
+              payment.clientCustomerId === selectedCustomer.id ||
+              payment.clientCustomerId === selectedCustomer.serverId ||
+              payment.clientPhone === selectedCustomer.phone ||
+              payment.clientName === selectedCustomer.name ||
+              payment.clientCustomerName === selectedCustomer.name
+            );
+          }
+          
           reportData = {
+            ...reportData,
             type: 'Customer Outstanding Report',
-            pending: pendingPayments ? JSON.parse(pendingPayments) : [],
+            pending: pendingPayments,
           };
           break;
 
         case 'inventory':
-          const items = await AsyncStorage.getItem('@viveha_items');
+          const items = await getItems();
+          const groups = await getItemGroups();
+          
+          // Create a map of groupId to groupName for quick lookup
+          const groupMap = new Map<string, string>();
+          groups.forEach(group => {
+            groupMap.set(group.id || group._id || '', group.name);
+          });
+          
+          // Populate groupName for items that have groupId but no groupName
+          const enrichedItems = items.map(item => {
+            if (item.groupId && !item.groupName && groupMap.has(item.groupId)) {
+              return { ...item, groupName: groupMap.get(item.groupId) };
+            }
+            return item;
+          });
+          
           reportData = {
+            ...reportData,
             type: 'Inventory Report',
-            items: items ? JSON.parse(items) : [],
+            items: enrichedItems,
           };
           break;
       }
 
+      setLoading(false);
       return reportData;
     } catch (error) {
       console.error('Error generating report data:', error);
+      setLoading(false);
       return null;
     }
   };
 
-  const formatDataAsCSV = (data: any): string => {
-    let csv = '';
+  const getUniqueCustomerCount = (items: any[]): number => {
+    const uniqueCustomers = new Set<string>();
+    items.forEach(item => {
+      const customerId = item.clientCustomerId || item.clientCustomerPhone || item.clientPhone || item.clientName || item.clientCustomerName;
+      if (customerId) {
+        uniqueCustomers.add(String(customerId));
+      }
+    });
+    return uniqueCustomers.size;
+  };
 
-    if (data.type === 'Insights Report') {
-      csv = 'Date,Invoice Number,Customer,Amount,Status\n';
+  const formatDataAsCSV = (data: ReportData): string => {
+    let csv = '';
+    
+    // Add customer-specific header if filtering by customer
+    if (data.customerName) {
+      csv += `Customer Report\n`;
+      csv += `Customer Name,${data.customerName}\n`;
+      csv += `Phone,${data.customerPhone || 'N/A'}\n`;
+      csv += `Report Period,${data.startDate} - ${data.endDate}\n`;
+      csv += `Generated On,${new Date().toLocaleDateString()}\n`;
+      csv += `\n`;
+    }
+
+    if (data.type === 'Insights Report' && data.invoices) {
+      csv = 'Date,Invoice Number,Customer,Customer Phone,Amount,Paid,Pending,Status\n';
       data.invoices.forEach((invoice: any) => {
-        csv += `${invoice.date || 'N/A'},${invoice.invoiceNumber || 'N/A'},${invoice.customerName || 'N/A'},${invoice.total || 0},${invoice.status || 'N/A'}\n`;
+        const amount = invoice.total || invoice.totalAmount || invoice.grandTotal || 0;
+        const paid = invoice.paidAmount || 0;
+        const pending = amount - paid;
+        csv += `${formatDate(new Date(invoice.createdAt || invoice.date))},`;
+        csv += `${invoice.number || invoice.invoiceNumber},`;
+        csv += `"${invoice.clientName || invoice.clientInfo?.name || 'N/A'}",`;
+        csv += `${invoice.clientPhone || invoice.clientInfo?.phone || 'N/A'},`;
+        csv += `${amount.toFixed(2)},${paid.toFixed(2)},${pending.toFixed(2)},`;
+        csv += `${invoice.status || 'pending'}\n`;
       });
-    } else if (data.type === 'Tax Report') {
-      csv = 'Date,Invoice Number,Subtotal,Tax Amount,Total\n';
+      
+      // Add summary with unique customer count
+      const uniqueCustomerCount = getUniqueCustomerCount(data.invoices);
+      const totalRevenue = data.invoices.reduce((sum, inv) => sum + (inv.total || inv.totalAmount || inv.grandTotal || 0), 0);
+      const totalPaid = data.invoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0);
+      csv += `\nSummary\n`;
+      csv += `Total Invoices,${data.invoices.length}\n`;
+      csv += `Unique Customers,${uniqueCustomerCount}\n`;
+      csv += `Total Revenue,${totalRevenue.toFixed(2)}\n`;
+      csv += `Total Paid,${totalPaid.toFixed(2)}\n`;
+      csv += `Total Pending,${(totalRevenue - totalPaid).toFixed(2)}\n`;
+      
+    } else if (data.type === 'Tax Report' && data.invoices) {
+      csv = 'Date,Invoice Number,Customer,Subtotal,Tax Amount,Discount,Total\n';
       data.invoices.forEach((invoice: any) => {
-        const subtotal = invoice.subtotal || 0;
-        const total = invoice.total || 0;
-        const tax = total - subtotal;
-        csv += `${invoice.date || 'N/A'},${invoice.invoiceNumber || 'N/A'},${subtotal},${tax},${total}\n`;
+        const subtotal = invoice.subTotal || invoice.subtotal || 0;
+        const tax = invoice.tax || invoice.totalTax || 0;
+        const discount = invoice.discount || invoice.totalDiscount || 0;
+        const total = invoice.total || invoice.totalAmount || invoice.grandTotal || 0;
+        csv += `${formatDate(new Date(invoice.createdAt || invoice.date))},`;
+        csv += `${invoice.number || invoice.invoiceNumber},`;
+        csv += `"${invoice.clientName || invoice.clientInfo?.name || 'N/A'}",`;
+        csv += `${subtotal.toFixed(2)},${tax.toFixed(2)},${discount.toFixed(2)},${total.toFixed(2)}\n`;
       });
-    } else if (data.type === 'Customer Outstanding Report') {
-      csv = 'Customer Name,Amount Due,Due Date,Invoice Number\n';
-      data.pending.forEach((pending: any) => {
-        csv += `${pending.customerName || 'N/A'},${pending.amount || 0},${pending.dueDate || 'N/A'},${pending.invoiceNumber || 'N/A'}\n`;
-      });
-    } else if (data.type === 'Inventory Report') {
-      csv = 'Item Name,Quantity,Price,Category\n';
+      
+      // Add tax summary
+      const totalTax = data.invoices.reduce((sum, inv) => sum + (inv.tax || inv.totalTax || 0), 0);
+      const totalAmount = data.invoices.reduce((sum, inv) => sum + (inv.total || inv.totalAmount || inv.grandTotal || 0), 0);
+      csv += `\nTax Summary\n`;
+      csv += `Total Invoices,${data.invoices.length}\n`;
+      csv += `Total Tax Collected,${totalTax.toFixed(2)}\n`;
+      csv += `Total Amount,${totalAmount.toFixed(2)}\n`;
+      
+    } else if (data.type === 'Customer Outstanding Report' && data.pending) {
+      // CSV Headers - exclude customer info if filtering by specific customer
+      if (data.customerName) {
+        csv = 'Invoice Number,Invoice Date,Amount Due,Total Amount,Paid Amount,Due Date\n';
+        data.pending.forEach((pending: any) => {
+          csv += `${pending.invoiceNumber},`;
+          csv += `${formatDate(new Date(pending.invoiceDate || pending.createdAt || pending.date))},`;
+          csv += `${(pending.pendingAmount || pending.amount || 0).toFixed(2)},`;
+          csv += `${(pending.totalAmount || 0).toFixed(2)},`;
+          csv += `${(pending.paidAmount || 0).toFixed(2)},`;
+          csv += `${pending.dueDate || 'N/A'}\n`;
+        });
+      } else {
+        csv = 'Customer Name,Phone,Amount Due,Total Amount,Paid Amount,Invoice Number,Invoice Date,Due Date\n';
+        data.pending.forEach((pending: any) => {
+          csv += `"${pending.clientCustomerName || pending.clientName || 'N/A'}",`;
+          csv += `${pending.clientCustomerPhone || pending.clientPhone || 'N/A'},`;
+          csv += `${(pending.pendingAmount || pending.amount || 0).toFixed(2)},`;
+          csv += `${(pending.totalAmount || 0).toFixed(2)},`;
+          csv += `${(pending.paidAmount || 0).toFixed(2)},`;
+          csv += `${pending.invoiceNumber},`;
+          csv += `${formatDate(new Date(pending.invoiceDate || pending.createdAt || pending.date))},`;
+          csv += `${pending.dueDate || 'N/A'}\n`;
+        });
+      }
+      
+      // Add summary with unique customer count
+      const uniqueCustomerCount = getUniqueCustomerCount(data.pending);
+      const totalOutstanding = data.pending.reduce((sum, p) => sum + (p.pendingAmount || p.amount || 0), 0);
+      csv += `\nSummary\n`;
+      csv += `Total Invoices,${data.pending.length}\n`;
+      if (!data.customerName) {
+        csv += `Unique Customers,${uniqueCustomerCount}\n`;
+      }
+      csv += `Total Outstanding,${totalOutstanding.toFixed(2)}\n`;
+      
+    } else if (data.type === 'Inventory Report' && data.items) {
+      csv = 'Item Name,SKU,Quantity,Price,Tax,Unit,Group,Description\n';
       data.items.forEach((item: any) => {
-        csv += `${item.name || 'N/A'},${item.quantity || 0},${item.price || 0},${item.category || 'N/A'}\n`;
+        csv += `"${item.name || item.itemName || 'N/A'}",`;
+        csv += `${item.sku || item.code || 'N/A'},`;
+        csv += `${item.quantity || item.stockAvailable || item.stock || 0},`;
+        csv += `${(item.price || item.amount || item.sellingPrice || 0).toFixed(2)},`;
+        csv += `${item.tax || 0}%,`;
+        csv += `${item.unit || 'pcs'},`;
+        csv += `"${item.groupName || 'Ungrouped'}",`;
+        csv += `"${(item.description || '').replace(/"/g, '""')}"\n`;
       });
+      
+      // Add summary
+      const totalValue = data.items.reduce((sum, item) => sum + ((item.quantity || item.stockAvailable || 0) * (item.price || item.sellingPrice || 0)), 0);
+      csv += `\nSummary\n`;
+      csv += `Total Items,${data.items.length}\n`;
+      csv += `Total Inventory Value,${totalValue.toFixed(2)}\n`;
     }
 
     return csv;
   };
 
-  const formatDataAsText = (data: any): string => {
-    let text = `${data.type}\n`;
-    text += `Generated: ${new Date().toLocaleString()}\n`;
-    text += `Date Range: ${startDate} - ${endDate}\n`;
-    text += `\n${'='.repeat(50)}\n\n`;
+  const generatePDFHTML = (data: ReportData): string => {
+    let html = `
+      <html>
+        <head>
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
+          <style>
+            body { font-family: Arial, sans-serif; padding: 20px; color: #333; }
+            .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #FF8A5B; padding-bottom: 15px; }
+            .header h1 { color: #FF8A5B; margin: 0; font-size: 28px; }
+            .header .subtitle { color: #666; font-size: 14px; margin-top: 5px; }
+            .date-range { text-align: center; background: #F5F5F5; padding: 10px; border-radius: 8px; margin-bottom: 20px; }
+            .summary-box { background: #FF8A5B10; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #FF8A5B; }
+            .summary-box h3 { margin: 0 0 10px 0; color: #FF8A5B; }
+            .summary-item { display: flex; justify-content: space-between; padding: 5px 0; }
+            .summary-label { font-weight: bold; }
+            table { width: 100%; border-collapse: collapse; margin-top: 20px; }
+            th { background: #FF8A5B; color: white; padding: 12px; text-align: left; font-size: 12px; }
+            td { padding: 10px; border-bottom: 1px solid #E0E0E0; font-size: 11px; }
+            tr:nth-child(even) { background: #F9F9F9; }
+            .text-right { text-align: right; }
+            .text-center { text-align: center; }
+            .footer { margin-top: 30px; text-align: center; color: #999; font-size: 10px; border-top: 1px solid #E0E0E0; padding-top: 15px; }
+          </style>
+        </head>
+        <body>
+          <div class="header">
+            <h1>${data.type}</h1>
+            ${data.customerName ? `<div class="subtitle" style="color: #FF8A5B; font-size: 16px; font-weight: 600; margin-top: 8px;">Customer: ${data.customerName}${data.customerPhone ? ' | ' + data.customerPhone : ''}</div>` : ''}
+            <div class="subtitle">Generated on ${new Date().toLocaleString()}</div>
+          </div>
+          <div class="date-range">
+            <strong>Report Period:</strong> ${data.startDate} - ${data.endDate}
+          </div>
+    `;
 
-    if (data.type === 'Insights Report') {
-      text += 'INVOICES\n';
-      text += '-'.repeat(50) + '\n';
-      data.invoices.forEach((invoice: any, index: number) => {
-        text += `\n${index + 1}. Invoice #${invoice.invoiceNumber || 'N/A'}\n`;
-        text += `   Customer: ${invoice.customerName || 'N/A'}\n`;
-        text += `   Date: ${invoice.date || 'N/A'}\n`;
-        text += `   Amount: ₹${invoice.total || 0}\n`;
-        text += `   Status: ${invoice.status || 'N/A'}\n`;
+    if (data.type === 'Insights Report' && data.invoices) {
+      const uniqueCustomerCount = getUniqueCustomerCount(data.invoices);
+      const totalRevenue = data.invoices.reduce((sum, inv) => sum + (inv.total || inv.totalAmount || inv.grandTotal || 0), 0);
+      const totalPaid = data.invoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0);
+      const totalPending = totalRevenue - totalPaid;
+      
+      html += `
+        <div class="summary-box">
+          <h3>Summary</h3>
+          <div class="summary-item"><span class="summary-label">Total Invoices:</span><span>${data.invoices.length}</span></div>
+          <div class="summary-item"><span class="summary-label">Unique Customers:</span><span>${uniqueCustomerCount}</span></div>
+          <div class="summary-item"><span class="summary-label">Total Revenue:</span><span>₹${totalRevenue.toFixed(2)}</span></div>
+          <div class="summary-item"><span class="summary-label">Total Paid:</span><span>₹${totalPaid.toFixed(2)}</span></div>
+          <div class="summary-item"><span class="summary-label">Total Pending:</span><span>₹${totalPending.toFixed(2)}</span></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Invoice #</th>
+              ${data.customerName ? '' : '<th>Customer</th>'}
+              <th class="text-right">Amount</th>
+              <th class="text-right">Paid</th>
+              <th class="text-right">Pending</th>
+              <th class="text-center">Status</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      data.invoices.forEach(invoice => {
+        const amount = invoice.total || invoice.totalAmount || invoice.grandTotal || 0;
+        const paid = invoice.paidAmount || 0;
+        const pending = amount - paid;
+        html += `
+          <tr>
+            <td>${formatDate(new Date(invoice.createdAt || invoice.date))}</td>
+            <td>${invoice.number || invoice.invoiceNumber}</td>
+            ${data.customerName ? '' : `<td>${invoice.clientName || invoice.clientInfo?.name || 'N/A'}</td>`}
+            <td class="text-right">₹${amount.toFixed(2)}</td>
+            <td class="text-right">₹${paid.toFixed(2)}</td>
+            <td class="text-right">₹${pending.toFixed(2)}</td>
+            <td class="text-center">${invoice.status || 'pending'}</td>
+          </tr>
+        `;
       });
-
-      const totalRevenue = data.invoices.reduce((sum: number, inv: any) => sum + (inv.total || 0), 0);
-      text += `\n${'='.repeat(50)}\n`;
-      text += `Total Revenue: ₹${totalRevenue.toFixed(2)}\n`;
-      text += `Total Invoices: ${data.invoices.length}\n`;
-    } else if (data.type === 'Tax Report') {
-      text += 'TAX SUMMARY\n';
-      text += '-'.repeat(50) + '\n';
-      let totalTax = 0;
-      let totalAmount = 0;
-
-      data.invoices.forEach((invoice: any, index: number) => {
-        const subtotal = invoice.subtotal || 0;
-        const total = invoice.total || 0;
-        const tax = total - subtotal;
-        totalTax += tax;
-        totalAmount += total;
-
-        text += `\n${index + 1}. Invoice #${invoice.invoiceNumber || 'N/A'}\n`;
-        text += `   Subtotal: ₹${subtotal}\n`;
-        text += `   Tax: ₹${tax.toFixed(2)}\n`;
-        text += `   Total: ₹${total}\n`;
+      
+      html += `</tbody></table>`;
+      
+    } else if (data.type === 'Tax Report' && data.invoices) {
+      const totalTax = data.invoices.reduce((sum, inv) => sum + (inv.tax || inv.totalTax || 0), 0);
+      const totalAmount = data.invoices.reduce((sum, inv) => sum + (inv.total || inv.totalAmount || inv.grandTotal || 0), 0);
+      const totalSubtotal = data.invoices.reduce((sum, inv) => sum + (inv.subTotal || inv.subtotal || 0), 0);
+      
+      html += `
+        <div class="summary-box">
+          <h3>Tax Summary</h3>
+          <div class="summary-item"><span class="summary-label">Total Invoices:</span><span>${data.invoices.length}</span></div>
+          <div class="summary-item"><span class="summary-label">Total Subtotal:</span><span>₹${totalSubtotal.toFixed(2)}</span></div>
+          <div class="summary-item"><span class="summary-label">Total Tax Collected:</span><span>₹${totalTax.toFixed(2)}</span></div>
+          <div class="summary-item"><span class="summary-label">Total Amount:</span><span>₹${totalAmount.toFixed(2)}</span></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Date</th>
+              <th>Invoice #</th>
+              ${data.customerName ? '' : '<th>Customer</th>'}
+              <th class="text-right">Subtotal</th>
+              <th class="text-right">Tax</th>
+              <th class="text-right">Discount</th>
+              <th class="text-right">Total</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      data.invoices.forEach(invoice => {
+        const subtotal = invoice.subTotal || invoice.subtotal || 0;
+        const tax = invoice.tax || invoice.totalTax || 0;
+        const discount = invoice.discount || invoice.totalDiscount || 0;
+        const total = invoice.total || invoice.totalAmount || invoice.grandTotal || 0;
+        html += `
+          <tr>
+            <td>${formatDate(new Date(invoice.createdAt || invoice.date))}</td>
+            <td>${invoice.number || invoice.invoiceNumber}</td>
+            ${data.customerName ? '' : `<td>${invoice.clientName || invoice.clientInfo?.name || 'N/A'}</td>`}
+            <td class="text-right">₹${subtotal.toFixed(2)}</td>
+            <td class="text-right">₹${tax.toFixed(2)}</td>
+            <td class="text-right">₹${discount.toFixed(2)}</td>
+            <td class="text-right">₹${total.toFixed(2)}</td>
+          </tr>
+        `;
       });
-
-      text += `\n${'='.repeat(50)}\n`;
-      text += `Total Tax Collected: ₹${totalTax.toFixed(2)}\n`;
-      text += `Total Amount: ₹${totalAmount.toFixed(2)}\n`;
-    } else if (data.type === 'Customer Outstanding Report') {
-      text += 'PENDING PAYMENTS\n';
-      text += '-'.repeat(50) + '\n';
-      let totalOutstanding = 0;
-
-      data.pending.forEach((pending: any, index: number) => {
-        totalOutstanding += pending.amount || 0;
-        text += `\n${index + 1}. ${pending.customerName || 'N/A'}\n`;
-        text += `   Amount Due: ₹${pending.amount || 0}\n`;
-        text += `   Due Date: ${pending.dueDate || 'N/A'}\n`;
-        text += `   Invoice: #${pending.invoiceNumber || 'N/A'}\n`;
+      
+      html += `</tbody></table>`;
+      
+    } else if (data.type === 'Customer Outstanding Report' && data.pending) {
+      const uniqueCustomerCount = getUniqueCustomerCount(data.pending);
+      const totalOutstanding = data.pending.reduce((sum, p) => sum + (p.pendingAmount || p.amount || 0), 0);
+      const totalAmount = data.pending.reduce((sum, p) => sum + (p.totalAmount || 0), 0);
+      
+      html += `
+        <div class="summary-box">
+          <h3>Outstanding Summary</h3>
+          <div class="summary-item"><span class="summary-label">Total Invoices:</span><span>${data.pending.length}</span></div>
+          ${data.customerName ? '' : `<div class="summary-item"><span class="summary-label">Unique Customers:</span><span>${uniqueCustomerCount}</span></div>`}
+          <div class="summary-item"><span class="summary-label">Total Invoice Amount:</span><span>₹${totalAmount.toFixed(2)}</span></div>
+          <div class="summary-item"><span class="summary-label">Total Outstanding:</span><span>₹${totalOutstanding.toFixed(2)}</span></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              ${data.customerName ? '' : '<th>Customer</th><th>Phone</th>'}
+              <th>Invoice #</th>
+              <th class="text-right">Total</th>
+              <th class="text-right">Paid</th>
+              <th class="text-right">Pending</th>
+              <th>Invoice Date</th>
+              <th>Due Date</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      data.pending.forEach(pending => {
+        html += `
+          <tr>
+            ${data.customerName ? '' : `
+              <td>${pending.clientCustomerName || pending.clientName || 'N/A'}</td>
+              <td>${pending.clientCustomerPhone || pending.clientPhone || 'N/A'}</td>
+            `}
+            <td>${pending.invoiceNumber}</td>
+            <td class="text-right">₹${(pending.totalAmount || 0).toFixed(2)}</td>
+            <td class="text-right">₹${(pending.paidAmount || 0).toFixed(2)}</td>
+            <td class="text-right">₹${(pending.pendingAmount || pending.amount || 0).toFixed(2)}</td>
+            <td>${formatDate(new Date(pending.invoiceDate || pending.createdAt || pending.date))}</td>
+            <td>${pending.dueDate || 'N/A'}</td>
+          </tr>
+        `;
       });
-
-      text += `\n${'='.repeat(50)}\n`;
-      text += `Total Outstanding: ₹${totalOutstanding.toFixed(2)}\n`;
-      text += `Total Customers: ${data.pending.length}\n`;
-    } else if (data.type === 'Inventory Report') {
-      text += 'INVENTORY LIST\n';
-      text += '-'.repeat(50) + '\n';
-      let totalValue = 0;
-
-      data.items.forEach((item: any, index: number) => {
-        const itemValue = (item.quantity || 0) * (item.price || 0);
-        totalValue += itemValue;
-        text += `\n${index + 1}. ${item.name || 'N/A'}\n`;
-        text += `   Quantity: ${item.quantity || 0}\n`;
-        text += `   Price: ₹${item.price || 0}\n`;
-        text += `   Value: ₹${itemValue.toFixed(2)}\n`;
-        text += `   Category: ${item.category || 'N/A'}\n`;
+      
+      html += `</tbody></table>`;
+      
+    } else if (data.type === 'Inventory Report' && data.items) {
+      const totalValue = data.items.reduce((sum, item) => sum + ((item.quantity || item.stockAvailable || item.stock || 0) * (item.price || item.amount || item.sellingPrice || 0)), 0);
+      
+      html += `
+        <div class="summary-box">
+          <h3>Inventory Summary</h3>
+          <div class="summary-item"><span class="summary-label">Total Items:</span><span>${data.items.length}</span></div>
+          <div class="summary-item"><span class="summary-label">Total Inventory Value:</span><span>₹${totalValue.toFixed(2)}</span></div>
+        </div>
+        <table>
+          <thead>
+            <tr>
+              <th>Item Name</th>
+              <th>SKU</th>
+              <th class="text-center">Quantity</th>
+              <th class="text-right">Price</th>
+              <th class="text-center">Tax</th>
+              <th class="text-right">Value</th>
+              <th>Group</th>
+            </tr>
+          </thead>
+          <tbody>
+      `;
+      
+      data.items.forEach(item => {
+        const qty = item.quantity || item.stockAvailable || item.stock || 0;
+        const price = item.price || item.amount || item.sellingPrice || 0;
+        const value = qty * price;
+        html += `
+          <tr>
+            <td>${item.name || item.itemName || 'N/A'}</td>
+            <td>${item.sku || item.code || 'N/A'}</td>
+            <td class="text-center">${qty}</td>
+            <td class="text-right">₹${price.toFixed(2)}</td>
+            <td class="text-center">${item.tax || 0}%</td>
+            <td class="text-right">₹${value.toFixed(2)}</td>
+            <td>${item.groupName || 'Ungrouped'}</td>
+          </tr>
+        `;
       });
-
-      text += `\n${'='.repeat(50)}\n`;
-      text += `Total Items: ${data.items.length}\n`;
-      text += `Total Inventory Value: ₹${totalValue.toFixed(2)}\n`;
+      
+      html += `</tbody></table>`;
     }
 
-    return text;
+    html += `
+          <div class="footer">
+            <p>Generated by Viveha.ai Export Center</p>
+            <p>Report generated on ${new Date().toLocaleString()}</p>
+          </div>
+        </body>
+      </html>
+    `;
+
+    return html;
+  };
+
+  const handlePreviewReport = async () => {
+    setLoading(true);
+    try {
+      const data = await generateReportData();
+      if (data) {
+        setPreviewData(data);
+        setShowPreview(true);
+      }
+    } catch (error) {
+      console.error('Error generating preview:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Preview Failed',
+        text2: 'Could not load preview data',
+        position: 'bottom',
+      });
+    } finally {
+      setLoading(false);
+    }
   };
 
   const handleGenerateReport = async () => {
+    if (isGenerating || loading) return;
+    
     setIsGenerating(true);
 
     try {
+      Toast.show({
+        type: 'info',
+        text1: 'Generating Report',
+        text2: 'Please wait...',
+        position: 'bottom',
+      });
+
       // Get report data
       const reportData = await generateReportData();
       
@@ -277,70 +724,76 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
       if (!hasData) {
         Alert.alert(
           'No Data',
-          'There is no data available for this report. Please add some invoices, items, or customers first.',
+          'There is no data available for this report in the selected date range. Please try a different date range or add some data first.',
           [{ text: 'OK' }]
         );
         setIsGenerating(false);
         return;
       }
 
-      // Format data based on selected format
-      let fileContent = '';
-      let fileExtension = '';
-      let mimeType = '';
-
-      switch (selectedFormat) {
-        case 'csv':
-          fileContent = formatDataAsCSV(reportData);
-          fileExtension = 'csv';
-          mimeType = 'text/csv';
-          break;
-        case 'pdf':
-        case 'excel':
-          // For now, treat PDF and Excel as text files
-          // In production, you'd use libraries like expo-print for PDF or xlsx for Excel
-          fileContent = formatDataAsText(reportData);
-          fileExtension = selectedFormat === 'pdf' ? 'txt' : 'txt';
-          mimeType = 'text/plain';
-          Alert.alert(
-            'Note',
-            `${selectedFormat.toUpperCase()} export is simulated. File will be saved as TXT format.`,
-            [{ text: 'OK' }]
-          );
-          break;
-      }
-
       // Generate filename
       const timestamp = new Date().getTime();
       const reportName = selectedReport.replace(/\s+/g, '_');
-      const filename = `${reportName}_${timestamp}.${fileExtension}`;
-      const fileUri = `${FileSystem.documentDirectory}${filename}`;
+      const customerStr = selectedCustomer ? `_${selectedCustomer.name.replace(/\s+/g, '_')}` : '';
+      const dateStr = `${formatDate(startDate).replace(/[, ]/g, '_')}_to_${formatDate(endDate).replace(/[, ]/g, '_')}`;
 
-      // Write file
-      await FileSystem.writeAsStringAsync(fileUri, fileContent, {
-        encoding: FileSystem.EncodingType.UTF8,
-      });
+      if (selectedFormat === 'pdf') {
+        // Generate PDF
+        const html = generatePDFHTML(reportData);
+        const { uri } = await Print.printToFileAsync({ html });
+        
+        // Rename file to include report info
+        const fileName = `${reportName}${customerStr}_${dateStr}.pdf`;
+        const newUri = `${FileSystem.documentDirectory}${fileName}`;
+        await FileSystem.moveAsync({
+          from: uri,
+          to: newUri,
+        });
 
-      // Share the file
-      if (await Sharing.isAvailableAsync()) {
-        await Sharing.shareAsync(fileUri, {
-          mimeType: mimeType,
-          dialogTitle: 'Export Report',
-          UTI: mimeType,
+        // Share the file
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(newUri, {
+            mimeType: 'application/pdf',
+            dialogTitle: 'Export Report',
+          });
+        }
+        
+        Toast.show({
+          type: 'success',
+          text1: 'PDF Generated',
+          text2: 'Report generated successfully!',
+          position: 'bottom',
+          visibilityTime: 3000,
         });
         
-        Alert.alert(
-          'Success',
-          'Report generated successfully!',
-          [{ text: 'OK' }]
-        );
-      } else {
-        Alert.alert(
-          'Success',
-          `Report saved to: ${filename}`,
-          [{ text: 'OK' }]
-        );
+      } else if (selectedFormat === 'csv') {
+        // Generate CSV
+        const csvContent = formatDataAsCSV(reportData);
+        const fileName = `${reportName}${customerStr}_${dateStr}.csv`;
+        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+        // Write file
+        await FileSystem.writeAsStringAsync(fileUri, csvContent, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        // Share the file
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'text/csv',
+            dialogTitle: 'Export Report',
+          });
+        }
+        
+        Toast.show({
+          type: 'success',
+          text1: 'CSV Generated',
+          text2: 'Report generated successfully!',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
       }
+      
     } catch (error) {
       console.error('Error generating report:', error);
       Alert.alert(
@@ -348,6 +801,12 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         'Failed to generate report. Please try again.',
         [{ text: 'OK' }]
       );
+      Toast.show({
+        type: 'error',
+        text1: 'Generation Failed',
+        text2: 'Please try again',
+        position: 'bottom',
+      });
     } finally {
       setIsGenerating(false);
     }
@@ -387,13 +846,9 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                     <Text style={styles.reportDescription}>{report.description}</Text>
                   </View>
                 </View>
-                {report.badge && (
-                  <View style={styles.badge} />
-                )}
-                {report.locked && (
+                {report.locked ? (
                   <Ionicons name="lock-closed" size={18} color="#999" />
-                )}
-                {!report.badge && !report.locked && (
+                ) : (
                   <View style={[
                     styles.radioButton,
                     selectedReport === report.id && styles.radioButtonSelected
@@ -413,32 +868,99 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           <Text style={styles.sectionLabel}>DATA RANGE</Text>
           <View style={styles.dataRangeContainer}>
             <View style={styles.dateRangeTabs}>
-              {['preview', 'week', 'month', 'custom'].map((range) => (
+              {(['preview', 'week', 'month', 'custom'] as DateRangeType[]).map((range) => (
                 <TouchableOpacity
                   key={range}
                   style={[
                     styles.dateRangeTab,
                     selectedDateRange === range && styles.dateRangeTabActive
                   ]}
-                  onPress={() => setSelectedDateRange(range as DateRangeType)}
+                  onPress={() => setSelectedDateRange(range)}
                 >
                   <Text style={[
                     styles.dateRangeTabText,
                     selectedDateRange === range && styles.dateRangeTabTextActive
                   ]}>
-                    {range.charAt(0).toUpperCase() + range.slice(1)}
+                    {range === 'preview' ? 'Last 7d' : range.charAt(0).toUpperCase() + range.slice(1)}
                   </Text>
                 </TouchableOpacity>
               ))}
             </View>
+            
             <View style={styles.dateDisplay}>
-              <Text style={styles.dateText}>{startDate} - {endDate}</Text>
-              <TouchableOpacity onPress={handleDateRangeChange}>
-                <Text style={styles.changeLink}>Change</Text>
-              </TouchableOpacity>
+              <View style={styles.dateColumn}>
+                <Text style={styles.dateLabel}>Start Date</Text>
+                <TouchableOpacity 
+                  style={styles.dateButton}
+                  onPress={() => setShowStartDatePicker(true)}
+                >
+                  <Ionicons name="calendar-outline" size={18} color="#666" />
+                  <Text style={styles.dateText}>{formatDate(startDate)}</Text>
+                </TouchableOpacity>
+              </View>
+              
+              <View style={styles.dateColumn}>
+                <Text style={styles.dateLabel}>End Date</Text>
+                <TouchableOpacity 
+                  style={styles.dateButton}
+                  onPress={() => setShowEndDatePicker(true)}
+                >
+                  <Ionicons name="calendar-outline" size={18} color="#666" />
+                  <Text style={styles.dateText}>{formatDate(endDate)}</Text>
+                </TouchableOpacity>
+              </View>
             </View>
+            
+            {showStartDatePicker && (
+              <DateTimePicker
+                value={startDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onStartDateChange}
+                maximumDate={endDate}
+              />
+            )}
+            
+            {showEndDatePicker && (
+              <DateTimePicker
+                value={endDate}
+                mode="date"
+                display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                onChange={onEndDateChange}
+                minimumDate={startDate}
+                maximumDate={new Date()}
+              />
+            )}
           </View>
         </View>
+
+        {/* Customer Filter Section */}
+        {(selectedReport === 'insights' || selectedReport === 'outstanding' || selectedReport === 'tax') && (
+          <View style={styles.section}>
+            <Text style={styles.sectionLabel}>CUSTOMER FILTER (Optional)</Text>
+            <TouchableOpacity 
+              style={styles.customerSelector}
+              onPress={() => setShowCustomerSelector(true)}
+            >
+              <View style={styles.customerSelectorLeft}>
+                <Ionicons name="person-outline" size={20} color="#666" />
+                <Text style={styles.customerSelectorText}>
+                  {selectedCustomer ? selectedCustomer.name : 'All Customers'}
+                </Text>
+              </View>
+              <Ionicons name="chevron-down" size={20} color="#666" />
+            </TouchableOpacity>
+            {selectedCustomer && (
+              <TouchableOpacity 
+                style={styles.clearCustomerButton}
+                onPress={() => setSelectedCustomer(null)}
+              >
+                <Ionicons name="close-circle" size={16} color="#FF6B6B" />
+                <Text style={styles.clearCustomerText}>Clear Filter</Text>
+              </TouchableOpacity>
+            )}
+          </View>
+        )}
 
         {/* Format Options Section */}
         <View style={styles.section}>
@@ -462,50 +984,320 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           </View>
         </View>
 
-        {/* Scheduled Reports Section */}
-        <View style={styles.section}>
-          <View style={styles.scheduledHeader}>
-            <Text style={styles.sectionLabel}>SCHEDULED REPORTS</Text>
-            <TouchableOpacity style={styles.createNewButton}>
-              <Ionicons name="add-circle" size={16} color="#4A90E2" />
-              <Text style={styles.createNewText}>Create New</Text>
-            </TouchableOpacity>
-          </View>
-          <View style={styles.scheduledItem}>
-            <View style={styles.scheduledLeft}>
-              <View style={styles.scheduledIcon}>
-                <Ionicons name="time-outline" size={22} color="#666" />
-              </View>
-              <View>
-                <Text style={styles.scheduledTitle}>Weekly Sales Summary</Text>
-                <Text style={styles.scheduledDetails}>Every Monday | Excel</Text>
-              </View>
-            </View>
-            <TouchableOpacity style={styles.scheduledMenu}>
-              <Ionicons name="ellipsis-vertical" size={20} color="#999" />
-            </TouchableOpacity>
-          </View>
-          <Text style={styles.historyNote}>Files are stored for 30 days in the Export History</Text>
-        </View>
+        {/* Preview Button */}
+        <TouchableOpacity 
+          style={[styles.previewButton, loading && styles.previewButtonDisabled]} 
+          onPress={handlePreviewReport}
+          disabled={loading || isGenerating}
+        >
+          {loading ? (
+            <>
+              <ActivityIndicator size="small" color="#4A90E2" />
+              <Text style={styles.previewButtonText}>Loading...</Text>
+            </>
+          ) : (
+            <>
+              <Ionicons name="eye-outline" size={24} color="#4A90E2" />
+              <Text style={styles.previewButtonText}>Preview Report</Text>
+            </>
+          )}
+        </TouchableOpacity>
 
         {/* Generate Report Button */}
         <TouchableOpacity 
-          style={[styles.generateButton, isGenerating && styles.generateButtonDisabled]} 
+          style={[styles.generateButton, (isGenerating || loading) && styles.generateButtonDisabled]} 
           onPress={handleGenerateReport}
-          disabled={isGenerating}
+          disabled={isGenerating || loading}
         >
-          <Ionicons 
-            name={isGenerating ? "hourglass-outline" : "download-outline"} 
-            size={24} 
-            color="#FFFFFF" 
-          />
-          <Text style={styles.generateButtonText}>
-            {isGenerating ? 'Generating...' : 'Generate Report'}
-          </Text>
+          {isGenerating || loading ? (
+            <>
+              <ActivityIndicator size="small" color="#FFFFFF" />
+              <Text style={styles.generateButtonText}>
+                {loading ? 'Loading Data...' : 'Generating...'}
+              </Text>
+            </>
+          ) : (
+            <>
+              <Ionicons name="download-outline" size={24} color="#FFFFFF" />
+              <Text style={styles.generateButtonText}>Generate Report</Text>
+            </>
+          )}
         </TouchableOpacity>
+
+        <Text style={styles.helpText}>
+          Reports are generated in {selectedFormat.toUpperCase()} format for the selected date range.
+        </Text>
 
         <View style={styles.bottomSpacing} />
       </ScrollView>
+
+      {/* Customer Selector Modal */}
+      <Modal
+        visible={showCustomerSelector}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowCustomerSelector(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Select Customer</Text>
+              <TouchableOpacity onPress={() => setShowCustomerSelector(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            
+            <TouchableOpacity 
+              style={[styles.customerItem, !selectedCustomer && styles.customerItemSelected]}
+              onPress={() => {
+                setSelectedCustomer(null);
+                setShowCustomerSelector(false);
+              }}
+            >
+              <Ionicons name="people-outline" size={24} color="#4A90E2" />
+              <Text style={styles.customerItemText}>All Customers</Text>
+              {!selectedCustomer && (
+                <Ionicons name="checkmark-circle" size={24} color="#4A90E2" />
+              )}
+            </TouchableOpacity>
+
+            <FlatList
+              data={customers}
+              keyExtractor={(item) => item.id || item.serverId || item.phone}
+              renderItem={({ item }) => (
+                <TouchableOpacity 
+                  style={[
+                    styles.customerItem,
+                    selectedCustomer?.id === item.id && styles.customerItemSelected
+                  ]}
+                  onPress={() => {
+                    setSelectedCustomer(item);
+                    setShowCustomerSelector(false);
+                  }}
+                >
+                  <Ionicons name="person-outline" size={24} color="#666" />
+                  <View style={styles.customerItemInfo}>
+                    <Text style={styles.customerItemText}>{item.name}</Text>
+                    <Text style={styles.customerItemPhone}>{item.phone}</Text>
+                  </View>
+                  {selectedCustomer?.id === item.id && (
+                    <Ionicons name="checkmark-circle" size={24} color="#4A90E2" />
+                  )}
+                </TouchableOpacity>
+              )}
+              ListEmptyComponent={() => (
+                <View style={styles.emptyState}>
+                  <Text style={styles.emptyStateText}>No customers found</Text>
+                </View>
+              )}
+              style={styles.customerList}
+            />
+          </View>
+        </View>
+      </Modal>
+
+      {/* Preview Modal */}
+      <Modal
+        visible={showPreview}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setShowPreview(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.previewModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Preview Report</Text>
+              <TouchableOpacity onPress={() => setShowPreview(false)}>
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+            
+            {loading ? (
+              <View style={styles.previewLoadingContainer}>
+                <ActivityIndicator size="large" color="#FF8A5B" />
+                <Text style={styles.previewLoadingText}>Loading preview...</Text>
+              </View>
+            ) : previewData ? (
+              <>
+                <ScrollView 
+                  style={styles.previewScrollView}
+                  contentContainerStyle={styles.previewScrollContent}
+                  showsVerticalScrollIndicator={false}
+                >
+                  <View style={styles.previewHeader}>
+                    <Text style={styles.previewTitle}>{previewData.type}</Text>
+                    <Text style={styles.previewDateRange}>
+                      {previewData.startDate} - {previewData.endDate}
+                    </Text>
+                    {selectedCustomer && (
+                      <Text style={styles.previewCustomer}>
+                        Customer: {selectedCustomer.name}
+                      </Text>
+                    )}
+                  </View>
+
+                  {/* Check if there's any data to show */}
+                  {!previewData.invoices?.length && 
+                   !previewData.pending?.length && 
+                   !previewData.items?.length && 
+                   !previewData.payments?.length && (
+                    <View style={styles.previewEmptyState}>
+                      <Ionicons name="document-outline" size={64} color="#CCC" />
+                      <Text style={styles.previewEmptyTitle}>No Data Available</Text>
+                      <Text style={styles.previewEmptyText}>
+                        There is no data for this report in the selected date range.
+                      </Text>
+                    </View>
+                  )}
+
+                  {previewData.invoices && previewData.invoices.length > 0 && (
+                    <View style={styles.previewSection}>
+                      <View style={styles.previewSectionHeader}>
+                        <Ionicons name="receipt-outline" size={20} color="#FF8A5B" />
+                        <Text style={styles.previewSectionTitle}>
+                          Invoices ({previewData.invoices.length})
+                        </Text>
+                      </View>
+                      {previewData.invoices.slice(0, 10).map((inv: any, index: number) => (
+                        <View key={index} style={styles.previewItem}>
+                          <View style={styles.previewItemHeader}>
+                            <Text style={styles.previewItemTitle}>
+                              #{inv.invoiceNumber || inv.number || `${index + 1}`}
+                            </Text>
+                            <Text style={styles.previewItemAmount}>
+                              ₹{(inv.total || inv.totalAmount || inv.grandTotal || 0).toFixed(2)}
+                            </Text>
+                          </View>
+                          <Text style={styles.previewItemDetail}>
+                            {inv.clientName || inv.clientCustomerName || 'N/A'}
+                          </Text>
+                        </View>
+                      ))}
+                      {previewData.invoices.length > 10 && (
+                        <Text style={styles.previewMore}>
+                          + {previewData.invoices.length - 10} more invoices
+                        </Text>
+                      )}
+                    </View>
+                  )}
+
+                  {previewData.pending && previewData.pending.length > 0 && (
+                    <View style={styles.previewSection}>
+                      <View style={styles.previewSectionHeader}>
+                        <Ionicons name="time-outline" size={20} color="#FF8A5B" />
+                        <Text style={styles.previewSectionTitle}>
+                          Pending Payments ({previewData.pending.length})
+                        </Text>
+                      </View>
+                      {previewData.pending.slice(0, 10).map((pend: any, index: number) => (
+                        <View key={index} style={styles.previewItem}>
+                          <View style={styles.previewItemHeader}>
+                            <Text style={styles.previewItemTitle}>
+                              {pend.clientName || pend.clientCustomerName || 'N/A'}
+                            </Text>
+                            <Text style={[styles.previewItemAmount, styles.previewAmountPending]}>
+                              ₹{(pend.pendingAmount || pend.amount || 0).toFixed(2)}
+                            </Text>
+                          </View>
+                          <Text style={styles.previewItemDetail}>
+                            Invoice: {pend.invoiceNumber || 'N/A'}
+                          </Text>
+                        </View>
+                      ))}
+                      {previewData.pending.length > 10 && (
+                        <Text style={styles.previewMore}>
+                          + {previewData.pending.length - 10} more pending payments
+                        </Text>
+                      )}
+                    </View>
+                  )}
+
+                  {previewData.items && previewData.items.length > 0 && (
+                    <View style={styles.previewSection}>
+                      <View style={styles.previewSectionHeader}>
+                        <Ionicons name="cube-outline" size={20} color="#FF8A5B" />
+                        <Text style={styles.previewSectionTitle}>
+                          Items ({previewData.items.length})
+                        </Text>
+                      </View>
+                      {previewData.items.slice(0, 10).map((item: any, index: number) => (
+                        <View key={index} style={styles.previewItem}>
+                          <View style={styles.previewItemHeader}>
+                            <Text style={styles.previewItemTitle}>
+                              {item.name || item.itemName}
+                            </Text>
+                            <Text style={styles.previewItemAmount}>
+                              ₹{(item.price || item.amount || 0).toFixed(2)}
+                            </Text>
+                          </View>
+                          <Text style={styles.previewItemDetail}>
+                            Stock: {item.quantity || item.stock || 0} {item.unit || 'pcs'}
+                          </Text>
+                        </View>
+                      ))}
+                      {previewData.items.length > 10 && (
+                        <Text style={styles.previewMore}>
+                          + {previewData.items.length - 10} more items
+                        </Text>
+                      )}
+                    </View>
+                  )}
+
+                  {previewData.payments && previewData.payments.length > 0 && (
+                    <View style={styles.previewSection}>
+                      <View style={styles.previewSectionHeader}>
+                        <Ionicons name="cash-outline" size={20} color="#FF8A5B" />
+                        <Text style={styles.previewSectionTitle}>
+                          Payments ({previewData.payments.length})
+                        </Text>
+                      </View>
+                      {previewData.payments.slice(0, 10).map((payment: any, index: number) => (
+                        <View key={index} style={styles.previewItem}>
+                          <View style={styles.previewItemHeader}>
+                            <Text style={styles.previewItemTitle}>
+                              {payment.invoiceNumber || `Payment ${index + 1}`}
+                            </Text>
+                            <Text style={[styles.previewItemAmount, styles.previewAmountPaid]}>
+                              ₹{(payment.amount || 0).toFixed(2)}
+                            </Text>
+                          </View>
+                          <Text style={styles.previewItemDetail}>
+                            {payment.method || payment.paymentMethod || 'N/A'}
+                          </Text>
+                        </View>
+                      ))}
+                      {previewData.payments.length > 10 && (
+                        <Text style={styles.previewMore}>
+                          + {previewData.payments.length - 10} more payments
+                        </Text>
+                      )}
+                    </View>
+                  )}
+
+                  <View style={styles.previewBottomSpacing} />
+                </ScrollView>
+
+                <View style={styles.previewFooter}>
+                  <TouchableOpacity 
+                    style={styles.previewCloseButton}
+                    onPress={() => setShowPreview(false)}
+                  >
+                    <Text style={styles.previewCloseButtonText}>Close Preview</Text>
+                  </TouchableOpacity>
+                </View>
+              </>
+            ) : (
+              <View style={styles.previewEmptyState}>
+                <Ionicons name="alert-circle-outline" size={64} color="#CCC" />
+                <Text style={styles.previewEmptyTitle}>No Preview Available</Text>
+                <Text style={styles.previewEmptyText}>
+                  Unable to load preview data.
+                </Text>
+              </View>
+            )}
+          </View>
+        </View>
+      </Modal>
 
       {/* Footer */}
       <Footer activeTab="Profile" navigation={navigation} />
@@ -659,21 +1451,34 @@ const styles = StyleSheet.create({
   },
   dateDisplay: {
     flexDirection: 'row',
+    gap: 12,
+    marginTop: 15,
+  },
+  dateColumn: {
+    flex: 1,
+  },
+  dateLabel: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#999',
+    marginBottom: 8,
+  },
+  dateButton: {
+    flexDirection: 'row',
     alignItems: 'center',
-    justifyContent: 'space-between',
-    paddingTop: 10,
-    borderTopWidth: 1,
-    borderTopColor: '#F0F0F0',
+    backgroundColor: '#F8F8F8',
+    paddingVertical: 10,
+    paddingHorizontal: 12,
+    borderRadius: 8,
+    borderWidth: 1,
+    borderColor: '#E5E5E5',
+    gap: 8,
   },
   dateText: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '500',
     color: '#333',
-  },
-  changeLink: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#4A90E2',
+    flex: 1,
   },
   formatOptionsContainer: {
     flexDirection: 'row',
@@ -710,69 +1515,6 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#333',
   },
-  scheduledHeader: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    marginBottom: 12,
-  },
-  createNewButton: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    gap: 5,
-  },
-  createNewText: {
-    fontSize: 13,
-    fontWeight: '600',
-    color: '#4A90E2',
-  },
-  scheduledItem: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'space-between',
-    backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 15,
-    marginBottom: 10,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
-  },
-  scheduledLeft: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
-  },
-  scheduledIcon: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
-    backgroundColor: '#F8F8F8',
-    alignItems: 'center',
-    justifyContent: 'center',
-    marginRight: 12,
-  },
-  scheduledTitle: {
-    fontSize: 14,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 3,
-  },
-  scheduledDetails: {
-    fontSize: 12,
-    color: '#999',
-  },
-  scheduledMenu: {
-    padding: 5,
-  },
-  historyNote: {
-    fontSize: 11,
-    color: '#999',
-    textAlign: 'center',
-    marginTop: 5,
-  },
   generateButton: {
     flexDirection: 'row',
     alignItems: 'center',
@@ -797,7 +1539,289 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#FFFFFF',
   },
+  helpText: {
+    fontSize: 12,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 15,
+    marginHorizontal: 20,
+    lineHeight: 18,
+  },
   bottomSpacing: {
     height: 30,
+  },
+  customerSelector: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    backgroundColor: '#FFFFFF',
+    padding: 16,
+    borderRadius: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  customerSelectorLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 12,
+  },
+  customerSelectorText: {
+    fontSize: 16,
+    color: '#333',
+    fontWeight: '500',
+  },
+  clearCustomerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 6,
+    marginTop: 12,
+    paddingVertical: 8,
+    paddingHorizontal: 12,
+    backgroundColor: '#FFF5F5',
+    borderRadius: 8,
+    alignSelf: 'flex-start',
+  },
+  clearCustomerText: {
+    fontSize: 14,
+    color: '#FF6B6B',
+    fontWeight: '500',
+  },
+  previewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFFFFF',
+    paddingVertical: 16,
+    borderRadius: 12,
+    marginHorizontal: 20,
+    marginTop: 15,
+    borderWidth: 2,
+    borderColor: '#4A90E2',
+    gap: 10,
+  },
+  previewButtonDisabled: {
+    opacity: 0.6,
+    borderColor: '#CCC',
+  },
+  previewButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#4A90E2',
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    maxHeight: '80%',
+    paddingBottom: 20,
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+  },
+  customerList: {
+    maxHeight: 400,
+  },
+  customerItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    padding: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+    gap: 12,
+  },
+  customerItemSelected: {
+    backgroundColor: '#F5F9FF',
+  },
+  customerItemInfo: {
+    flex: 1,
+  },
+  customerItemText: {
+    fontSize: 16,
+    fontWeight: '500',
+    color: '#333',
+  },
+  customerItemPhone: {
+    fontSize: 14,
+    color: '#666',
+    marginTop: 2,
+  },
+  emptyState: {
+    padding: 40,
+    alignItems: 'center',
+  },
+  emptyStateText: {
+    fontSize: 16,
+    color: '#999',
+  },
+  previewModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 20,
+    borderTopRightRadius: 20,
+    height: '90%',
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  previewScrollView: {
+    flex: 1,
+  },
+  previewScrollContent: {
+    paddingBottom: 20,
+  },
+  previewLoadingContainer: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+  },
+  previewLoadingText: {
+    marginTop: 16,
+    fontSize: 16,
+    color: '#666',
+  },
+  previewEmptyState: {
+    flex: 1,
+    justifyContent: 'center',
+    alignItems: 'center',
+    padding: 40,
+    minHeight: 300,
+  },
+  previewEmptyTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#333',
+    marginTop: 16,
+    marginBottom: 8,
+  },
+  previewEmptyText: {
+    fontSize: 14,
+    color: '#666',
+    textAlign: 'center',
+    lineHeight: 20,
+  },
+  previewHeader: {
+    padding: 20,
+    backgroundColor: '#F8F9FA',
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+  },
+  previewTitle: {
+    fontSize: 20,
+    fontWeight: '700',
+    color: '#333',
+    marginBottom: 8,
+  },
+  previewDateRange: {
+    fontSize: 14,
+    color: '#666',
+    marginBottom: 4,
+  },
+  previewCustomer: {
+    fontSize: 14,
+    color: '#FF8A5B',
+    fontWeight: '600',
+    marginTop: 8,
+    paddingTop: 8,
+    borderTopWidth: 1,
+    borderTopColor: '#E0E0E0',
+  },
+  previewSection: {
+    padding: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F0F0F0',
+  },
+  previewSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    marginBottom: 12,
+    gap: 8,
+  },
+  previewSectionTitle: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+  },
+  previewItem: {
+    backgroundColor: '#F8F9FA',
+    padding: 14,
+    borderRadius: 10,
+    marginBottom: 10,
+    borderLeftWidth: 3,
+    borderLeftColor: '#FF8A5B',
+  },
+  previewItemHeader: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 6,
+  },
+  previewItemTitle: {
+    fontSize: 15,
+    fontWeight: '600',
+    color: '#333',
+    flex: 1,
+  },
+  previewItemAmount: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#4A90E2',
+  },
+  previewAmountPending: {
+    color: '#FF6B6B',
+  },
+  previewAmountPaid: {
+    color: '#51CF66',
+  },
+  previewItemDetail: {
+    fontSize: 13,
+    color: '#666',
+  },
+  previewMore: {
+    fontSize: 14,
+    color: '#FF8A5B',
+    fontWeight: '600',
+    marginTop: 12,
+    textAlign: 'center',
+    paddingVertical: 8,
+  },
+  previewBottomSpacing: {
+    height: 20,
+  },
+  previewFooter: {
+    padding: 20,
+    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
+    backgroundColor: '#FFFFFF',
+    borderTopWidth: 1,
+    borderTopColor: '#F0F0F0',
+  },
+  previewCloseButton: {
+    backgroundColor: '#FF8A5B',
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+    elevation: 2,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+  },
+  previewCloseButtonText: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#FFFFFF',
   },
 });

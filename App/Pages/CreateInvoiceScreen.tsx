@@ -160,6 +160,13 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
     emailId: false,
     gstNo: false,
   });
+  const [taxSettings, setTaxSettings] = useState<{
+    enableTaxCalculation: boolean;
+    primaryTaxRate: number;
+  }>({
+    enableTaxCalculation: false,
+    primaryTaxRate: 0,
+  });
 
   const [items, setItems] = useState<InvoiceItem[]>([]);
 
@@ -236,6 +243,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
       loadAvailableItems();
       loadClients();
       loadCustomerFieldSettings();
+      loadTaxSettings();
       
       return () => {
         // Cleanup if needed
@@ -248,6 +256,8 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
     loadLocalData();
     loadAvailableItems();
     loadClients();
+    loadCustomerFieldSettings();
+    loadTaxSettings();
     loadCustomerFieldSettings();
   }, []);
 
@@ -268,6 +278,19 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
       }
     } catch (error) {
       console.error('Error loading customer field settings:', error);
+    }
+  };
+
+  const loadTaxSettings = async (): Promise<void> => {
+    try {
+      const cachedTaxSettings = await AsyncStorage.getItem('@viveha_tax_settings');
+      if (cachedTaxSettings) {
+        const settings = JSON.parse(cachedTaxSettings);
+        console.log('📊 Loaded tax settings:', settings);
+        setTaxSettings(settings);
+      }
+    } catch (error) {
+      console.error('Error loading tax settings:', error);
     }
   };
 
@@ -491,6 +514,8 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
       });
     } else {
       // Item doesn't exist, add new
+      const defaultTaxRate = taxSettings.enableTaxCalculation ? taxSettings.primaryTaxRate : 0;
+      
       const newItem: InvoiceItem = {
         id: Date.now().toString(),
         serverId: selectedItem.serverId || selectedItem.id, // Backend item ID for stock deduction
@@ -498,12 +523,14 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         quantity: 1,
         unit: 'Nos',
         price: selectedItem.amount,
-        tax: 0,
+        tax: defaultTaxRate,
         discount: 0,
         stockAvailable: selectedItem.stock,
       };
       const updatedItems = [...items, newItem];
       setItems(updatedItems);
+
+      console.log('✅ Item added with tax:', defaultTaxRate + '%');
 
       // Save locally to DRAFTS
       saveLocalData(STORAGE_KEYS.DRAFTS, [{
@@ -1287,7 +1314,11 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
               <Text style={styles.totalValue}>Rs. {(calculateSubTotal() || 0).toFixed(2)}</Text>
             </View>
             <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Tax (0%) :</Text>
+              <Text style={styles.totalLabel}>
+                Tax {taxSettings.enableTaxCalculation && taxSettings.primaryTaxRate > 0 
+                  ? `(${taxSettings.primaryTaxRate}%)` 
+                  : '(0%)'} :
+              </Text>
               <Text style={styles.totalValue}>Rs. {(calculateTotalTax() || 0).toFixed(2)}</Text>
             </View>
             <View style={styles.totalRow}>

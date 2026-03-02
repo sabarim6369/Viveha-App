@@ -127,14 +127,50 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
     useCallback(() => {
       console.log('📱 [PendingsScreen] Screen focused - reloading data...');
       loadPendings();
+      return () => {
+        // Cleanup if needed
+        console.log('📱 [PendingsScreen] Screen unfocused');
+      };
     }, [])
   );
+
+  // Add navigation listener to force reload when navigating to this screen
+  useEffect(() => {
+    const unsubscribe = navigation.addListener('focus', () => {
+      console.log('🔄 [PendingsScreen] Navigation focus event - force reload');
+      // Force reload with a delay to ensure AsyncStorage is updated
+      // Increased delay to 200ms for better reliability
+      setTimeout(() => {
+        console.log('⏰ [PendingsScreen] Executing delayed reload after navigation focus');
+        loadPendings();
+      }, 200);
+    });
+
+    return unsubscribe;
+  }, [navigation]);
 
   const loadPendings = async (): Promise<void> => {
     try {
       setLoading(true);
 
       console.log('📋 [PendingsScreen] Loading pending invoices...');
+      console.log('⏰ [PendingsScreen] Current timestamp:', new Date().toISOString());
+      
+      // Force clear any cached pending invoices to ensure fresh data
+      console.log('🔄 [PendingsScreen] Clearing cached pending invoices...');
+      await AsyncStorage.removeItem('@viveha_pending_invoices');
+      
+      // Log the raw invoices in storage to help debug
+      const rawInvoices = await AsyncStorage.getItem('@invoices');
+      const invoiceCount = rawInvoices ? JSON.parse(rawInvoices).length : 0;
+      console.log(`📦 [PendingsScreen] Found ${invoiceCount} total invoices in @invoices storage`);
+      if (invoiceCount > 0) {
+        const invoices = JSON.parse(rawInvoices);
+        console.log(`   Latest invoice: #${invoices[invoices.length - 1]?.number || invoices[invoices.length - 1]?.invoiceNumber}`);
+      }
+      
+      // Add a small delay to ensure AsyncStorage operations are complete
+      await new Promise(resolve => setTimeout(resolve, 100));
 
       // Fetch pending invoices directly from storage
       const backendPendings = await getPendingInvoices();
