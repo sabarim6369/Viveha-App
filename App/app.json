@@ -38,6 +38,9 @@
         "projectId": "d0ce4ead-b03e-45ea-8c26-241042e64bb4"
       }
     },
-    "owner": "isaii"
+    "owner": "isaii",
+    "plugins": [
+      "@react-native-community/datetimepicker"
+    ]
   }
 }

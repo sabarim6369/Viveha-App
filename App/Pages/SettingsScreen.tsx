@@ -5,18 +5,22 @@ import {
   StyleSheet,
   ScrollView,
   TouchableOpacity,
-  SafeAreaView,
   Switch,
   ActivityIndicator,
   Alert,
   TextInput,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
+  Dimensions,
 } from 'react-native';
+import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import apiurl from '../api';
+
+const { height: SCREEN_HEIGHT } = Dimensions.get('window');
 
 interface SettingsScreenProps {
   navigation: any;
@@ -34,6 +38,7 @@ interface TaxSettings {
 }
 
 export default function SettingsScreen({ navigation }: SettingsScreenProps): React.JSX.Element {
+  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState<boolean>(true);
   const [updating, setUpdating] = useState<boolean>(false);
   const [customerFields, setCustomerFields] = useState<CustomerFields>({
@@ -275,9 +280,10 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
   };
 
   return (
-    <SafeAreaView style={styles.container}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+      <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       {/* Header */}
-      <View style={styles.header}>
+      <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) }]}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -295,9 +301,13 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
       >
         <ScrollView 
           style={styles.scrollView} 
-          contentContainerStyle={styles.scrollViewContent}
+          contentContainerStyle={[
+            styles.scrollViewContent,
+            { paddingBottom: Math.max(insets.bottom, 20) + 20 }
+          ]}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
+          bounces={true}
         >
         {/* Customer Fields Section */}
         <View style={styles.section}>
@@ -529,10 +539,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    paddingBottom: 15,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 3,
+    elevation: 3,
   },
   backButton: {
     padding: 5,
@@ -552,7 +567,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollViewContent: {
-    paddingBottom: 100,
+    flexGrow: 1,
   },
   section: {
     marginTop: 20,
@@ -560,7 +575,8 @@ const styles = StyleSheet.create({
   sectionHeader: {
     backgroundColor: '#fff',
     paddingHorizontal: 20,
-    paddingVertical: 20,
+    paddingTop: 20,
+    paddingBottom: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
@@ -642,7 +658,7 @@ const styles = StyleSheet.create({
   infoSection: {
     marginTop: 20,
     marginHorizontal: 20,
-    marginBottom: 40,
+    marginBottom: 20,
   },
   infoCard: {
     flexDirection: 'row',

@@ -97,6 +97,8 @@ import CustomerProfileScreen from './Pages/CustomerProfileScreen';
 import CreateCustomerScreen from './Pages/CreateCustomerScreen';
 import HelpSupportScreen from './Pages/HelpSupportScreen';
 import RateUsScreen from './Pages/RateUsScreen';
+import PaymentMethodScreen from './Pages/PaymentMethodScreen';
+import ExportCenterScreen from './Pages/ExportCenterScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -184,6 +186,8 @@ export default function App() {
           <Stack.Screen name="Insights" component={InsightsScreen} />
           <Stack.Screen name="TaxAndDiscount" component={TaxAndDiscountScreen} />
           <Stack.Screen name="MyContacts" component={ContactsScreen} />
+          <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
+          <Stack.Screen name="ExportCenter" component={ExportCenterScreen} />
           <Stack.Screen name="CreateCustomer" component={CreateCustomerScreen} />
           <Stack.Screen name="InviteFriends" component={InviteFriendsScreen} />
           <Stack.Screen name="CustomerProfile" component={CustomerProfileScreen} />

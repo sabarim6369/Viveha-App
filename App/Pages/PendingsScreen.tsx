@@ -26,6 +26,7 @@ import {
   useNetworkStatus
 } from '../utils/NetworkManager';
 import Footer from '../Components/Footer';
+import PaymentSuccessModal from '../Components/PaymentSuccessModal';
 
 // Type Definitions
 interface PendingsScreenProps {
@@ -101,6 +102,13 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
   const [partialPaymentModalVisible, setPartialPaymentModalVisible] = useState<boolean>(false);
   const [partialAmount, setPartialAmount] = useState<string>('');
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [successModalVisible, setSuccessModalVisible] = useState<boolean>(false);
+  const [successPaymentDetails, setSuccessPaymentDetails] = useState<{
+    customerName: string;
+    invoiceNumber: string;
+    paidAmount: number;
+    remainingAmount: number;
+  } | null>(null);
   const { isConnected, isInternetReachable } = useNetworkStatus();
 
   useEffect(() => {
@@ -434,7 +442,15 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
       if (paymentResult.success) {
         console.log('✅ Payment successful, reloading...');
 
-        // Close modal
+        // Store payment details for success modal
+        setSuccessPaymentDetails({
+          customerName: selectedPending!.clientName,
+          invoiceNumber: selectedPending!.invoiceNumber,
+          paidAmount: selectedPending!.amount,
+          remainingAmount: 0,
+        });
+
+        // Close payment modal
         setPaymentModalVisible(false);
         setSelectedPending(null);
 
@@ -444,13 +460,8 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
         // Reload immediately from storage
         await loadPendings();
 
-        Toast.show({
-          type: 'success',
-          text1: 'Payment Completed',
-          text2: paymentResult.synced ? 'Synced to backend' : 'Saved offline (will sync later)',
-          position: 'bottom',
-          visibilityTime: 2000,
-        });
+        // Show success modal
+        setSuccessModalVisible(true);
       } else {
         throw new Error(paymentResult.error || 'Failed to record payment');
       }
@@ -521,6 +532,14 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
 
         const newRemaining = selectedPending!.amount - amount;
 
+        // Store payment details for success modal
+        setSuccessPaymentDetails({
+          customerName: selectedPending!.clientName,
+          invoiceNumber: selectedPending!.invoiceNumber,
+          paidAmount: amount,
+          remainingAmount: newRemaining,
+        });
+
         // Close modal
         setPartialPaymentModalVisible(false);
         setSelectedPending(null);
@@ -532,14 +551,8 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
         // Reload immediately from storage
         await loadPendings();
 
-        const syncMsg = paymentResult.synced ? '' : ' (offline)';
-        Toast.show({
-          type: 'success',
-          text1: 'Partial Payment Recorded',
-          text2: `Paid Rs.${amount.toFixed(2)} | Balance: Rs.${newRemaining.toFixed(2)}${syncMsg}`,
-          position: 'bottom',
-          visibilityTime: 3000,
-        });
+        // Show success modal
+        setSuccessModalVisible(true);
       } else {
         throw new Error(paymentResult.error || 'Failed to record payment');
       }
@@ -861,6 +874,21 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
           </View>
         </View>
       </Modal>
+
+      {/* Payment Success Modal */}
+      {successPaymentDetails && (
+        <PaymentSuccessModal
+          visible={successModalVisible}
+          onClose={() => {
+            setSuccessModalVisible(false);
+            setSuccessPaymentDetails(null);
+          }}
+          customerName={successPaymentDetails.customerName}
+          invoiceNumber={successPaymentDetails.invoiceNumber}
+          paidAmount={successPaymentDetails.paidAmount}
+          remainingAmount={successPaymentDetails.remainingAmount}
+        />
+      )}
 
       <Footer
         activeTab="Pendings"

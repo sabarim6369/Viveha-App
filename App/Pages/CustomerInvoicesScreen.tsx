@@ -18,6 +18,7 @@ import {
   getPendingInvoices,
   recordPayment,
 } from '../utils/NetworkManager';
+import PaymentSuccessModal from '../Components/PaymentSuccessModal';
 
 interface Product {
   itemName: string;
@@ -82,6 +83,13 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
   const [selectedInvoice, setSelectedInvoice] = useState<PendingInvoice | null>(null);
   const [partialPaymentModalVisible, setPartialPaymentModalVisible] = useState<boolean>(false);
   const [partialAmount, setPartialAmount] = useState<string>('');
+  const [successModalVisible, setSuccessModalVisible] = useState<boolean>(false);
+  const [successPaymentDetails, setSuccessPaymentDetails] = useState<{
+    customerName: string;
+    invoiceNumber: string;
+    paidAmount: number;
+    remainingAmount: number;
+  } | null>(null);
 
   const getTotalPending = (): number => {
     return invoices.reduce((sum, inv) => sum + inv.amount, 0);
@@ -229,6 +237,14 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
       const paymentResult: PaymentResult = await recordPayment(paymentRecord);
 
       if (paymentResult.success) {
+        // Store payment details for success modal
+        setSuccessPaymentDetails({
+          customerName: selectedInvoice!.clientName,
+          invoiceNumber: selectedInvoice!.invoiceNumber,
+          paidAmount: selectedInvoice!.amount,
+          remainingAmount: 0,
+        });
+
         setPaymentModalVisible(false);
         setSelectedInvoice(null);
 
@@ -288,12 +304,8 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
           return;
         }
 
-        Toast.show({
-          type: 'success',
-          text1: 'Payment Completed',
-          text2: paymentResult.synced ? 'Synced to backend' : 'Saved offline',
-          position: 'bottom',
-        });
+        // Show success modal
+        setSuccessModalVisible(true);
       } else {
         throw new Error(paymentResult.error || 'Failed to record payment');
       }
@@ -359,6 +371,14 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
       if (paymentResult.success) {
         const newRemaining = selectedInvoice!.amount - amount;
 
+        // Store payment details for success modal
+        setSuccessPaymentDetails({
+          customerName: selectedInvoice!.clientName,
+          invoiceNumber: selectedInvoice!.invoiceNumber,
+          paidAmount: amount,
+          remainingAmount: newRemaining,
+        });
+
         setPartialPaymentModalVisible(false);
         setSelectedInvoice(null);
         setPartialAmount('');
@@ -419,13 +439,8 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
           return;
         }
 
-        const syncMsg = paymentResult.synced ? '' : ' (offline)';
-        Toast.show({
-          type: 'success',
-          text1: 'Partial Payment Recorded',
-          text2: `Paid Rs.${amount.toFixed(2)} | Balance: Rs.${newRemaining.toFixed(2)}${syncMsg}`,
-          position: 'bottom',
-        });
+        // Show success modal
+        setSuccessModalVisible(true);
       } else {
         throw new Error(paymentResult.error || 'Failed to record payment');
       }
@@ -698,6 +713,21 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
           </View>
         </View>
       </Modal>
+
+      {/* Payment Success Modal */}
+      {successPaymentDetails && (
+        <PaymentSuccessModal
+          visible={successModalVisible}
+          onClose={() => {
+            setSuccessModalVisible(false);
+            setSuccessPaymentDetails(null);
+          }}
+          customerName={successPaymentDetails.customerName}
+          invoiceNumber={successPaymentDetails.invoiceNumber}
+          paidAmount={successPaymentDetails.paidAmount}
+          remainingAmount={successPaymentDetails.remainingAmount}
+        />
+      )}
     </SafeAreaView>
   );
 }
