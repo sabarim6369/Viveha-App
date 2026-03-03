@@ -41,9 +41,23 @@ interface Product {
 }
 
 interface PendingInvoiceItem {
+  id?: string;
+  serverId?: string;
   name: string;
   quantity: number;
+  unit: string;
+  actualPrice?: number;
+  salePrice: number;
   price: number;
+  tax: number;
+  discount: number;
+  stockAvailable?: number;
+}
+
+interface AdditionalFee {
+  id: string;
+  name: string;
+  amount: number;
 }
 
 interface PendingInvoice {
@@ -65,6 +79,7 @@ interface PendingInvoice {
   items: PendingInvoiceItem[];
   products: Product[];
   createdAt?: string;
+  additionalFees?: AdditionalFee[];
 }
 
 interface PaymentRecord {
@@ -356,6 +371,25 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
 
   const handleViewInvoice = async (pending: PendingInvoice): Promise<void> => {
     try {
+      // Load shop details for businessInfo
+      const shopDetailsStr = await AsyncStorage.getItem('@viveha_shop_details');
+      let businessInfo = {
+        name: 'My Shop',
+        address: '',
+        phone: '',
+        email: '',
+      };
+      
+      if (shopDetailsStr) {
+        const details = JSON.parse(shopDetailsStr);
+        businessInfo = {
+          name: details.shopName || 'My Shop',
+          address: `${details.location || ''}${details.city ? ', ' + details.city : ''}${details.state ? ', ' + details.state : ''}`,
+          phone: details.mobile || '',
+          email: '',
+        };
+      }
+
       // Fetch invoices from backend
       const invoices = await getInvoices();
 
@@ -380,6 +414,10 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
           name: product.itemName || 'Unknown Item',
           quantity: product.quantity || 0,
           price: product.costPerUnit || product.price || 0,
+          salePrice: product.costPerUnit || product.price || 0,
+          unit: 'unit',
+          tax: 0,
+          discount: 0,
         }));
 
         invoice = {
@@ -387,6 +425,7 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
           serverId: pending.serverId,
           number: pending.invoiceNumber,
           invoiceNumber: pending.invoiceNumber,
+          businessInfo: businessInfo,
           clientInfo: {
             name: pending.clientName,
             phone: pending.clientPhone,
@@ -400,12 +439,14 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
           paidAmount: pending.paidAmount,
           pendingAmount: pending.amount,
           discount: 0,
+          tax: 0,
           status: pending.status,
           invoiceDate: pending.invoiceDate || pending.date,
           dueDate: pending.dueDate || pending.date,
           items: items,
           createdAt: pending.createdAt,
-        };
+          additionalFees: pending.additionalFees || [],
+        } as any;
       }
 
       if (invoice) {

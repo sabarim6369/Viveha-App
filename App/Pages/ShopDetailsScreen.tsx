@@ -29,6 +29,7 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
   const [selectedState, setSelectedState] = useState<string>('');
   const [ownerName, setOwnerName] = useState<string>('');
   const [showStateDropdown, setShowStateDropdown] = useState<boolean>(false);
+  const [searchQuery, setSearchQuery] = useState<string>('');
 
   const indianStates: string[] = [
     'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -37,6 +38,11 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
     'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
     'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'
   ];
+
+  // Filter states based on search query
+  const filteredStates = indianStates.filter(state => 
+    state.toLowerCase().includes(searchQuery.toLowerCase())
+  );
 
   const handleNext = async (): Promise<void> => {
     if (shopName && location) {
@@ -130,35 +136,69 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
             <View style={styles.halfInputContainer}>
               <TouchableOpacity 
                 style={styles.dropdownButton}
-                onPress={() => setShowStateDropdown(!showStateDropdown)}
+                onPress={() => {
+                  setShowStateDropdown(!showStateDropdown);
+                  if (showStateDropdown) {
+                    setSearchQuery('');
+                  }
+                }}
               >
                 <Text style={[styles.dropdownButtonText, !selectedState && styles.placeholder]}>
                   {selectedState || 'State'}
                 </Text>
-                <MaterialIcons 
-                  name="keyboard-arrow-down"
-                  size={20} 
-                  color="#999" 
-                />
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Ionicons 
+                    name="search"
+                    size={16} 
+                    color="#999" 
+                  />
+                  <MaterialIcons 
+                    name="keyboard-arrow-down"
+                    size={20} 
+                    color="#999" 
+                  />
+                </View>
               </TouchableOpacity>
             </View>
           </View>
 
           {showStateDropdown && (
             <View style={styles.dropdownList}>
-              <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
-                {indianStates.map((state: string, index: number) => (
-                  <TouchableOpacity
-                    key={index}
-                    style={styles.dropdownItem}
-                    onPress={() => {
-                      setSelectedState(state);
-                      setShowStateDropdown(false);
-                    }}
-                  >
-                    <Text style={styles.dropdownItemText}>{state}</Text>
+              <View style={styles.searchContainer}>
+                <Ionicons name="search" size={18} color="#999" style={styles.searchIcon} />
+                <TextInput
+                  style={styles.searchInput}
+                  placeholder="Search state..."
+                  value={searchQuery}
+                  onChangeText={setSearchQuery}
+                  autoFocus
+                />
+                {searchQuery.length > 0 && (
+                  <TouchableOpacity onPress={() => setSearchQuery('')}>
+                    <Ionicons name="close-circle" size={18} color="#999" />
                   </TouchableOpacity>
-                ))}
+                )}
+              </View>
+              <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
+                {filteredStates.length > 0 ? (
+                  filteredStates.map((state: string, index: number) => (
+                    <TouchableOpacity
+                      key={index}
+                      style={styles.dropdownItem}
+                      onPress={() => {
+                        setSelectedState(state);
+                        setShowStateDropdown(false);
+                        setSearchQuery('');
+                      }}
+                    >
+                      <Text style={styles.dropdownItemText}>{state}</Text>
+                    </TouchableOpacity>
+                  ))
+                ) : (
+                  <View style={styles.noResultsContainer}>
+                    <Text style={styles.noResultsText}>No states found</Text>
+                  </View>
+                )}
               </ScrollView>
             </View>
           )}
@@ -305,7 +345,7 @@ const styles = StyleSheet.create({
     marginTop: -12,
     marginBottom: 20,
     marginHorizontal: 24,
-    maxHeight: 200,
+    maxHeight: 250,
     borderWidth: 1,
     borderColor: '#DDD',
     shadowColor: '#000',
@@ -317,8 +357,34 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
     elevation: 3,
   },
+  searchContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingHorizontal: 12,
+    paddingVertical: 8,
+    borderBottomWidth: 1,
+    borderBottomColor: '#E0E0E0',
+    backgroundColor: '#F5F5F5',
+  },
+  searchIcon: {
+    marginRight: 8,
+  },
+  searchInput: {
+    flex: 1,
+    fontSize: 14,
+    color: '#333',
+    paddingVertical: 6,
+  },
   dropdownScroll: {
     maxHeight: 200,
+  },
+  noResultsContainer: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  noResultsText: {
+    fontSize: 14,
+    color: '#999',
   },
   dropdownItem: {
     padding: 14,

@@ -40,6 +40,12 @@ interface InvoiceItem {
   price: number;
 }
 
+interface AdditionalFee {
+  id: string;
+  name: string;
+  amount: number;
+}
+
 interface Invoice {
   id: string;
   number: string;
@@ -49,6 +55,7 @@ interface Invoice {
   items: InvoiceItem[];
   createdAt: string;
   status: string;
+  additionalFees?: AdditionalFee[];
 }
 
 export default function HistoryScreen({ navigation }: HistoryScreenProps): React.JSX.Element {
@@ -156,7 +163,34 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): React
   };
 
   const handleViewInvoice = async (invoice: Invoice): Promise<void> => {
-    navigation.navigate('InvoicePreview', { invoice, isPreview: false });
+    // Load shop details for businessInfo
+    const shopDetailsStr = await AsyncStorage.getItem('@viveha_shop_details');
+    let businessInfo = {
+      name: 'My Shop',
+      address: '',
+      phone: '',
+      email: '',
+    };
+    
+    if (shopDetailsStr) {
+      const details = JSON.parse(shopDetailsStr);
+      businessInfo = {
+        name: details.shopName || 'My Shop',
+        address: `${details.location || ''}${details.city ? ', ' + details.city : ''}${details.state ? ', ' + details.state : ''}`,
+        phone: details.mobile || '',
+        email: '',
+      };
+    }
+
+    // Add businessInfo to invoice
+    const invoiceWithBusinessInfo = {
+      ...invoice,
+      businessInfo,
+      tax: 0,
+      discount: 0,
+    };
+
+    navigation.navigate('InvoicePreview', { invoice: invoiceWithBusinessInfo, isPreview: false });
   };
 
   const getTotalInvoiceAmount = (): number => {

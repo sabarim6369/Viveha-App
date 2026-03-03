@@ -129,17 +129,26 @@ export const deleteItemGroupController = async (req: Request, res: Response) => 
 
 export const createItemController = async (req: Request, res: Response) => {
     try {
-        const { clientId, name, price, stock, unit, groupId, description } =
+        const { clientId, name, actualPrice, salePrice, price, stock, unit, groupId, description } =
             req.body;
-        if (!clientId || !name || price === undefined)
-            return badRequest(res, 'clientId,name,price required');
+        
+        // Support both old format (just price) and new format (actualPrice + salePrice)
+        const finalActualPrice = actualPrice ?? price ?? 0;
+        const finalSalePrice = salePrice ?? price ?? 0;
+        const finalPrice = finalSalePrice; // For backward compatibility
+        
+        if (!clientId || !name || (finalActualPrice === undefined && finalSalePrice === undefined && price === undefined))
+            return badRequest(res, 'clientId, name, and price information required');
+        
         return res
             .status(201)
             .json(
                 await businessService.createItem(
                     clientId,
                     name,
-                    price,
+                    finalActualPrice,
+                    finalSalePrice,
+                    finalPrice,
                     stock,
                     unit,
                     groupId,

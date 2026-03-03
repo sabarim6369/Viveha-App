@@ -2517,7 +2517,8 @@ export const createInvoiceViaBackend = async (invoiceData: any): Promise<{ succe
       totalAmount: invoiceData.total || invoiceData.grandTotal,
       paidAmount: invoiceData.paidAmount || 0,
       products: products,
-      notes: invoiceData.notes || ''
+      notes: invoiceData.notes || '',
+      additionalFees: invoiceData.additionalFees || []
     };
 
     // Create invoice with products directly (no cart needed)

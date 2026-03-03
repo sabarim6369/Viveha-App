@@ -36,6 +36,18 @@ interface InvoiceItem {
   discount: number;
 }
 
+interface CustomCharge {
+  id: string;
+  heading: string;
+  amount: number;
+}
+
+interface AdditionalFee {
+  id: string;
+  name: string;
+  amount: number;
+}
+
 interface Invoice {
   number: string;
   invoiceDate: string;
@@ -46,6 +58,8 @@ interface Invoice {
   subTotal?: number;
   tax?: number;
   discount?: number;
+  customCharges?: CustomCharge[];
+  additionalFees?: AdditionalFee[];
 }
 
 interface ShopDetails {
@@ -159,7 +173,6 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
       return `
       <tr style="background-color: ${index % 2 === 0 ? '#FFFFFF' : '#F9FAFB'};">
         <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151;">${item.name}</td>
-        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">02</td>
         <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">${item.quantity || 0}</td>
         <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">${(item.tax || 0)}%</td>
         <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: right;">₹${itemSubtotal.toFixed(2)}</td>
@@ -267,7 +280,6 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
             <thead>
               <tr>
                 <th style="width: 40%">Item/Service Description</th>
-                <th class="text-center">HSN</th>
                 <th class="text-center">Qty.</th>
                 <th class="text-center">GST</th>
                 <th class="text-right">Taxable Amount</th>
@@ -312,6 +324,18 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
                 <span class="calc-value">₹${cgst}</span>
               </div>
               ` : ''}
+              ${invoice.customCharges && invoice.customCharges.length > 0 ? invoice.customCharges.map(charge => `
+              <div class="calc-row">
+                <span class="calc-label">${charge.heading}</span>
+                <span class="calc-value">₹${charge.amount.toFixed(2)}</span>
+              </div>
+              `).join('') : ''}
+              ${invoice.additionalFees && invoice.additionalFees.length > 0 ? invoice.additionalFees.map(fee => `
+              <div class="calc-row">
+                <span class="calc-label">${fee.name}</span>
+                <span class="calc-value">₹${fee.amount.toFixed(2)}</span>
+              </div>
+              `).join('') : ''}
               <div class="calc-row calc-total">
                 <span class="calc-label">Total Due</span>
                 <span class="calc-value">₹${totalAmount}</span>
@@ -515,7 +539,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
           <View style={styles.table}>
             <View style={styles.tableHeader}>
               <Text style={[styles.th, styles.colDesc]}>Item/Service Description</Text>
-              <Text style={[styles.th, styles.colBrief, { textAlign: 'center' }]}>HSN</Text>
+
               <Text style={[styles.th, styles.colBrief, { textAlign: 'center' }]}>Qty.</Text>
               <Text style={[styles.th, styles.colBrief, { textAlign: 'center' }]}>GST</Text>
               <Text style={[styles.th, styles.colAmount, { textAlign: 'right' }]}>Taxable {'\n'}Amount</Text>
@@ -533,7 +557,6 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
               return (
                 <View key={idx} style={[styles.tableRow, idx % 2 !== 0 && styles.rowAlt]}>
                   <Text style={[styles.td, styles.colDesc]}>{item.name}</Text>
-                  <Text style={[styles.td, styles.colBrief, { textAlign: 'center' }]}>02</Text>
                   <Text style={[styles.td, styles.colBrief, { textAlign: 'center' }]}>{item.quantity}</Text>
                   <Text style={[styles.td, styles.colBrief, { textAlign: 'center' }]}>{(item.tax || 0)}%</Text>
                   <Text style={[styles.td, styles.colAmount, { textAlign: 'right' }]}>₹{itemSubtotal.toFixed(2)}</Text>
@@ -582,6 +605,30 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
                     <Text style={styles.sumLabel}>CGST</Text>
                     <Text style={styles.sumValue}>₹{cgstDisplay}</Text>
                   </View>
+                </>
+              )}
+
+              {/* Custom Charges */}
+              {invoice.customCharges && invoice.customCharges.length > 0 && (
+                <>
+                  {invoice.customCharges.map((charge, idx) => (
+                    <View key={idx} style={styles.sumRow}>
+                      <Text style={styles.sumLabel}>{charge.heading}</Text>
+                      <Text style={styles.sumValue}>₹{charge.amount.toFixed(2)}</Text>
+                    </View>
+                  ))}
+                </>
+              )}
+
+              {/* Additional Fees */}
+              {invoice.additionalFees && invoice.additionalFees.length > 0 && (
+                <>
+                  {invoice.additionalFees.map((fee, idx) => (
+                    <View key={idx} style={styles.sumRow}>
+                      <Text style={styles.sumLabel}>{fee.name}</Text>
+                      <Text style={styles.sumValue}>₹{fee.amount.toFixed(2)}</Text>
+                    </View>
+                  ))}
                 </>
               )}
 

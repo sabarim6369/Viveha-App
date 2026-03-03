@@ -29,9 +29,15 @@ const buildInvoiceWithProductDetails = async (invoiceDoc: any) => {
         itemGroup: product.itemGroup || '',
     }));
 
+    const additionalFees = (invoiceObj.additionalFees || []).map((fee: any) => ({
+        name: fee.name || '',
+        amount: fee.amount || 0,
+    }));
+
     return { 
         ...invoiceObj, 
         products,
+        additionalFees,
         // Explicitly ensure date fields are included
         invoiceDate: invoiceObj.invoiceDate || invoiceObj.createdAt,
         dueDate: invoiceObj.dueDate || null,
@@ -213,6 +219,8 @@ export const deleteItemGroup = async (clientId: string, groupId: string) => {
 export const createItem = async (
     clientId: string,
     name: string,
+    actualPrice: number,
+    salePrice: number,
     price: number,
     stock: number = 0,
     unit: string = 'nos',
@@ -223,7 +231,9 @@ export const createItem = async (
         const item = await Item.create({
             clientId,
             name,
-            price,
+            actualPrice,
+            salePrice,
+            price, // For backward compatibility with existing code
             stock,
             unit,
             groupId,
@@ -259,9 +269,19 @@ export const getItems = async (clientId: string, groupId: string | null = null) 
 
 export const updateItem = async (clientId: string, itemId: string, updateData: any) => {
     try {
+        // Ensure price field is synced with salePrice if salePrice is being updated
+        const updatedFields = { ...updateData };
+        if (updateData.salePrice !== undefined) {
+            updatedFields.price = updateData.salePrice; // Keep price in sync with salePrice for backward compatibility
+        }
+        // If actualPrice is provided but salePrice isn't, and old price exists
+        if (updateData.actualPrice !== undefined && updateData.salePrice === undefined && updateData.price !== undefined) {
+            updatedFields.salePrice = updateData.price;
+        }
+        
         const item = await Item.findOneAndUpdate(
             { _id: itemId, clientId },
-            { ...updateData, updatedAt: new Date() },
+            { ...updatedFields, updatedAt: new Date() },
             { new: true },
         );
         if (!item) {
@@ -781,6 +801,10 @@ interface DirectInvoiceData {
     totalDiscount?: number;
     paidAmount?: number;
     notes?: string;
+    additionalFees?: Array<{
+        name: string;
+        amount: number;
+    }>;
 }
 
 export const generateInvoiceWithProduct = async (clientId: string, invoiceData: DirectInvoiceData) => {
@@ -803,6 +827,7 @@ export const generateInvoiceWithProduct = async (clientId: string, invoiceData: 
             totalDiscount = 0,
             paidAmount: providedPaidAmount = 0,
             notes = '',
+            additionalFees = [],
         } = invoiceData;
 
         if (!products || !products.length) {
@@ -938,6 +963,7 @@ export const generateInvoiceWithProduct = async (clientId: string, invoiceData: 
             totalAmount,
             paidAmount,
             products: invoiceProducts,
+            additionalFees,
             notes,
             isFinalized,
         });

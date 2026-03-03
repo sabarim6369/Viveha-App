@@ -12,6 +12,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import SyncIndicator from '../Components/SyncIndicator';
 import {
   getInvoices,
@@ -28,9 +29,23 @@ interface Product {
 }
 
 interface InvoiceItem {
+  id?: string;
+  serverId?: string;
   name: string;
   quantity: number;
+  unit: string;
+  actualPrice?: number;
+  salePrice: number;
   price: number;
+  tax: number;
+  discount: number;
+  stockAvailable?: number;
+}
+
+interface AdditionalFee {
+  id: string;
+  name: string;
+  amount: number;
 }
 
 interface Invoice {
@@ -51,6 +66,7 @@ interface Invoice {
   items: InvoiceItem[];
   products: Product[];
   createdAt?: string;
+  additionalFees?: AdditionalFee[];
 }
 
 interface PaymentHistoryItem {
@@ -278,6 +294,25 @@ export default function ContactInvoicesScreen({ navigation, route }: ContactInvo
 
   const handleViewInvoice = async (invoice: Invoice): Promise<void> => {
     try {
+      // Load shop details for businessInfo
+      const shopDetailsStr = await AsyncStorage.getItem('@viveha_shop_details');
+      let businessInfo = {
+        name: 'My Shop',
+        address: '',
+        phone: '',
+        email: '',
+      };
+      
+      if (shopDetailsStr) {
+        const details = JSON.parse(shopDetailsStr);
+        businessInfo = {
+          name: details.shopName || 'My Shop',
+          address: `${details.location || ''}${details.city ? ', ' + details.city : ''}${details.state ? ', ' + details.state : ''}`,
+          phone: details.mobile || '',
+          email: '',
+        };
+      }
+
       const allInvoices = await getInvoices();
 
       let fullInvoice = allInvoices.find((inv: any) =>
@@ -298,6 +333,10 @@ export default function ContactInvoicesScreen({ navigation, route }: ContactInvo
           name: product.itemName || 'Unknown Item',
           quantity: product.quantity || 0,
           price: product.costPerUnit || product.price || 0,
+          salePrice: product.costPerUnit || product.price || 0,
+          unit: 'unit',
+          tax: 0,
+          discount: 0,
         }));
 
         fullInvoice = {
@@ -305,6 +344,7 @@ export default function ContactInvoicesScreen({ navigation, route }: ContactInvo
           serverId: invoice.serverId,
           number: invoice.invoiceNumber,
           invoiceNumber: invoice.invoiceNumber,
+          businessInfo: businessInfo,
           clientInfo: {
             name: invoice.clientName,
             phone: invoice.clientPhone,
@@ -318,12 +358,14 @@ export default function ContactInvoicesScreen({ navigation, route }: ContactInvo
           paidAmount: invoice.paidAmount,
           pendingAmount: invoice.amount,
           discount: 0,
+          tax: 0,
           status: invoice.status,
           invoiceDate: invoice.invoiceDate || invoice.date,
           dueDate: invoice.dueDate || invoice.date,
           items: items,
           createdAt: invoice.createdAt,
-        };
+          additionalFees: invoice.additionalFees || [],
+        } as any;
       }
 
       if (fullInvoice) {

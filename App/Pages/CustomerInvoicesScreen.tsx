@@ -13,6 +13,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getInvoices,
   getPendingInvoices,
@@ -31,6 +32,12 @@ interface PendingInvoiceItem {
   name: string;
   quantity: number;
   price: number;
+}
+
+interface AdditionalFee {
+  id: string;
+  name: string;
+  amount: number;
 }
 
 interface PendingInvoice {
@@ -52,6 +59,7 @@ interface PendingInvoice {
   items: PendingInvoiceItem[];
   products: Product[];
   createdAt?: string;
+  additionalFees?: AdditionalFee[];
 }
 
 interface PaymentRecord {
@@ -101,6 +109,25 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
 
   const handleViewInvoice = async (invoice: PendingInvoice): Promise<void> => {
     try {
+      // Load shop details for businessInfo
+      const shopDetailsStr = await AsyncStorage.getItem('@viveha_shop_details');
+      let businessInfo = {
+        name: 'My Shop',
+        address: '',
+        phone: '',
+        email: '',
+      };
+      
+      if (shopDetailsStr) {
+        const details = JSON.parse(shopDetailsStr);
+        businessInfo = {
+          name: details.shopName || 'My Shop',
+          address: `${details.location || ''}${details.city ? ', ' + details.city : ''}${details.state ? ', ' + details.state : ''}`,
+          phone: details.mobile || '',
+          email: '',
+        };
+      }
+
       const allInvoices = await getInvoices();
 
       let fullInvoice = allInvoices.find((inv: any) =>
@@ -121,6 +148,10 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
           name: product.itemName || 'Unknown Item',
           quantity: product.quantity || 0,
           price: product.costPerUnit || product.price || 0,
+          salePrice: product.costPerUnit || product.price || 0,
+          unit: 'unit',
+          tax: 0,
+          discount: 0,
         }));
 
         fullInvoice = {
@@ -128,6 +159,7 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
           serverId: invoice.serverId,
           number: invoice.invoiceNumber,
           invoiceNumber: invoice.invoiceNumber,
+          businessInfo: businessInfo,
           clientInfo: {
             name: invoice.clientName,
             phone: invoice.clientPhone,
@@ -141,12 +173,14 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
           paidAmount: invoice.paidAmount,
           pendingAmount: invoice.amount,
           discount: 0,
+          tax: 0,
           status: invoice.status,
           invoiceDate: invoice.invoiceDate || invoice.date,
           dueDate: invoice.dueDate || invoice.date,
           items: items,
           createdAt: invoice.createdAt,
-        };
+          additionalFees: invoice.additionalFees || [],
+        } as any;
       }
 
       if (fullInvoice) {

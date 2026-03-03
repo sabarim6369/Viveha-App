@@ -344,7 +344,9 @@ export interface IItem extends Document {
     clientId: mongoose.Types.ObjectId;
     groupId?: mongoose.Types.ObjectId;
     name: string;
-    price: number;
+    actualPrice: number; // MRP/Original price
+    salePrice: number;   // Selling price (used in invoices)
+    price: number;       // Backward compatibility (should match salePrice)
     stock: number;
     unit: 'nos' | 'kg' | 'litre' | 'meter' | 'pcs';
     description?: string;
@@ -371,6 +373,20 @@ const itemSchema = new Schema<IItem>(
             required: [true, 'Item name is required'],
             trim: true,
             minlength: [2, 'Item name must be at least 2 characters'],
+        },
+        actualPrice: {
+            type: Number,
+            default: function(this: any) {
+                return this.price || 0;
+            },
+            min: [0, 'Actual price cannot be negative'],
+        },
+        salePrice: {
+            type: Number,
+            default: function(this: any) {
+                return this.price || 0;
+            },
+            min: [0, 'Sale price cannot be negative'],
         },
         price: {
             type: Number,
@@ -536,6 +552,11 @@ export interface IInvoiceProduct {
     costPerUnit: number;
 }
 
+export interface IAdditionalFee {
+    name: string;
+    amount: number;
+}
+
 export interface IInvoice extends Document {
     clientId: mongoose.Types.ObjectId;
     clientCustomerId?: mongoose.Types.ObjectId;
@@ -550,6 +571,7 @@ export interface IInvoice extends Document {
     totalAmount: number;
     paidAmount: number;
     products: IInvoiceProduct[];
+    additionalFees?: IAdditionalFee[];
     isFinalized: boolean;
     notes?: string;
     generatedAt: Date;
@@ -648,6 +670,20 @@ const invoiceSchema = new Schema<IInvoice>(
                     type: Number,
                     required: true,
                     min: [0, 'Cost per unit cannot be negative'],
+                },
+            },
+        ],
+        additionalFees: [
+            {
+                name: {
+                    type: String,
+                    required: true,
+                    trim: true,
+                },
+                amount: {
+                    type: Number,
+                    required: true,
+                    min: [0, 'Amount cannot be negative'],
                 },
             },
         ],

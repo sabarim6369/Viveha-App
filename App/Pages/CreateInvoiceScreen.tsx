@@ -110,6 +110,12 @@ interface CustomerFieldSettings {
   gstNo: boolean;
 }
 
+interface AdditionalFee {
+  id: string;
+  name: string;
+  amount: number;
+}
+
 interface InvoiceData {
   number: string;
   items: InvoiceItem[];
@@ -124,6 +130,7 @@ interface InvoiceData {
   grandTotal: number;
   paidAmount: number;
   notes: string;
+  additionalFees?: AdditionalFee[];
 }
 
 interface PendingRecord {
@@ -174,6 +181,10 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
   });
 
   const [items, setItems] = useState<InvoiceItem[]>([]);
+  const [additionalFees, setAdditionalFees] = useState<AdditionalFee[]>([]);
+  const [addFeeModalVisible, setAddFeeModalVisible] = useState<boolean>(false);
+  const [feeName, setFeeName] = useState<string>('');
+  const [feeAmount, setFeeAmount] = useState<string>(''); 
 
   // Format date as DD/MM/YYYY
   const formatDate = (date: Date): string => {
@@ -210,6 +221,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
     React.useCallback(() => {
       // Reset all form state
       setItems([]);
+      setAdditionalFees([]);
       setClientInfo({
         name: '',
         phone: '',
@@ -421,6 +433,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         grandTotal: calculateGrandTotal(),
         total: calculateGrandTotal(), // Add both for compatibility
         remainingAmount: calculateGrandTotal(), // For pending invoices
+        additionalFees: additionalFees,
         status: 'pending',
         createdAt: new Date().toISOString(),
       };
@@ -467,8 +480,12 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
     return items.reduce((sum, item) => sum + (((item.price || 0) * (item.quantity || 0) * (item.discount || 0)) / 100), 0);
   };
 
+  const calculateTotalAdditionalFees = (): number => {
+    return additionalFees.reduce((sum, fee) => sum + fee.amount, 0);
+  };
+
   const calculateGrandTotal = (): number => {
-    return calculateSubTotal() + calculateTotalTax() - calculateTotalDiscount();
+    return calculateSubTotal() + calculateTotalTax() - calculateTotalDiscount() + calculateTotalAdditionalFees();
   };
 
   const handleAddItem = (): void => {
@@ -892,7 +909,8 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
       total: total,
       grandTotal: total,
       paidAmount: 0,
-      notes: ''
+      notes: '',
+      additionalFees: additionalFees
     };
 
     // Try to create invoice via backend
@@ -976,6 +994,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
 
           // Clear form
           setItems([]);
+          setAdditionalFees([]);
           setClientInfo({ name: '', phone: '', address: '', email: '', gstNo: '' });
 
           Toast.show({
@@ -1017,6 +1036,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         navigation.navigate('InvoicePreview', { invoice: { ...invoiceData, id: pending.id } });
 
         setItems([]);
+        setAdditionalFees([]);
         setClientInfo({ name: '', phone: '', address: '', email: '', gstNo: '' });
 
         // Clear draft after successful save
@@ -1336,6 +1356,20 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
               <Text style={styles.totalLabel}>Discount (0%) :</Text>
               <Text style={styles.totalValue}>Rs. {(calculateTotalDiscount() || 0).toFixed(2)}</Text>
             </View>
+            {additionalFees.map((fee) => (
+              <View key={fee.id} style={styles.totalRow}>
+                <View style={styles.feeRowWithRemove}>
+                  <Text style={styles.totalLabel}>{fee.name} :</Text>
+                  <TouchableOpacity
+                    onPress={() => setAdditionalFees(additionalFees.filter(f => f.id !== fee.id))}
+                    style={styles.removeFeeButton}
+                  >
+                    <Ionicons name={"close-circle" as any} size={18} color="#ff4444" />
+                  </TouchableOpacity>
+                </View>
+                <Text style={styles.totalValue}>Rs. {fee.amount.toFixed(2)}</Text>
+              </View>
+            ))}
             <View style={styles.divider} />
             <View style={styles.totalRow}>
               <Text style={styles.grandTotalLabel}>Total :</Text>
@@ -1344,10 +1378,17 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
           </View>
         </View>
 
-        {/* Add New Card Button */}
-        <TouchableOpacity style={styles.addNewCardButton}>
+        {/* Add Additional Fee Button */}
+        <TouchableOpacity 
+          style={styles.addNewCardButton}
+          onPress={() => {
+            setFeeName('');
+            setFeeAmount('');
+            setAddFeeModalVisible(true);
+          }}
+        >
           <Ionicons name={"add" as any} size={20} color="#333" />
-          <Text style={styles.addNewCardText}>Add New Card</Text>
+          <Text style={styles.addNewCardText}>Add Additional Fee</Text>
         </TouchableOpacity>
 
         {/* Action Buttons */}
@@ -1375,6 +1416,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                 tax: calculateTotalTax(),
                 discount: calculateTotalDiscount(),
                 total: calculateGrandTotal(),
+                additionalFees: additionalFees,
               };
               navigation.navigate('InvoicePreview', { invoice: previewData, isPreview: true });
             }}
@@ -1784,6 +1826,78 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         </Modal>
       )}
 
+      {/* Add Fee Modal */}
+      <Modal
+        visible={addFeeModalVisible}
+        animationType="slide"
+        transparent={true}
+        onRequestClose={() => setAddFeeModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Add Additional Fee</Text>
+              <TouchableOpacity onPress={() => setAddFeeModalVisible(false)}>
+                <Ionicons name={"close" as any} size={24} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.modalBody}>
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Fee Name</Text>
+                <TextInput
+                  style={styles.clientNameInput}
+                  placeholder="e.g., Delivery Fee, Labour Charge"
+                  placeholderTextColor="#999"
+                  value={feeName}
+                  onChangeText={setFeeName}
+                  autoFocus
+                />
+              </View>
+
+              <View style={styles.inputGroup}>
+                <Text style={styles.inputLabel}>Amount (Rs.)</Text>
+                <TextInput
+                  style={styles.clientNameInput}
+                  placeholder="Enter amount"
+                  placeholderTextColor="#999"
+                  value={feeAmount}
+                  onChangeText={setFeeAmount}
+                  keyboardType="numeric"
+                />
+              </View>
+
+              <TouchableOpacity
+                style={[
+                  styles.saveClientButton,
+                  (!feeName || !feeAmount) && styles.saveClientButtonDisabled
+                ]}
+                disabled={!feeName || !feeAmount}
+                onPress={() => {
+                  if (feeName && feeAmount) {
+                    const newFee: AdditionalFee = {
+                      id: Date.now().toString(),
+                      name: feeName,
+                      amount: parseFloat(feeAmount) || 0,
+                    };
+                    setAdditionalFees([...additionalFees, newFee]);
+                    setAddFeeModalVisible(false);
+                    Toast.show({
+                      type: 'success',
+                      text1: 'Fee Added',
+                      text2: `${feeName} has been added to the invoice`,
+                      position: 'bottom',
+                    });
+                  }
+                }}
+              >
+                <Text style={styles.saveClientButtonText}>Add Fee</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
       {/* Footer */}
       <Footer activeTab="AddInvoice" navigation={navigation} />
     </SafeAreaView>
@@ -2047,6 +2161,14 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#666',
   },
+  feeRowWithRemove: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  removeFeeButton: {
+    padding: 2,
+  },
   grandTotalLabel: {
     fontSize: 15,
     fontWeight: '700',
@@ -2296,6 +2418,10 @@ const styles = StyleSheet.create({
     paddingVertical: 12,
     alignItems: 'center',
     marginTop: 10,
+  },
+  saveClientButtonDisabled: {
+    backgroundColor: '#ccc',
+    opacity: 0.6,
   },
   saveClientButtonText: {
     color: '#fff',

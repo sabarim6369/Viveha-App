@@ -68,6 +68,20 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
   
+  // Get time-based greeting
+  const getGreeting = (): string => {
+    const hour = new Date().getHours();
+    if (hour >= 5 && hour < 12) {
+      return 'Good Morning!';
+    } else if (hour >= 12 && hour < 17) {
+      return 'Good Afternoon!';
+    } else if (hour >= 17 && hour < 21) {
+      return 'Good Evening!';
+    } else {
+      return 'Good Night!';
+    }
+  };
+  
   const [shopName, setShopName] = useState<string>('My Shop');
   const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
   const [isTransactionsLoading, setIsTransactionsLoading] = useState<boolean>(true);
@@ -254,7 +268,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
                 resizeMode="contain"
               />
               <View>
-                <Text style={styles.greeting}>Good Morning!</Text>
+                <Text style={styles.greeting}>{getGreeting()}</Text>
                 <Text style={styles.businessName}>{shopName.toUpperCase()}</Text>
               </View>
             </View>
