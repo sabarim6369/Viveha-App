@@ -25,8 +25,11 @@ import {
   getPayments,
   getPendingInvoices,
   getItemGroups,
+  useNetworkStatus,
+  getPendingSyncItems,
 } from '../utils/NetworkManager';
 import Footer from '../Components/Footer';
+import SyncIndicator from '../Components/SyncIndicator';
 
 interface ExportCenterScreenProps {
   navigation: any;
@@ -49,6 +52,11 @@ interface ReportData {
 }
 
 export default function ExportCenterScreen({ navigation }: ExportCenterScreenProps): React.JSX.Element {
+  // Network status monitoring
+  const { isConnected, isInternetReachable } = useNetworkStatus();
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+  
   const [selectedReport, setSelectedReport] = useState<ReportType>('insights');
   const [selectedDateRange, setSelectedDateRange] = useState<DateRangeType>('month');
   const [selectedFormat, setSelectedFormat] = useState<FormatType>('pdf');
@@ -67,7 +75,41 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
   // Load customers on mount
   useEffect(() => {
     loadCustomers();
+    updatePendingSyncCount();
   }, []);
+
+  // Update pending sync count
+  const updatePendingSyncCount = async () => {
+    try {
+      const pendingItems = await getPendingSyncItems();
+      setPendingSyncCount(pendingItems.length);
+    } catch (error) {
+      console.error('Error getting pending sync count:', error);
+    }
+  };
+
+  // Monitor network status changes
+  useEffect(() => {
+    if (isConnected && isInternetReachable) {
+      // When back online, reload customers and update pending count
+      // Check if there are pending items, if so, mark as syncing
+      const checkAndSync = async () => {
+        const pending = await getPendingSyncItems();
+        if (pending.length > 0) {
+          setIsSyncing(true);
+          // Give some time for sync to complete
+          setTimeout(() => {
+            setIsSyncing(false);
+            updatePendingSyncCount();
+          }, 3000);
+        }
+      };
+      
+      checkAndSync();
+      loadCustomers();
+      updatePendingSyncCount();
+    }
+  }, [isConnected, isInternetReachable]);
 
   // Update date range when preset is selected
   useEffect(() => {
@@ -99,6 +141,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
       setCustomers(clientsData);
     } catch (error) {
       console.error('Error loading customers:', error);
+      // Don't show error to user - offline mode will work with cached data
     }
   };
 
@@ -184,6 +227,19 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
   const generateReportData = async (): Promise<ReportData | null> => {
     try {
       setLoading(true);
+      
+      // Notify user if offline
+      const isOffline = !isConnected || !isInternetReachable;
+      if (isOffline) {
+        Toast.show({
+          type: 'info',
+          text1: 'Offline Mode',
+          text2: 'Using locally cached data',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+      }
+      
       let reportData: ReportData = {
         type: '',
         startDate: formatDate(startDate),
@@ -321,6 +377,14 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
   const formatDataAsCSV = (data: ReportData): string => {
     let csv = '';
     
+    // Add offline mode indicator if applicable
+    const isOffline = !isConnected || !isInternetReachable;
+    if (isOffline) {
+      csv += `GENERATED IN OFFLINE MODE\n`;
+      csv += `Data Source: Local Cache\n`;
+      csv += `\n`;
+    }
+    
     // Add customer-specific header if filtering by customer
     if (data.customerName) {
       csv += `Customer Report\n`;
@@ -437,6 +501,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
   };
 
   const generatePDFHTML = (data: ReportData): string => {
+    const isOffline = !isConnected || !isInternetReachable;
     let html = `
       <html>
         <head>
@@ -446,6 +511,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
             .header { text-align: center; margin-bottom: 30px; border-bottom: 3px solid #FF8A5B; padding-bottom: 15px; }
             .header h1 { color: #FF8A5B; margin: 0; font-size: 28px; }
             .header .subtitle { color: #666; font-size: 14px; margin-top: 5px; }
+            .offline-badge { background: #FFF4ED; color: #FF8A5B; padding: 8px 16px; border-radius: 20px; display: inline-block; font-size: 12px; font-weight: 600; margin-top: 8px; border: 1px solid #FFE0CC; }
             .date-range { text-align: center; background: #F5F5F5; padding: 10px; border-radius: 8px; margin-bottom: 20px; }
             .summary-box { background: #FF8A5B10; padding: 15px; border-radius: 8px; margin-bottom: 20px; border-left: 4px solid #FF8A5B; }
             .summary-box h3 { margin: 0 0 10px 0; color: #FF8A5B; }
@@ -463,6 +529,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         <body>
           <div class="header">
             <h1>${data.type}</h1>
+            ${isOffline ? '<div class="offline-badge">📴 Generated Offline - Using Cached Data</div>' : ''}
             ${data.customerName ? `<div class="subtitle" style="color: #FF8A5B; font-size: 16px; font-weight: 600; margin-top: 8px;">Customer: ${data.customerName}${data.customerPhone ? ' | ' + data.customerPhone : ''}</div>` : ''}
             <div class="subtitle">Generated on ${new Date().toLocaleString()}</div>
           </div>
@@ -674,6 +741,17 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
   const handlePreviewReport = async () => {
     setLoading(true);
     try {
+      const isOffline = !isConnected || !isInternetReachable;
+      if (isOffline) {
+        Toast.show({
+          type: 'info',
+          text1: 'Preview (Offline)',
+          text2: 'Showing cached data',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+      }
+      
       const data = await generateReportData();
       if (data) {
         setPreviewData(data);
@@ -698,10 +776,12 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
     setIsGenerating(true);
 
     try {
+      // Notify user about the mode
+      const isOffline = !isConnected || !isInternetReachable;
       Toast.show({
         type: 'info',
-        text1: 'Generating Report',
-        text2: 'Please wait...',
+        text1: isOffline ? 'Generating Report (Offline)' : 'Generating Report',
+        text2: isOffline ? 'Using cached data...' : 'Please wait...',
         position: 'bottom',
       });
 
@@ -758,10 +838,11 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           });
         }
         
+        const isOffline = !isConnected || !isInternetReachable;
         Toast.show({
           type: 'success',
-          text1: 'PDF Generated',
-          text2: 'Report generated successfully!',
+          text1: isOffline ? 'PDF Generated (Offline)' : 'PDF Generated',
+          text2: isOffline ? 'Report created from cached data' : 'Report generated successfully!',
           position: 'bottom',
           visibilityTime: 3000,
         });
@@ -785,10 +866,11 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           });
         }
         
+        const isOffline = !isConnected || !isInternetReachable;
         Toast.show({
           type: 'success',
-          text1: 'CSV Generated',
-          text2: 'Report generated successfully!',
+          text1: isOffline ? 'CSV Generated (Offline)' : 'CSV Generated',
+          text2: isOffline ? 'Report created from cached data' : 'Report generated successfully!',
           position: 'bottom',
           visibilityTime: 3000,
         });
@@ -825,6 +907,33 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         <Text style={styles.headerTitle}>Export Center</Text>
         <View style={styles.placeholder} />
       </View>
+
+      {/* Sync Indicator */}
+      <SyncIndicator 
+        isSyncing={isSyncing}
+        isOnline={isConnected && isInternetReachable}
+        pendingCount={pendingSyncCount}
+      />
+
+      {/* Offline Indicator Banner */}
+      {(!isConnected || !isInternetReachable) && (
+        <View style={styles.offlineBanner}>
+          <Ionicons name="cloud-offline-outline" size={18} color="#FF8A5B" />
+          <Text style={styles.offlineBannerText}>
+            Offline Mode - Reports will use cached data
+          </Text>
+        </View>
+      )}
+
+      {/* Pending Sync Banner */}
+      {pendingSyncCount > 0 && isConnected && isInternetReachable && (
+        <View style={styles.pendingSyncBanner}>
+          <Ionicons name="cloud-upload-outline" size={18} color="#4A90E2" />
+          <Text style={styles.pendingSyncBannerText}>
+            {pendingSyncCount} item{pendingSyncCount !== 1 ? 's' : ''} syncing with server...
+          </Text>
+        </View>
+      )}
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Report Type Section */}
@@ -1026,6 +1135,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
 
         <Text style={styles.helpText}>
           Reports are generated in {selectedFormat.toUpperCase()} format for the selected date range.
+          {(!isConnected || !isInternetReachable) ? '\n📴 Working offline - using cached data.' : '\n☁️ All reports are automatically synced.'}
         </Text>
 
         <View style={styles.bottomSpacing} />
@@ -1126,6 +1236,14 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                 >
                   <View style={styles.previewHeader}>
                     <Text style={styles.previewTitle}>{previewData.type}</Text>
+                    {(!isConnected || !isInternetReachable) && (
+                      <View style={styles.offlineIndicator}>
+                        <Ionicons name="cloud-offline" size={14} color="#FF8A5B" />
+                        <Text style={styles.offlineIndicatorText}>
+                          Offline Mode - Using Cached Data
+                        </Text>
+                      </View>
+                    )}
                     <Text style={styles.previewDateRange}>
                       {previewData.startDate} - {previewData.endDate}
                     </Text>
@@ -1333,6 +1451,38 @@ const styles = StyleSheet.create({
   },
   placeholder: {
     width: 34,
+  },
+  offlineBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#FFF4ED',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#FFE0CC',
+    gap: 8,
+  },
+  offlineBannerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#FF8A5B',
+  },
+  pendingSyncBanner: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    backgroundColor: '#F0F7FF',
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    borderBottomWidth: 1,
+    borderBottomColor: '#D0E7FF',
+    gap: 8,
+  },
+  pendingSyncBannerText: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#4A90E2',
   },
   scrollView: {
     flex: 1,
@@ -1724,6 +1874,24 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#333',
     marginBottom: 8,
+  },
+  offlineIndicator: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#FFF4ED',
+    paddingVertical: 6,
+    paddingHorizontal: 12,
+    borderRadius: 16,
+    alignSelf: 'flex-start',
+    marginBottom: 8,
+    gap: 6,
+    borderWidth: 1,
+    borderColor: '#FFE0CC',
+  },
+  offlineIndicatorText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#FF8A5B',
   },
   previewDateRange: {
     fontSize: 14,

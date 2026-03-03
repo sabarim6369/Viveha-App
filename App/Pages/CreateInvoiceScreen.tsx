@@ -46,7 +46,9 @@ interface InvoiceItem {
   name: string;
   quantity: number;
   unit: string;
-  price: number;
+  actualPrice?: number; // Original/MRP price (for reference)
+  salePrice: number;    // Price applied in invoice
+  price: number;        // Backward compatibility
   tax: number;
   discount: number;
   stockAvailable?: number;
@@ -78,7 +80,10 @@ interface AvailableItem {
   id: string;
   serverId?: string;
   name: string;
-  amount: number;
+  actualPrice?: number; // Original/MRP price
+  salePrice?: number;   // Selling price (used in invoices)
+  amount?: number;      // Backward compatibility (actualPrice)
+  price?: number;       // Backward compatibility (salePrice)
   stock: number;
 }
 
@@ -516,13 +521,19 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
       // Item doesn't exist, add new
       const defaultTaxRate = taxSettings.enableTaxCalculation ? taxSettings.primaryTaxRate : 0;
       
+      // Use salePrice if available, fallback to price/amount for backward compatibility
+      const itemSalePrice = selectedItem.salePrice !== undefined ? selectedItem.salePrice : (selectedItem.price || selectedItem.amount || 0);
+      const itemActualPrice = selectedItem.actualPrice !== undefined ? selectedItem.actualPrice : (selectedItem.amount || selectedItem.price || 0);
+      
       const newItem: InvoiceItem = {
         id: Date.now().toString(),
         serverId: selectedItem.serverId || selectedItem.id, // Backend item ID for stock deduction
         name: selectedItem.name,
         quantity: 1,
         unit: 'Nos',
-        price: selectedItem.amount,
+        actualPrice: itemActualPrice,
+        salePrice: itemSalePrice,
+        price: itemSalePrice, // Use sale price for calculations
         tax: defaultTaxRate,
         discount: 0,
         stockAvailable: selectedItem.stock,
@@ -1645,7 +1656,20 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                       </View>
                       <View>
                         <Text style={styles.selectableItemName}>{item.name}</Text>
-                        <Text style={styles.selectableItemPrice}>Rs.{(item.amount || 0).toFixed(2)}</Text>
+                        <View style={styles.selectableItemPrices}>
+                          <View style={styles.selectablePriceItem}>
+                            <Text style={styles.selectablePriceLabel}>Actual:</Text>
+                            <Text style={styles.selectableActualPrice}>
+                              Rs.{((item.actualPrice !== undefined ? item.actualPrice : item.amount) || 0).toFixed(2)}
+                            </Text>
+                          </View>
+                          <View style={styles.selectablePriceItem}>
+                            <Text style={styles.selectablePriceLabel}>Sale:</Text>
+                            <Text style={styles.selectableSalePrice}>
+                              Rs.{((item.salePrice !== undefined ? item.salePrice : item.price) || 0).toFixed(2)}
+                            </Text>
+                          </View>
+                        </View>
                         <Text style={[
                           styles.selectableItemStock,
                           item.stock === 0 && styles.outOfStockText
@@ -2154,7 +2178,32 @@ const styles = StyleSheet.create({
     fontSize: 15,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 2,
+    marginBottom: 4,
+  },
+  selectableItemPrices: {
+    flexDirection: 'row',
+    gap: 12,
+    marginBottom: 4,
+  },
+  selectablePriceItem: {
+    flexDirection: 'row',
+    alignItems: 'baseline',
+    gap: 4,
+  },
+  selectablePriceLabel: {
+    fontSize: 11,
+    color: '#999',
+    fontWeight: '500',
+  },
+  selectableActualPrice: {
+    fontSize: 13,
+    fontWeight: '600',
+    color: '#666',
+  },
+  selectableSalePrice: {
+    fontSize: 15,
+    fontWeight: '700',
+    color: '#E88E99',
   },
   selectableItemPrice: {
     fontSize: 16,

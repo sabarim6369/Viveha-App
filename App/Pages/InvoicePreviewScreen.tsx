@@ -15,6 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
+import { useNetworkStatus } from '../utils/NetworkManager';
 
 interface InvoicePreviewScreenProps {
   navigation: any;
@@ -55,6 +57,8 @@ interface ShopDetails {
 
 export default function InvoicePreviewScreen({ navigation, route }: InvoicePreviewScreenProps): React.JSX.Element {
   const { invoice: routeInvoice, isPreview } = route.params || {};
+  const { isConnected, isInternetReachable } = useNetworkStatus();
+  
   const [invoice, setInvoice] = useState<Invoice | null>(routeInvoice || null);
   const [shopDetails, setShopDetails] = useState<ShopDetails | null>(null);
 

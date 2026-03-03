@@ -12,7 +12,15 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
-import { getInvoices, getPayments, Payment } from '../utils/NetworkManager';
+import Toast from 'react-native-toast-message';
+import SyncIndicator from '../Components/SyncIndicator';
+import { 
+  getInvoices, 
+  getPayments, 
+  Payment,
+  useNetworkStatus,
+  getPendingSyncItems
+} from '../utils/NetworkManager';
 
 // Types and Interfaces
 interface HistoryScreenProps {
@@ -44,6 +52,11 @@ interface Invoice {
 }
 
 export default function HistoryScreen({ navigation }: HistoryScreenProps): React.JSX.Element {
+  // Network status monitoring
+  const { isConnected, isInternetReachable } = useNetworkStatus();
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+  
   const [activeTab, setActiveTab] = useState<TabType>('payments'); // 'invoices' or 'payments'
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [payments, setPayments] = useState<Payment[]>([]);
@@ -52,11 +65,41 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): React
 
   useEffect(() => {
     loadHistory();
+    updatePendingSyncCount();
   }, []);
+
+  // Update pending sync count
+  const updatePendingSyncCount = async () => {
+    try {
+      const pendingItems = await getPendingSyncItems();
+      setPendingSyncCount(pendingItems.length);
+    } catch (error) {
+      console.error('Error getting pending sync count:', error);
+    }
+  };
+
+  // Monitor network status
+  useEffect(() => {
+    if (isConnected && isInternetReachable) {
+      const checkSync = async () => {
+        const pending = await getPendingSyncItems();
+        if (pending.length > 0) {
+          setIsSyncing(true);
+          setTimeout(() => {
+            setIsSyncing(false);
+            updatePendingSyncCount();
+          }, 3000);
+        }
+      };
+      checkSync();
+    }
+  }, [isConnected, isInternetReachable]);
 
   const loadHistory = async (): Promise<void> => {
     try {
-      // Load invoices from backend (user-isolated)
+      const isOffline = !isConnected || !isInternetReachable;
+      
+      // Load invoices from backend (user-isolated, offline-capable)
       const invoiceList = await getInvoices();
 
       // Map backend invoice data to frontend format
@@ -80,11 +123,27 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): React
 
       setInvoices(mappedInvoices.reverse()); // Show newest first
 
-      // Load payment history from backend
+      // Load payment history from backend (offline-capable)
       const paymentList = await getPayments();
       setPayments(paymentList.reverse());
+      
+      if (isOffline && (mappedInvoices.length > 0 || paymentList.length > 0)) {
+        Toast.show({
+          type: 'info',
+          text1: 'Offline Mode',
+          text2: 'Showing cached data',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+      }
     } catch (error) {
       console.error('Error loading history:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to load history',
+        position: 'bottom',
+      });
     } finally {
       setLoading(false);
     }
@@ -111,6 +170,13 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): React
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
+
+      {/* Sync Indicator */}
+      <SyncIndicator 
+        isSyncing={isSyncing}
+        isOnline={isConnected && isInternetReachable}
+        pendingCount={pendingSyncCount}
+      />
 
       {/* Header */}
       <View style={styles.header}>

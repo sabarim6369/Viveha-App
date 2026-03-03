@@ -12,9 +12,12 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
+import SyncIndicator from '../Components/SyncIndicator';
 import {
   getInvoices,
   getInvoicePayments,
+  useNetworkStatus,
+  getPendingSyncItems,
 } from '../utils/NetworkManager';
 
 interface Product {
@@ -71,6 +74,12 @@ type FilterType = 'all' | 'paid' | 'pending' | 'unpaid';
 
 export default function ContactInvoicesScreen({ navigation, route }: ContactInvoicesScreenProps): React.JSX.Element {
   const { contact } = route.params;
+  
+  // Network status
+  const { isConnected, isInternetReachable } = useNetworkStatus();
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+  
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [loading, setLoading] = useState<boolean>(true);
   const [paymentHistoryModalVisible, setPaymentHistoryModalVisible] = useState<boolean>(false);
@@ -81,11 +90,39 @@ export default function ContactInvoicesScreen({ navigation, route }: ContactInvo
 
   useEffect(() => {
     loadInvoices();
+    updatePendingSyncCount();
   }, []);
+
+  const updatePendingSyncCount = async () => {
+    try {
+      const pendingItems = await getPendingSyncItems();
+      setPendingSyncCount(pendingItems.length);
+    } catch (error) {
+      console.error('Error getting pending sync count:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (isConnected && isInternetReachable) {
+      const checkSync = async () => {
+        const pending = await getPendingSyncItems();
+        if (pending.length > 0) {
+          setIsSyncing(true);
+          setTimeout(() => {
+            setIsSyncing(false);
+            updatePendingSyncCount();
+          }, 3000);
+        }
+      };
+      checkSync();
+    }
+  }, [isConnected, isInternetReachable]);
 
   const loadInvoices = async (): Promise<void> => {
     try {
       setLoading(true);
+      const isOffline = !isConnected || !isInternetReachable;
+      
       const allInvoices = await getInvoices();
 
       // Filter invoices for this contact
@@ -133,6 +170,16 @@ export default function ContactInvoicesScreen({ navigation, route }: ContactInvo
         .reverse(); // Show newest first
 
       setInvoices(contactInvoices);
+      
+      if (isOffline && contactInvoices.length > 0) {
+        Toast.show({
+          type: 'info',
+          text1: 'Offline Mode',
+          text2: 'Showing cached invoices',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+      }
     } catch (error) {
       console.error('Error loading invoices:', error);
       Toast.show({
@@ -303,6 +350,13 @@ export default function ContactInvoicesScreen({ navigation, route }: ContactInvo
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
+
+      {/* Sync Indicator */}
+      <SyncIndicator 
+        isSyncing={isSyncing}
+        isOnline={isConnected && isInternetReachable}
+        pendingCount={pendingSyncCount}
+      />
 
       {/* Header */}
       <View style={styles.header}>

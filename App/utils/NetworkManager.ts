@@ -30,8 +30,10 @@ export interface Item {
   id: string;
   serverId?: string;
   name: string;
-  amount: number;
-  price: number;
+  actualPrice: number; // Original/MRP price
+  salePrice: number;   // Selling price (used in invoices)
+  amount?: number;     // Deprecated: Use salePrice instead
+  price?: number;      // Deprecated: Use salePrice instead
   stock: number;
   unit: string;
   groupId?: string | null;
@@ -64,7 +66,9 @@ interface InvoiceItem {
   name: string;
   itemName?: string;
   quantity: number;
-  price: number;
+  actualPrice?: number; // Original/MRP price (for reference)
+  salePrice: number;    // Price applied in invoice
+  price?: number;       // Deprecated: Use salePrice instead
 }
 
 interface Invoice {
@@ -387,7 +391,9 @@ const syncItemsToBackend = async (clientId: string, items: PendingSyncItem[]): P
       const payload = {
         clientId,
         name: item.name,
-        price: item.amount || item.price,
+        actualPrice: item.actualPrice || item.amount || item.price || 0,
+        salePrice: item.salePrice || item.price || item.amount || 0,
+        price: item.salePrice || item.price || item.amount || 0, // Backend compatibility
         stock: item.stock || 0,
         unit: item.unit || 'nos',
         groupId: item.groupId || null,
@@ -977,19 +983,49 @@ export const fetchItemsFromBackend = async (): Promise<Item[]> => {
 
     if (data.success && data.items) {
       // Map backend items to frontend format
-      const items: Item[] = data.items.map((item: any) => ({
-        id: item._id,
-        serverId: item._id,
-        name: item.name,
-        amount: item.price,
-        price: item.price,
-        stock: item.stock,
-        unit: item.unit,
-        groupId: item.groupId,
-        groupName: item.groupName || '',
-        description: item.description || '',
-        createdAt: item.createdAt,
-      }));
+      const items: Item[] = data.items.map((item: any) => {
+        // If backend has both prices, use them
+        // Otherwise, treat backend price as salePrice and use it for actualPrice too (until backend is updated)
+        const hasActualPrice = item.actualPrice !== undefined && item.actualPrice !== null;
+        const hasSalePrice = item.salePrice !== undefined && item.salePrice !== null;
+        
+        let actualPrice: number;
+        let salePrice: number;
+        
+        if (hasActualPrice && hasSalePrice) {
+          // Backend has both prices
+          actualPrice = item.actualPrice;
+          salePrice = item.salePrice;
+        } else if (hasActualPrice) {
+          // Only has actualPrice
+          actualPrice = item.actualPrice;
+          salePrice = item.price || item.actualPrice;
+        } else if (hasSalePrice) {
+          // Only has salePrice
+          actualPrice = item.price || item.salePrice;
+          salePrice = item.salePrice;
+        } else {
+          // Backend only has generic price - use it for both until backend supports dual pricing
+          actualPrice = item.price || 0;
+          salePrice = item.price || 0;
+        }
+        
+        return {
+          id: item._id,
+          serverId: item._id,
+          name: item.name,
+          actualPrice: actualPrice,
+          salePrice: salePrice,
+          amount: actualPrice, // Backward compatibility - use actualPrice
+          price: salePrice,    // Backward compatibility - use salePrice
+          stock: item.stock,
+          unit: item.unit,
+          groupId: item.groupId,
+          groupName: item.groupName || '',
+          description: item.description || '',
+          createdAt: item.createdAt,
+        };
+      });
 
       // Save to local storage
       await saveLocalData(STORAGE_KEYS.ITEMS, items);
@@ -1027,7 +1063,9 @@ export const saveItem = async (item: Item, isUpdate: boolean = false): Promise<S
         const payload = {
           clientId,
           name: item.name,
-          price: item.amount || item.price,
+          actualPrice: item.actualPrice || item.amount || item.price || 0,
+          salePrice: item.salePrice || item.price || item.amount || 0,
+          price: item.salePrice || item.price || item.amount || 0, // Backend compatibility
           stock: item.stock || 0,
           unit: item.unit || 'nos',
           description: item.description || '',
@@ -1059,13 +1097,31 @@ export const saveItem = async (item: Item, isUpdate: boolean = false): Promise<S
         console.log('Backend response:', data);
 
         if (data.success && data.item) {
-          // Update with server data
+          // Update with server data, but preserve local dual pricing if backend doesn't support it yet
+          const hasActualPrice = data.item.actualPrice !== undefined && data.item.actualPrice !== null;
+          const hasSalePrice = data.item.salePrice !== undefined && data.item.salePrice !== null;
+          
+          let actualPrice: number;
+          let salePrice: number;
+          
+          if (hasActualPrice && hasSalePrice) {
+            // Backend supports dual pricing
+            actualPrice = data.item.actualPrice;
+            salePrice = data.item.salePrice;
+          } else {
+            // Backend doesn't support dual pricing yet, preserve our local values
+            actualPrice = item.actualPrice;
+            salePrice = item.salePrice;
+          }
+          
           const savedItem: Item = {
             id: item.id,
             serverId: data.item._id,
             name: data.item.name,
-            amount: data.item.price,
-            price: data.item.price,
+            actualPrice: actualPrice,
+            salePrice: salePrice,
+            amount: actualPrice, // Backward compatibility - use actualPrice
+            price: salePrice,    // Backward compatibility - use salePrice
             stock: data.item.stock,
             unit: data.item.unit,
             groupId: data.item.groupId,
@@ -1179,8 +1235,34 @@ export const getItems = async (): Promise<Item[]> => {
     const netInfo = await NetInfo.fetch();
     if (netInfo.isConnected && netInfo.isInternetReachable) {
       const backendItems = await fetchItemsFromBackend();
-      if (backendItems.length >= 0) { // Always trust backend data
-        return backendItems;
+      if (backendItems.length >= 0) {
+        // Merge backend items with local items to preserve dual pricing
+        // if backend doesn't support it yet
+        const mergedItems = backendItems.map(backendItem => {
+          const localItem = localItems.find(li => 
+            li.serverId === backendItem.serverId || li.id === backendItem.id
+          );
+          
+          // If local item exists and has different prices but backend doesn't,
+          // preserve the local pricing
+          if (localItem && 
+              localItem.actualPrice !== localItem.salePrice &&
+              backendItem.actualPrice === backendItem.salePrice) {
+            return {
+              ...backendItem,
+              actualPrice: localItem.actualPrice,
+              salePrice: localItem.salePrice,
+              amount: localItem.actualPrice,
+              price: localItem.salePrice,
+            };
+          }
+          
+          return backendItem;
+        });
+        
+        // Save merged data to local storage
+        await saveLocalData(STORAGE_KEYS.ITEMS, mergedItems);
+        return mergedItems;
       }
     }
 

@@ -14,7 +14,13 @@ import {
     Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
-import { getClients } from '../utils/NetworkManager';
+import Toast from 'react-native-toast-message';
+import SyncIndicator from '../Components/SyncIndicator';
+import { 
+  getClients,
+  useNetworkStatus,
+  getPendingSyncItems
+} from '../utils/NetworkManager';
 
 // Type definitions
 interface ContactsScreenProps {
@@ -33,6 +39,11 @@ interface GroupedClients {
 }
 
 export default function ContactsScreen({ navigation }: ContactsScreenProps): React.JSX.Element {
+    // Network status monitoring
+    const { isConnected, isInternetReachable } = useNetworkStatus();
+    const [pendingSyncCount, setPendingSyncCount] = useState(0);
+    const [isSyncing, setIsSyncing] = useState(false);
+    
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [refreshing, setRefreshing] = useState<boolean>(false);
     const [clients, setClients] = useState<Client[]>([]);
@@ -42,7 +53,35 @@ export default function ContactsScreen({ navigation }: ContactsScreenProps): Rea
 
     useEffect(() => {
         loadClients();
+        updatePendingSyncCount();
     }, []);
+
+    // Update pending sync count
+    const updatePendingSyncCount = async () => {
+        try {
+            const pendingItems = await getPendingSyncItems();
+            setPendingSyncCount(pendingItems.length);
+        } catch (error) {
+            console.error('Error getting pending sync count:', error);
+        }
+    };
+
+    // Monitor network status
+    useEffect(() => {
+        if (isConnected && isInternetReachable) {
+            const checkSync = async () => {
+                const pending = await getPendingSyncItems();
+                if (pending.length > 0) {
+                    setIsSyncing(true);
+                    setTimeout(() => {
+                        setIsSyncing(false);
+                        updatePendingSyncCount();
+                    }, 3000);
+                }
+            };
+            checkSync();
+        }
+    }, [isConnected, isInternetReachable]);
 
     useEffect(() => {
         filterClients();
@@ -50,6 +89,8 @@ export default function ContactsScreen({ navigation }: ContactsScreenProps): Rea
 
     const loadClients = async (): Promise<void> => {
         try {
+            const isOffline = !isConnected || !isInternetReachable;
+            
             const data = await getClients();
             // Sort by name alphabetically
             const sortedData = (data || []).sort((a: Client, b: Client) =>
@@ -57,6 +98,16 @@ export default function ContactsScreen({ navigation }: ContactsScreenProps): Rea
             );
             setClients(sortedData);
             setFilteredClients(sortedData);
+            
+            if (isOffline && sortedData.length > 0) {
+                Toast.show({
+                    type: 'info',
+                    text1: 'Offline Mode',
+                    text2: 'Showing cached contacts',
+                    position: 'bottom',
+                    visibilityTime: 2000,
+                });
+            }
         } catch (error) {
             console.error('Error loading clients:', error);
             Alert.alert('Error', 'Failed to load contacts');
@@ -167,6 +218,14 @@ export default function ContactsScreen({ navigation }: ContactsScreenProps): Rea
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" backgroundColor="#FFFFFF" />
+            
+            {/* Sync Indicator */}
+            <SyncIndicator 
+                isSyncing={isSyncing}
+                isOnline={isConnected && isInternetReachable}
+                pendingCount={pendingSyncCount}
+            />
+            
             {/* Header */}
             <View style={styles.header}>
                 <TouchableOpacity

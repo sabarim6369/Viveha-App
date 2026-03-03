@@ -45,7 +45,8 @@ interface ItemsScreenProps {
 
 interface ItemFormData {
   name: string;
-  amount: string;
+  actualPrice: string;
+  salePrice: string;
   stock: string;
   groupId: string | null;
   groupName: string;
@@ -77,7 +78,8 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
   const [editingGroup, setEditingGroup] = useState<ItemGroup | null>(null);
   const [formData, setFormData] = useState<ItemFormData>({
     name: '',
-    amount: '',
+    actualPrice: '',
+    salePrice: '',
     stock: '',
     groupId: null,
     groupName: '',
@@ -168,15 +170,19 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
 
   const openAddModal = (): void => {
     setEditingItem(null);
-    setFormData({ name: '', amount: '', stock: '', groupId: null, groupName: '' });
+    setFormData({ name: '', actualPrice: '', salePrice: '', stock: '', groupId: null, groupName: '' });
     setModalVisible(true);
   };
 
   const openEditModal = (item: Item): void => {
     setEditingItem(item);
+    // Use new dual pricing fields if available, fallback to amount for backward compatibility
+    const actualPrice = item.actualPrice !== undefined ? item.actualPrice : (item.amount || 0);
+    const salePrice = item.salePrice !== undefined ? item.salePrice : (item.amount || 0);
     setFormData({
       name: item.name,
-      amount: item.amount.toString(),
+      actualPrice: actualPrice.toString(),
+      salePrice: salePrice.toString(),
       stock: item.stock.toString(),
       groupId: item.groupId || null,
       groupName: item.groupName || '',
@@ -210,11 +216,20 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
       });
       return;
     }
-    if (!formData.amount || parseFloat(formData.amount) <= 0) {
+    if (!formData.actualPrice || parseFloat(formData.actualPrice) <= 0) {
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: 'Please enter valid amount',
+        text2: 'Please enter valid actual price',
+        position: 'bottom',
+      });
+      return;
+    }
+    if (!formData.salePrice || parseFloat(formData.salePrice) <= 0) {
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Please enter valid sale price',
         position: 'bottom',
       });
       return;
@@ -233,8 +248,10 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
       id: editingItem ? editingItem.id : Date.now().toString(),
       serverId: editingItem?.serverId, // Keep the server ID for updates
       name: formData.name.trim(),
-      amount: parseFloat(formData.amount),
-      price: parseFloat(formData.amount),
+      actualPrice: parseFloat(formData.actualPrice),
+      salePrice: parseFloat(formData.salePrice),
+      amount: parseFloat(formData.actualPrice), // Backward compatibility - use actualPrice
+      price: parseFloat(formData.salePrice),    // Backward compatibility - use salePrice
       stock: parseInt(formData.stock),
       unit: 'pcs',
       groupId: formData.groupId,
@@ -247,7 +264,7 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
     if (result.success && result.items) {
       setItems(result.items);
       setModalVisible(false);
-      setFormData({ name: '', amount: '', stock: '', groupId: null, groupName: '' });
+      setFormData({ name: '', actualPrice: '', salePrice: '', stock: '', groupId: null, groupName: '' });
 
       const offlineMsg = (!isConnected || !isInternetReachable) ? ' (Saved offline)' : '';
       Toast.show({
@@ -509,27 +526,47 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
           <View style={styles.itemsList}>
             {items.map((item: Item) => (
               <View key={item.id} style={styles.itemCard}>
-                <View style={styles.itemInfo}>
-                  <View style={styles.itemIcon}>
-                    <Ionicons name={"cube" as any} size={24} color="#E88E99" />
-                  </View>
-                  <View style={styles.itemDetails}>
+                {/* Header Section */}
+                <View style={styles.cardHeader}>
+                  <View style={styles.cardHeaderLeft}>
                     <Text style={styles.itemName}>{item.name}</Text>
                     {item.groupName && (
-                      <View style={styles.groupBadge}>
-                        <Ionicons name={"folder" as any} size={12} color="#666" />
-                        <Text style={styles.groupBadgeText}>{item.groupName}</Text>
-                      </View>
+                      <Text style={styles.hsnText}>HSN: {item.groupName}</Text>
                     )}
-                    <Text style={styles.itemAmount}>Rs.{(item.amount || 0).toFixed(2)}</Text>
+                  </View>
+                  <View style={[
+                    styles.stockBadge,
+                    item.stock === 0 && styles.stockBadgeOutOfStock
+                  ]}>
                     <Text style={[
-                      styles.itemStock,
-                      item.stock === 0 && styles.outOfStock
+                      styles.stockBadgeText,
+                      item.stock === 0 && styles.stockBadgeTextOutOfStock
                     ]}>
-                      Stock: {item.stock} {item.stock === 0 ? '(Out of Stock)' : ''}
+                      Stock: {item.stock}
                     </Text>
                   </View>
                 </View>
+
+                {/* Pricing Card Section */}
+                <View style={styles.pricingSection}>
+                  <View style={styles.priceColumn}>
+                    <Text style={styles.priceColumnLabel}>ACTUAL PRIZE</Text>
+                    <Text style={styles.priceValue}>
+                      Rs.{((item.actualPrice !== undefined ? item.actualPrice : item.amount) || 0).toFixed(2)}
+                    </Text>
+                  </View>
+                  
+                  <View style={styles.priceDivider} />
+                  
+                  <View style={styles.priceColumn}>
+                    <Text style={styles.priceColumnLabel}>SALE PRIZE</Text>
+                    <Text style={[styles.priceValue, styles.salePriceValue]}>
+                      Rs.{((item.salePrice !== undefined ? item.salePrice : item.price) || 0).toFixed(2)}
+                    </Text>
+                  </View>
+                </View>
+
+                {/* Action Buttons */}
                 <View style={styles.itemActions}>
                   <TouchableOpacity
                     style={styles.actionButton}
@@ -614,15 +651,35 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
                   </TouchableOpacity>
                 </View>
 
-                <View style={styles.inputGroup}>
-                  <Text style={styles.label}>Amount (Rs.)</Text>
-                  <TextInput
-                    style={styles.input}
-                    placeholder="Enter price"
-                    value={formData.amount}
-                    onChangeText={(text: string) => setFormData({ ...formData, amount: text.replace(/[^0-9.]/g, '') })}
-                    keyboardType="decimal-pad"
-                  />
+                {/* Dual Pricing Card */}
+                <View style={styles.pricingCard}>
+                  <View style={styles.priceInputGroup}>
+                    <Text style={styles.priceLabel}>Actual Price</Text>
+                    <View style={styles.priceInputContainer}>
+                      <Text style={styles.currencySymbol}>Rs.</Text>
+                      <TextInput
+                        style={styles.priceInput}
+                        placeholder="0.00"
+                        value={formData.actualPrice}
+                        onChangeText={(text: string) => setFormData({ ...formData, actualPrice: text.replace(/[^0-9.]/g, '') })}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                  </View>
+
+                  <View style={styles.priceInputGroup}>
+                    <Text style={styles.priceLabel}>Sale Price</Text>
+                    <View style={styles.priceInputContainer}>
+                      <Text style={styles.currencySymbol}>Rs.</Text>
+                      <TextInput
+                        style={styles.priceInput}
+                        placeholder="0.00"
+                        value={formData.salePrice}
+                        onChangeText={(text: string) => setFormData({ ...formData, salePrice: text.replace(/[^0-9.]/g, '') })}
+                        keyboardType="decimal-pad"
+                      />
+                    </View>
+                  </View>
                 </View>
 
                 <View style={styles.inputGroup}>
@@ -919,81 +976,106 @@ const styles = StyleSheet.create({
     padding: 20,
   },
   itemCard: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
     backgroundColor: '#fff',
-    padding: 15,
+    padding: 14,
     borderRadius: 12,
     marginBottom: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 4,
-    elevation: 2,
+    shadowOpacity: 0.08,
+    shadowRadius: 8,
+    elevation: 3,
   },
-  itemInfo: {
+  cardHeader: {
     flexDirection: 'row',
-    alignItems: 'center',
-    flex: 1,
+    justifyContent: 'space-between',
+    alignItems: 'flex-start',
+    marginBottom: 12,
   },
-  itemIcon: {
-    width: 50,
-    height: 50,
-    borderRadius: 25,
-    backgroundColor: '#FFF3F4',
-    alignItems: 'center',
-    justifyContent: 'center',
+  cardHeaderLeft: {
+    flex: 1,
     marginRight: 12,
-  },
-  itemDetails: {
-    flex: 1,
   },
   itemName: {
     fontSize: 16,
-    fontWeight: '600',
-    color: '#333',
-    marginBottom: 4,
+    fontWeight: '700',
+    color: '#000',
+    marginBottom: 3,
+    lineHeight: 20,
   },
-  groupBadge: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    backgroundColor: '#f0f0f0',
-    paddingHorizontal: 8,
-    paddingVertical: 3,
-    borderRadius: 12,
-    alignSelf: 'flex-start',
-    marginBottom: 4,
-    gap: 4,
+  hsnText: {
+    fontSize: 12,
+    color: '#999',
+    fontWeight: '400',
   },
-  groupBadgeText: {
+  stockBadge: {
+    backgroundColor: '#D4F4E7',
+    paddingHorizontal: 10,
+    paddingVertical: 4,
+    borderRadius: 6,
+  },
+  stockBadgeText: {
     fontSize: 11,
-    color: '#666',
-    fontWeight: '500',
+    color: '#00875A',
+    fontWeight: '600',
   },
-  itemAmount: {
+  stockBadgeOutOfStock: {
+    backgroundColor: '#FFE5E5',
+  },
+  stockBadgeTextOutOfStock: {
+    color: '#D32F2F',
+  },
+  pricingSection: {
+    flexDirection: 'row',
+    backgroundColor: '#F5F5F5',
+    borderRadius: 10,
+    padding: 12,
+    marginBottom: 10,
+    alignItems: 'center',
+  },
+  priceColumn: {
+    flex: 1,
+    alignItems: 'center',
+  },
+  priceColumnLabel: {
+    fontSize: 10,
+    color: '#999',
+    fontWeight: '500',
+    marginBottom: 6,
+    letterSpacing: 0.5,
+  },
+  priceValueRow: {
+    alignItems: 'center',
+  },
+  priceValue: {
     fontSize: 18,
     fontWeight: '700',
-    color: '#E88E99',
-    marginBottom: 2,
+    color: '#333',
   },
-  itemStock: {
-    fontSize: 12,
-    color: '#666',
+  salePriceValue: {
+    color: '#333',
   },
-  outOfStock: {
-    color: '#F44336',
-    fontWeight: '600',
+  gstText: {
+    fontSize: 11,
+    color: '#999',
+    fontWeight: '400',
+  },
+  priceDivider: {
+    width: 1,
+    height: 45,
+    backgroundColor: '#DDD',
+    marginHorizontal: 12,
   },
   itemActions: {
     flexDirection: 'row',
-    gap: 10,
+    justifyContent: 'flex-end',
+    gap: 8,
   },
   actionButton: {
     width: 36,
     height: 36,
-    borderRadius: 18,
-    backgroundColor: '#f5f5f5',
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -1045,6 +1127,57 @@ const styles = StyleSheet.create({
     color: '#333',
     borderWidth: 1,
     borderColor: '#eee',
+  },
+  pricingCard: {
+    backgroundColor: '#fff',
+    borderRadius: 12,
+    padding: 16,
+    marginBottom: 20,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 1 },
+    shadowOpacity: 0.05,
+    shadowRadius: 2,
+    elevation: 1,
+  },
+  priceInputGroup: {
+    marginBottom: 16,
+  },
+  priceLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 8,
+  },
+  priceInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#f9f9f9',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    paddingVertical: 10,
+    borderWidth: 1,
+    borderColor: '#e0e0e0',
+  },
+  currencySymbol: {
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#666',
+    marginRight: 8,
+  },
+  priceInput: {
+    flex: 1,
+    fontSize: 16,
+    fontWeight: '600',
+    color: '#333',
+    padding: 0,
+  },
+  gstLabel: {
+    fontSize: 12,
+    color: '#999',
+    marginLeft: 8,
+    fontWeight: '500',
   },
   saveButton: {
     backgroundColor: '#E88E99',

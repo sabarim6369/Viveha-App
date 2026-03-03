@@ -13,8 +13,18 @@ import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
 import Footer from '../Components/Footer';
-import { fetchAllUserData, getInvoices, getPayments, getPendingInvoices, Payment } from '../utils/NetworkManager';
+import SyncIndicator from '../Components/SyncIndicator';
+import { 
+  fetchAllUserData, 
+  getInvoices, 
+  getPayments, 
+  getPendingInvoices, 
+  Payment,
+  useNetworkStatus,
+  getPendingSyncItems
+} from '../utils/NetworkManager';
 
 // Type definitions
 interface HomeScreenProps {
@@ -53,6 +63,11 @@ interface Invoice {
 }
 
 export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.Element {
+  // Network status monitoring
+  const { isConnected, isInternetReachable } = useNetworkStatus();
+  const [pendingSyncCount, setPendingSyncCount] = useState(0);
+  const [isSyncing, setIsSyncing] = useState(false);
+  
   const [shopName, setShopName] = useState<string>('My Shop');
   const [isLoadingData, setIsLoadingData] = useState<boolean>(false);
   const [isTransactionsLoading, setIsTransactionsLoading] = useState<boolean>(true);
@@ -67,14 +82,54 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
       loadUserData();
       loadRecentTransactions();
       loadBalance();
+      updatePendingSyncCount();
     }, [])
   );
+
+  // Update pending sync count
+  const updatePendingSyncCount = async () => {
+    try {
+      const pendingItems = await getPendingSyncItems();
+      setPendingSyncCount(pendingItems.length);
+    } catch (error) {
+      console.error('Error getting pending sync count:', error);
+    }
+  };
+
+  // Monitor network status
+  useEffect(() => {
+    if (isConnected && isInternetReachable) {
+      const checkSync = async () => {
+        const pending = await getPendingSyncItems();
+        if (pending.length > 0) {
+          setIsSyncing(true);
+          setTimeout(() => {
+            setIsSyncing(false);
+            updatePendingSyncCount();
+            loadUserData();
+          }, 3000);
+        }
+      };
+      checkSync();
+    }
+  }, [isConnected, isInternetReachable]);
 
   const loadUserData = async (): Promise<void> => {
     try {
       setIsLoadingData(true);
-      // Fetch all user-specific data from backend
+      // Fetch all user-specific data from backend (offline-capable)
       await fetchAllUserData();
+      
+      const isOffline = !isConnected || !isInternetReachable;
+      if (isOffline) {
+        Toast.show({
+          type: 'info',
+          text1: 'Offline Mode',
+          text2: 'Showing cached data',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+      }
     } catch (error) {
       console.error('Error loading user data:', error);
     } finally {
@@ -178,6 +233,13 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
 
   return (
     <SafeAreaView style={styles.container}>
+      {/* Sync Indicator */}
+      <SyncIndicator 
+        isSyncing={isSyncing}
+        isOnline={isConnected && isInternetReachable}
+        pendingCount={pendingSyncCount}
+      />
+      
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header Card */}
         <LinearGradient

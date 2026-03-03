@@ -16,7 +16,12 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { saveClient } from '../utils/NetworkManager';
+import SyncIndicator from '../Components/SyncIndicator';
+import { 
+  saveClient,
+  useNetworkStatus,
+  getPendingSyncItems
+} from '../utils/NetworkManager';
 import Footer from '../Components/Footer';
 
 interface CreateCustomerScreenProps {
@@ -31,6 +36,12 @@ interface CustomerFieldSettings {
 
 export default function CreateCustomerScreen({ navigation }: CreateCustomerScreenProps): React.JSX.Element {
     const insets = useSafeAreaInsets();
+    
+    // Network status monitoring
+    const { isConnected, isInternetReachable } = useNetworkStatus();
+    const [pendingSyncCount, setPendingSyncCount] = useState(0);
+    const [isSyncing, setIsSyncing] = useState(false);
+    
     const [name, setName] = useState<string>('');
     const [phone, setPhone] = useState<string>('');
     const [email, setEmail] = useState<string>('');
@@ -46,7 +57,35 @@ export default function CreateCustomerScreen({ navigation }: CreateCustomerScree
 
     useEffect(() => {
         loadCustomerFieldSettings();
+        updatePendingSyncCount();
     }, []);
+
+    // Update pending sync count
+    const updatePendingSyncCount = async () => {
+        try {
+            const pendingItems = await getPendingSyncItems();
+            setPendingSyncCount(pendingItems.length);
+        } catch (error) {
+            console.error('Error getting pending sync count:', error);
+        }
+    };
+
+    // Monitor network status
+    useEffect(() => {
+        if (isConnected && isInternetReachable) {
+            const checkSync = async () => {
+                const pending = await getPendingSyncItems();
+                if (pending.length > 0) {
+                    setIsSyncing(true);
+                    setTimeout(() => {
+                        setIsSyncing(false);
+                        updatePendingSyncCount();
+                    }, 3000);
+                }
+            };
+            checkSync();
+        }
+    }, [isConnected, isInternetReachable]);
 
     const loadCustomerFieldSettings = async (): Promise<void> => {
         try {
@@ -91,6 +130,7 @@ export default function CreateCustomerScreen({ navigation }: CreateCustomerScree
 
         try {
             setIsSaving(true);
+            const isOffline = !isConnected || !isInternetReachable;
 
             const customerData: any = {
                 name: name.trim(),
@@ -115,8 +155,8 @@ export default function CreateCustomerScreen({ navigation }: CreateCustomerScree
             if (result.success) {
                 Toast.show({
                     type: 'success',
-                    text1: 'Success',
-                    text2: 'Customer created successfully',
+                    text1: isOffline ? 'Saved Offline' : 'Success',
+                    text2: isOffline ? 'Customer will sync when online' : 'Customer created successfully',
                     position: 'bottom',
                 });
                 navigation.goBack();
@@ -133,6 +173,13 @@ export default function CreateCustomerScreen({ navigation }: CreateCustomerScree
 
     return (
         <View style={styles.container}>
+            {/* Sync Indicator */}
+            <SyncIndicator 
+                isSyncing={isSyncing}
+                isOnline={isConnected && isInternetReachable}
+                pendingCount={pendingSyncCount}
+            />
+            
             {/* Header */}
             <View style={[styles.header, { paddingTop: insets.top }]}>
                 <TouchableOpacity onPress={() => navigation.goBack()}>

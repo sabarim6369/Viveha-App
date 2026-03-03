@@ -16,7 +16,12 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import { getCustomerProfile } from '../utils/NetworkManager';
+import SyncIndicator from '../Components/SyncIndicator';
+import { 
+  getCustomerProfile,
+  useNetworkStatus,
+  getPendingSyncItems
+} from '../utils/NetworkManager';
 import Footer from '../Components/Footer';
 
 interface CustomerProfileScreenProps {
@@ -68,17 +73,66 @@ interface ProfileData {
 export default function CustomerProfileScreen({ navigation, route }: CustomerProfileScreenProps): React.JSX.Element {
     const { customerId, customerName } = route.params;
     const insets = useSafeAreaInsets();
+    
+    // Network status monitoring
+    const { isConnected, isInternetReachable } = useNetworkStatus();
+    const [pendingSyncCount, setPendingSyncCount] = useState(0);
+    const [isSyncing, setIsSyncing] = useState(false);
+    
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [profileData, setProfileData] = useState<ProfileData | null>(null);
     const [shareModalVisible, setShareModalVisible] = useState<boolean>(false);
 
     useEffect(() => {
         loadCustomerProfile();
+        updatePendingSyncCount();
     }, [customerId]);
+
+    const updatePendingSyncCount = async () => {
+        try {
+            const pendingItems = await getPendingSyncItems();
+            setPendingSyncCount(pendingItems.length);
+        } catch (error) {
+            console.error('Error getting pending sync count:', error);
+        }
+    };
+
+    useEffect(() => {
+        if (isConnected && isInternetReachable) {
+            const checkSync = async () => {
+                const pending = await getPendingSyncItems();
+                if (pending.length > 0) {
+                    setIsSyncing(true);
+                    setTimeout(() => {
+                        setIsSyncing(false);
+                        updatePendingSyncCount();
+                    }, 3000);
+                }
+            };
+            checkSync();
+        }
+    }, [isConnected, isInternetReachable]);
 
     const loadCustomerProfile = async (): Promise<void> => {
         try {
             setIsLoading(true);
+            const isOffline = !isConnected || !isInternetReachable;
+            
+            if (isOffline) {
+                Toast.show({
+                    type: 'info',
+                    text1: 'Offline Mode',
+                    text2: 'Customer profile requires internet',
+                    position: 'bottom',
+                });
+                Alert.alert(
+                    'Offline Mode',
+                    'Customer profile details require an internet connection. Please connect to view.',
+                    [{ text: 'OK', onPress: () => navigation.goBack() }]
+                );
+                return;
+            }
+            
             const data = await getCustomerProfile(customerId);
             setProfileData(data);
         } catch (error: any) {
