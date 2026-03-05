@@ -221,7 +221,7 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
   };
 
   const handleShowPaymentHistory = async (invoice: PendingInvoice): Promise<void> => {
-    // Navigate to Customer Profile Screen which shows all bills/payments
+    // Navigate to Customer Profile Screen - show ONLY this specific invoice
     const customerId = getCustomerId() || invoice.clientCustomerId;
     
     console.log('🔍 Customer ID lookup:', {
@@ -245,6 +245,8 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
     navigation.navigate('CustomerProfile', {
       customerId: customerId,
       customerName: customer.clientName || invoice.clientName,
+      specificInvoiceId: invoice.invoiceId, // Pass specific invoice ID
+      specificInvoiceNumber: invoice.invoiceNumber, // Pass invoice number for display
     });
   };
 

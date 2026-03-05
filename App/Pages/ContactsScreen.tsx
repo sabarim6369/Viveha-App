@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
     View,
     Text,
@@ -14,6 +14,7 @@ import {
     Platform
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import { useFocusEffect } from '@react-navigation/native';
 import Toast from 'react-native-toast-message';
 import SyncIndicator from '../Components/SyncIndicator';
 import { 
@@ -55,6 +56,14 @@ export default function ContactsScreen({ navigation }: ContactsScreenProps): Rea
         loadClients();
         updatePendingSyncCount();
     }, []);
+
+    // Reload contacts when screen comes into focus
+    useFocusEffect(
+        useCallback(() => {
+            loadClients();
+            updatePendingSyncCount();
+        }, [])
+    );
 
     // Update pending sync count
     const updatePendingSyncCount = async () => {

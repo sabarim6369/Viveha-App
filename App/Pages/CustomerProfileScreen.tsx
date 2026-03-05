@@ -9,917 +9,917 @@ import {
     SafeAreaView,
     Alert,
     Share,
-    Image,
     Modal,
     Linking,
+    Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
-import SyncIndicator from '../Components/SyncIndicator';
-import { 
-  getCustomerProfile,
-  useNetworkStatus,
-  getPendingSyncItems
+import * as Print from 'expo-print';
+import * as Sharing from 'expo-sharing';
+import {
+    getCustomerProfile,
+    useNetworkStatus,
+    getPendingSyncItems,
 } from '../utils/NetworkManager';
 import Footer from '../Components/Footer';
 
-interface CustomerProfileScreenProps {
-    navigation: any;
-    route: any;
+// ─── Colour tokens ────────────────────────────────────────────────────────────
+const ROSE = '#E07C8C';   // coral card header bg
+const ORANGE = '#F07C3A';   // Save & Print button
+
+// ─── Interfaces ───────────────────────────────────────────────────────────────
+interface CustomerProfileScreenProps { 
+    navigation: any; 
+    route: { 
+        params: { 
+            customerId: string; 
+            specificInvoiceId?: string; 
+            specificInvoiceNumber?: string;
+        }; 
+    }; 
 }
 
 interface Invoice {
-    _id: string;
-    invoiceNumber: string;
-    invoiceDate: string;
-    dueDate: string;
-    totalAmount: number;
-    paidAmount: number;
-    createdAt: string;
+    _id: string; invoiceNumber: string; invoiceDate: string;
+    dueDate: string; totalAmount: number; paidAmount: number; createdAt: string;
 }
-
 interface Payment {
-    _id: string;
-    amount: number;
-    method: string;
-    paidAt: string;
-    note?: string;
+    _id: string; invoiceId: string; amount: number; method: string; paidAt: string; note?: string;
 }
-
 interface Customer {
-    _id: string;
-    name: string;
-    phoneNumber: string;
-    address?: string;
-    emailId?: string;
-    gstNo?: string;
+    _id: string; name: string; phoneNumber: string;
+    address?: string; emailId?: string; gstNo?: string;
 }
-
 interface ProfileData {
-    customer: Customer;
-    pendingInvoices: Invoice[];
-    paidInvoices: Invoice[];
-    totalBalance: number;
-    payments: Payment[];
-    statistics: {
-        totalPendingInvoices: number;
-        totalPaidInvoices: number;
-        totalInvoices: number;
-        totalAmountPaid: number;
-    };
+    customer: Customer; pendingInvoices: Invoice[];
+    paidInvoices: Invoice[]; totalBalance: number; payments: Payment[];
+    statistics: { totalPendingInvoices: number; totalPaidInvoices: number; totalInvoices: number; totalAmountPaid: number; };
 }
 
+// ─── Component ────────────────────────────────────────────────────────────────
 export default function CustomerProfileScreen({ navigation, route }: CustomerProfileScreenProps): React.JSX.Element {
-    const { customerId, customerName } = route.params;
+    const { customerId, specificInvoiceId, specificInvoiceNumber } = route.params;
     const insets = useSafeAreaInsets();
-    
-    // Network status monitoring
+
     const { isConnected, isInternetReachable } = useNetworkStatus();
-    const [pendingSyncCount, setPendingSyncCount] = useState(0);
-    const [isSyncing, setIsSyncing] = useState(false);
-    
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [profileData, setProfileData] = useState<ProfileData | null>(null);
+    const [filteredData, setFilteredData] = useState<ProfileData | null>(null);
     const [shareModalVisible, setShareModalVisible] = useState<boolean>(false);
 
-    useEffect(() => {
-        loadCustomerProfile();
-        updatePendingSyncCount();
-    }, [customerId]);
-
-    const updatePendingSyncCount = async () => {
-        try {
-            const pendingItems = await getPendingSyncItems();
-            setPendingSyncCount(pendingItems.length);
-        } catch (error) {
-            console.error('Error getting pending sync count:', error);
-        }
-    };
+    useEffect(() => { loadCustomerProfile(); }, [customerId]);
 
     useEffect(() => {
         if (isConnected && isInternetReachable) {
-            const checkSync = async () => {
-                const pending = await getPendingSyncItems();
-                if (pending.length > 0) {
-                    setIsSyncing(true);
-                    setTimeout(() => {
-                        setIsSyncing(false);
-                        updatePendingSyncCount();
-                    }, 3000);
-                }
-            };
-            checkSync();
+            (async () => {
+                const pending = await getPendingSyncItems().catch(() => []);
+                // sync check handled by SyncIndicator globally
+            })();
         }
     }, [isConnected, isInternetReachable]);
 
+    // ── Data loading ──────────────────────────────────────────────────────────
     const loadCustomerProfile = async (): Promise<void> => {
         try {
             setIsLoading(true);
-            const isOffline = !isConnected || !isInternetReachable;
-            
-            if (isOffline) {
-                Toast.show({
-                    type: 'info',
-                    text1: 'Offline Mode',
-                    text2: 'Customer profile requires internet',
-                    position: 'bottom',
-                });
-                Alert.alert(
-                    'Offline Mode',
-                    'Customer profile details require an internet connection. Please connect to view.',
-                    [{ text: 'OK', onPress: () => navigation.goBack() }]
-                );
+            if (!isConnected || !isInternetReachable) {
+                Toast.show({ type: 'info', text1: 'Offline Mode', text2: 'Customer profile requires internet', position: 'bottom' });
+                Alert.alert('Offline Mode', 'Please connect to the internet to view this page.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
                 return;
             }
-            
             const data = await getCustomerProfile(customerId);
             setProfileData(data);
-        } catch (error: any) {
-            console.error('Error loading customer profile:', error);
+            
+            // If specificInvoiceId is provided, filter data to show only that invoice
+            if (specificInvoiceId) {
+                const specificInvoice = data.pendingInvoices.find(
+                    (inv) => inv._id === specificInvoiceId || inv.invoiceNumber === specificInvoiceNumber
+                );
+                
+                if (specificInvoice) {
+                    // Filter payments that belong ONLY to this specific invoice
+                    const invoicePayments = data.payments.filter((payment) => {
+                        return payment.invoiceId === specificInvoiceId;
+                    });
+                    
+                    setFilteredData({
+                        ...data,
+                        pendingInvoices: [specificInvoice],
+                        totalBalance: specificInvoice.totalAmount - specificInvoice.paidAmount,
+                        payments: invoicePayments,
+                    });
+                } else {
+                    setFilteredData(data);
+                }
+            } else {
+                setFilteredData(data);
+            }
+        } catch (e: any) {
             Alert.alert('Error', 'Failed to load customer profile');
         } finally {
             setIsLoading(false);
         }
     };
 
-    const formatDate = (dateString: string): string => {
-        if (!dateString) return 'N/A';
-        
-        const date = new Date(dateString);
-        
-        // Check if date is valid
-        if (isNaN(date.getTime())) {
-            return 'N/A';
-        }
-        
-        const day = date.getDate();
-        const month = date.toLocaleString('en-US', { month: 'short' }).toUpperCase();
-        const year = date.getFullYear();
-        
-        return `${month} ${day}, ${year}`;
+    // ── Helpers ───────────────────────────────────────────────────────────────
+    const formatDate = (ds: string): string => {
+        if (!ds) return 'N/A';
+        const d = new Date(ds);
+        if (isNaN(d.getTime())) return 'N/A';
+        const month = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
+        return `${month} ${d.getDate()}, ${d.getFullYear()}`;
     };
-
-    const formatBillDate = (dateString: string): string => {
-        if (!dateString) return 'N/A';
-        
-        const date = new Date(dateString);
-        
-        // Check if date is valid
-        if (isNaN(date.getTime())) {
-            return 'N/A';
-        }
-        
-        const day = String(date.getDate()).padStart(2, '0');
-        const month = String(date.getMonth() + 1).padStart(2, '0');
-        const year = date.getFullYear();
-        
-        return `${day}/${month}/${year}`;
+    const formatBillDate = (ds: string): string => {
+        if (!ds) return 'N/A';
+        const d = new Date(ds);
+        if (isNaN(d.getTime())) return 'N/A';
+        return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
     };
+    const fmt = (n: number) => `Rs.${n.toLocaleString('en-IN')}`;
 
-    const formatCurrency = (amount: number): string => {
-        return `Rs.${amount.toLocaleString('en-IN')}`;
-    };
-
-    const getShareMessage = (): string => {
+    // ── Share helpers ─────────────────────────────────────────────────────────
+    const getMsg = (): string => {
         if (!profileData) return '';
-
         const { customer, pendingInvoices, totalBalance, payments } = profileData;
-        const firstInvoice = pendingInvoices.length > 0 ? pendingInvoices[0] : null;
-
-        return `*${customer.name}*
-Invoice No: ${firstInvoice?.invoiceNumber || 'N/A'}
-
-*INVOICE FOR*
-${customer.name}
-${customer.address || ''}
-Phone: ${customer.phoneNumber}
-
-*AMOUNT DUE*
-${formatCurrency(totalBalance)}
-${firstInvoice?.dueDate ? formatDate(firstInvoice.dueDate) : ''}
-
-*BILLS*
-${payments && payments.length > 0 ? payments.map((payment, index) => 
-    `Bill ${index + 1} - ${formatBillDate(payment.paidAt)}  ${formatCurrency(payment.amount)}`
-).join('\n') : 'No bills yet'}
-
-*TOTAL AMOUNT*
-${formatCurrency(totalBalance)}
-
-Friendly reminder from JK TRADERS: You have a balance of ${formatCurrency(totalBalance)} remaining. Tap below to mark as paid!`;
+        const fi = pendingInvoices[0];
+        return `*${customer.name}*\nInvoice No: ${fi?.invoiceNumber ?? 'N/A'}\n\n${payments.map((p, i) => `Bill ${i + 1} - ${formatBillDate(p.paidAt)}  ${fmt(p.amount)}`).join('\n')}\n\n*TOTAL:* ${fmt(totalBalance)}\n\nFriendly reminder from JK TRADERS: balance of ${fmt(totalBalance)} remaining. Thanks!`;
     };
-
-    const handleShare = (): void => {
-        setShareModalVisible(true);
+    const openURL = async (url: string) => {
+        const ok = await Linking.canOpenURL(url).catch(() => false);
+        if (ok) { await Linking.openURL(url); setShareModalVisible(false); }
+        else Alert.alert('Error', 'App not installed');
     };
+    const handleShareWhatsApp = () => openURL(`whatsapp://send?text=${encodeURIComponent(getMsg())}`);
+    const handleShareMessenger = () => openURL(`fb-messenger://share?text=${encodeURIComponent(getMsg())}`);
+    const handleCopyUrl = async () => { try { await Share.share({ message: getMsg() }); setShareModalVisible(false); } catch { } };
+    const handleShareMore = async () => { try { await Share.share({ message: getMsg() }); setShareModalVisible(false); } catch { } };
 
-    const handleShareWhatsApp = async (): Promise<void> => {
-        const message = getShareMessage();
-        const url = `whatsapp://send?text=${encodeURIComponent(message)}`;
+    // ── Print & Download helpers ──────────────────────────────────────────────
+    const generateProfileHtml = (): string => {
+        if (!displayData) return '';
+        const { customer, pendingInvoices, totalBalance, payments } = displayData;
+        const fi = pendingInvoices[0];
         
+        const paymentsRows = payments.map((p, i) => `
+            <tr>
+                <td style="padding: 8px 0; border-bottom: 1px solid #eee;">Bill ${68 + i} - ${formatBillDate(p.paidAt)}</td>
+                <td style="padding: 8px 0; border-bottom: 1px solid #eee; text-align: right;">${fmt(p.amount)}</td>
+            </tr>
+        `).join('');
+        
+        return `
+            <!DOCTYPE html>
+            <html>
+            <head>
+                <meta charset="utf-8">
+                <meta name="viewport" content="width=device-width, initial-scale=1.0">
+                <style>
+                    body { font-family: Arial, sans-serif; padding: 20px; }
+                    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #E07C8C; padding-bottom: 10px; }
+                    .title { font-size: 24px; font-weight: bold; color: #E07C8C; }
+                    .customer-info { margin: 20px 0; }
+                    .info-row { margin: 8px 0; }
+                    .label { font-weight: bold; color: #555; }
+                    .invoice-card { background: #f9f9f9; padding: 15px; margin: 20px 0; border-radius: 8px; }
+                    .amount-due { font-size: 32px; font-weight: bold; color: #E07C8C; text-align: right; }
+                    .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
+                    .table th { background: #E07C8C; color: white; padding: 10px; text-align: left; }
+                    .table td { padding: 8px; border-bottom: 1px solid #ddd; }
+                    .notes { background: #fff4e6; padding: 15px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #F07C3A; }
+                    .total-amount { font-size: 20px; font-weight: bold; color: #F07C3A; text-align: right; margin-top: 10px; }
+                </style>
+            </head>
+            <body>
+                <div class="header">
+                    <div class="title">${specificInvoiceNumber ? `Invoice #${specificInvoiceNumber}` : 'Customer Profile'}</div>
+                    <div style="font-size: 14px; color: #666;">JK TRADERS</div>
+                </div>
+                
+                <div class="customer-info">
+                    <div class="info-row"><span class="label">Customer:</span> ${customer.name}</div>
+                    <div class="info-row"><span class="label">Phone:</span> ${customer.phoneNumber}</div>
+                    ${fi ? `<div class="info-row"><span class="label">Invoice No:</span> ${fi.invoiceNumber}</div>` : ''}
+                </div>
+                
+                <div class="invoice-card">
+                    <div style="display: flex; justify-content: space-between; align-items: center;">
+                        <div>
+                            <div style="font-size: 12px; color: #888;">INVOICE FOR</div>
+                            <div style="font-weight: bold; margin: 5px 0;">${customer.name}</div>
+                            <div style="font-size: 14px; color: #666;">Ph.no: ${customer.phoneNumber}</div>
+                        </div>
+                        <div>
+                            <div style="font-size: 12px; color: #888; text-align: right;">AMOUNT DUE</div>
+                            <div class="amount-due">${fmt(totalBalance)}</div>
+                            ${fi?.dueDate ? `<div style="color: #E07C8C; text-align: right;">${formatDate(fi.dueDate)}</div>` : '<div style="text-align: right; color: #E07C8C;">N/A</div>'}
+                        </div>
+                    </div>
+                </div>
+                
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>BILLS</th>
+                            <th style="text-align: right;">TOTAL</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        ${payments.length > 0 ? paymentsRows : '<tr><td colspan="2" style="text-align: center; padding: 20px; color: #999;">No bills yet</td></tr>'}
+                    </tbody>
+                </table>
+                
+                ${totalBalance > 0 ? `
+                    <div class="notes">
+                        <div style="font-weight: bold; margin-bottom: 10px;">NOTES</div>
+                        <div style="color: #555;">
+                            Friendly reminder from JK TRADERS: You have a balance of 
+                            <strong>${fmt(totalBalance)}</strong> remaining. 
+                            Tap to pay or stop by soon. Thanks!
+                        </div>
+                        <div class="total-amount">${fmt(totalBalance)}</div>
+                    </div>
+                ` : ''}
+                
+                <div style="margin-top: 40px; text-align: center; color: #888; font-size: 12px;">
+                    Generated on ${new Date().toLocaleString()}
+                </div>
+            </body>
+            </html>
+        `;
+    };
+
+    const handleSaveAndPrint = async (): Promise<void> => {
         try {
-            const canOpen = await Linking.canOpenURL(url);
-            if (canOpen) {
-                await Linking.openURL(url);
-                setShareModalVisible(false);
+            Toast.show({ type: 'info', text1: 'Preparing...', text2: 'Generating PDF', position: 'bottom' });
+            const html = generateProfileHtml();
+            await Print.printAsync({ html });
+            Toast.show({ type: 'success', text1: 'Success', text2: 'Print dialog opened', position: 'bottom' });
+        } catch (error) {
+            console.error('Print error:', error);
+            Alert.alert('Print Error', 'Failed to print customer profile.');
+        }
+    };
+
+    const handleDownload = async (): Promise<void> => {
+        try {
+            Toast.show({ type: 'info', text1: 'Downloading...', text2: 'Creating PDF', position: 'bottom' });
+            const html = generateProfileHtml();
+            const { uri } = await Print.printToFileAsync({ html });
+            
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(uri, { 
+                    UTI: '.pdf', 
+                    mimeType: 'application/pdf',
+                    dialogTitle: 'Save Customer Profile'
+                });
+                Toast.show({ type: 'success', text1: 'Success', text2: 'PDF ready to save', position: 'bottom' });
             } else {
-                Alert.alert('Error', 'WhatsApp is not installed');
+                Alert.alert('Download Complete', `PDF saved at: ${uri}`);
             }
         } catch (error) {
-            console.error('Error opening WhatsApp:', error);
-            Alert.alert('Error', 'Failed to open WhatsApp');
+            console.error('Download error:', error);
+            Alert.alert('Download Error', 'Failed to download customer profile.');
         }
     };
 
-    const handleShareMessenger = async (): Promise<void> => {
-        const message = getShareMessage();
-        const url = `fb-messenger://share?text=${encodeURIComponent(message)}`;
-        
-        try {
-            const canOpen = await Linking.canOpenURL(url);
-            if (canOpen) {
-                await Linking.openURL(url);
-                setShareModalVisible(false);
-            } else {
-                Alert.alert('Error', 'Messenger is not installed');
-            }
-        } catch (error) {
-            console.error('Error opening Messenger:', error);
-            Alert.alert('Error', 'Failed to open Messenger');
-        }
-    };
-
-    const handleCopyUrl = async (): Promise<void> => {
-        const message = getShareMessage();
-        try {
-            await Share.share({ message });
-            Toast.show({
-                type: 'success',
-                text1: 'Copied',
-                text2: 'Invoice details ready to share',
-                position: 'bottom',
-            });
-            setShareModalVisible(false);
-        } catch (error) {
-            console.error('Error copying:', error);
-        }
-    };
-
-    const handleShareMore = async (): Promise<void> => {
-        const message = getShareMessage();
-        try {
-            await Share.share({ message });
-            setShareModalVisible(false);
-        } catch (error) {
-            console.error('Error sharing:', error);
-        }
-    };
-
-    const handleSaveAndPrint = (): void => {
-        Alert.alert('Save & Print', 'This feature will be implemented soon');
-    };
-
+    // ── Loading state ─────────────────────────────────────────────────────────
     if (isLoading) {
         return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#E88E99" />
-                    <Text style={styles.loadingText}>Loading customer profile...</Text>
+            <SafeAreaView style={s.container}>
+                <View style={s.centred}>
+                    <ActivityIndicator size="large" color={ROSE} />
+                    <Text style={s.loadingTxt}>Loading customer profile…</Text>
                 </View>
             </SafeAreaView>
         );
     }
 
+    // ── Error state ───────────────────────────────────────────────────────────
     if (!profileData) {
         return (
-            <SafeAreaView style={styles.container}>
-                <View style={styles.errorContainer}>
+            <SafeAreaView style={s.container}>
+                <View style={s.centred}>
                     <Ionicons name="alert-circle-outline" size={64} color="#ccc" />
-                    <Text style={styles.errorText}>Failed to load customer profile</Text>
-                    <TouchableOpacity style={styles.retryButton} onPress={loadCustomerProfile}>
-                        <Text style={styles.retryButtonText}>Retry</Text>
+                    <Text style={s.errorTxt}>Failed to load customer profile</Text>
+                    <TouchableOpacity style={s.retryBtn} onPress={loadCustomerProfile}>
+                        <Text style={s.retryBtnTxt}>Retry</Text>
                     </TouchableOpacity>
                 </View>
             </SafeAreaView>
         );
     }
 
-    const { customer, pendingInvoices, paidInvoices, totalBalance, statistics } = profileData;
+    // Use filtered data if available, otherwise use full profile data
+    const displayData = filteredData || profileData;
+    const { customer, pendingInvoices, totalBalance } = displayData;
+    const fi = pendingInvoices[0] ?? null;
 
+    // ── Main render ───────────────────────────────────────────────────────────
     return (
-        <View style={styles.container}>
-            {/* White Header */}
-            <View style={[styles.header, { paddingTop: insets.top }]}>
-                <View style={styles.logoContainer}>
-                    <Ionicons name="cube" size={24} color="#E88E99" />
-                </View>
-                <Text style={styles.headerTitle}>Customer Profile</Text>
-                <View style={styles.headerSpacer} />
+        <View style={s.container}>
+
+            {/* ══ WHITE TOP HEADER BAR ══ */}
+            <View style={[s.header, { paddingTop: Math.max(insets.top, 14) }]}>
+                <Image
+                    source={require('../assets/logo.jpeg')}
+                    style={s.logo}
+                    resizeMode="contain"
+                />
+                <Text style={s.headerTitle}>
+                    {specificInvoiceNumber ? `Invoice #${specificInvoiceNumber}` : 'Customer Profile'}
+                </Text>
+                <View style={{ width: 32 }} />
             </View>
 
-            <ScrollView 
-                style={styles.scrollView} 
-                contentContainerStyle={{ paddingBottom: insets.bottom + 80 }}
+            {/* ══ SCROLL CONTENT ══ */}
+            <ScrollView
+                style={s.scroll}
+                contentContainerStyle={{ padding: 14, paddingBottom: Math.max(insets.bottom, 10) + 90 }}
                 showsVerticalScrollIndicator={false}
             >
-                {/* Customer Card */}
-                <View style={styles.customerCard}>
-                    {/* Card Header Icons */}
-                    <View style={styles.cardHeaderIcons}>
-                        <TouchableOpacity onPress={() => navigation.goBack()} style={styles.cardIconButton}>
-                            <Ionicons name="close" size={20} color="#fff" />
-                        </TouchableOpacity>
-                        <View style={styles.cardHeaderRight}>
-                            <TouchableOpacity style={styles.cardIconButton}>
-                                <Ionicons name="create-outline" size={20} color="#fff" />
+                {/*
+                  ╔══════════════════════════════════════╗
+                  ║   MAIN CARD                          ║
+                  ║   • coral rounded-top section        ║
+                  ║   • white invoice sub-card (bridge)  ║
+                  ║   • white rounded-bottom section     ║
+                  ╚══════════════════════════════════════╝
+                */}
+                <View style={s.mainCard}>
+
+                    {/* ─── CORAL TOP SECTION ─────────────────────────────── */}
+                    <View style={s.coralSection}>
+
+                        {/* Icon row: × left   ✎ ⋮ right */}
+                        <View style={s.iconRow}>
+                            <TouchableOpacity onPress={() => navigation.goBack()} style={s.iconBtn}>
+                                <Ionicons name="close" size={15} color="#fff" />
                             </TouchableOpacity>
-                            <TouchableOpacity style={styles.cardIconButton}>
-                                <Ionicons name="ellipsis-vertical" size={20} color="#fff" />
-                            </TouchableOpacity>
+                            <View style={s.iconRowRight}>
+                                <TouchableOpacity style={s.iconBtn}>
+                                    <Ionicons name="create-outline" size={15} color="#fff" />
+                                </TouchableOpacity>
+                                <TouchableOpacity style={s.iconBtn}>
+                                    <Ionicons name="ellipsis-vertical" size={15} color="#fff" />
+                                </TouchableOpacity>
+                            </View>
                         </View>
-                    </View>
-                    {/* Customer Name and Invoice Info */}
-                    <View style={styles.customerHeader}>
-                        <Text style={styles.customerName}>{customer.name}</Text>
-                        <Text style={styles.invoiceNumber}>
-                            Invoice No: {pendingInvoices.length > 0 ? pendingInvoices[0].invoiceNumber : 'N/A'}
+
+                        {/* Customer name & invoice no. */}
+                        <Text style={s.customerName}>{customer.name}</Text>
+                        <Text style={s.invoiceNo}>
+                            Invoice No.: {fi?.invoiceNumber ?? 'N/A'}
                         </Text>
-                    </View>
 
-                    {/* Customer Details Box */}
-                    <View style={styles.detailsBox}>
-                        <View style={styles.detailsLeft}>
-                            <Text style={styles.detailsLabel}>INVOICE FOR</Text>
-                            <Text style={styles.detailsName}>{customer.name}</Text>
-                            {customer.address && (
-                                <Text style={styles.detailsText}>{customer.address}</Text>
-                            )}
-                            <Text style={styles.detailsText}>Phone: {customer.phoneNumber}</Text>
-                        </View>
-                        <View style={styles.detailsRight}>
-                            <Text style={styles.detailsLabel}>AMOUNT DUE</Text>
-                            <Text style={styles.amountDue}>{formatCurrency(totalBalance)}</Text>
-                            {pendingInvoices.length > 0 && pendingInvoices[0].dueDate && (
-                                <Text style={styles.dueDate}>
-                                    {formatDate(pendingInvoices[0].dueDate)}
-                                </Text>
-                            )}
-                        </View>
-                    </View>
-
-                    {/* Bills Section - Show payments made */}
-                    {profileData.payments && profileData.payments.length > 0 && (
-                        <View style={styles.billsSection}>
-                            <View style={styles.billsHeader}>
-                                <Text style={styles.billsLabel}>BILLS</Text>
-                                <Text style={styles.billsLabel}>TOTAL</Text>
+                        {/*
+                          ── WHITE INVOICE SUB-CARD ──
+                          sits at the bottom of the coral section and
+                          extends DOWN via negative marginBottom so it
+                          visually bridges into the white section below
+                        */}
+                        <View style={s.invoiceSubCard}>
+                            {/* Left: Invoice For */}
+                            <View style={s.subLeft}>
+                                <Text style={s.subCaption}>INVOICE FOR</Text>
+                                <Text style={s.subName}>{customer.name}</Text>
+                                {customer.address
+                                    ? <Text style={s.subBody}>{customer.address}</Text>
+                                    : null}
+                                <Text style={s.subBody}>Ph.no: {customer.phoneNumber}</Text>
                             </View>
-                            {profileData.payments.map((payment, index) => (
-                                <View key={payment._id} style={styles.billRow}>
-                                    <Text style={styles.billText}>
-                                        Bill {index + 1} - {formatBillDate(payment.paidAt)}
-                                    </Text>
-                                    <Text style={styles.billAmount}>
-                                        {formatCurrency(payment.amount)}
-                                    </Text>
+
+                            {/* Vertical divider */}
+                            <View style={s.subDivider} />
+
+                            {/* Right: Amount Due */}
+                            <View style={s.subRight}>
+                                <Text style={s.subCaption}>AMOUNT DUE</Text>
+                                <Text style={s.subAmount}>{fmt(totalBalance)}</Text>
+                                {fi?.dueDate
+                                    ? <Text style={s.subDue}>{formatDate(fi.dueDate)}</Text>
+                                    : null}
+                            </View>
+                        </View>
+                    </View>
+                    {/* ─── end coralSection ─────────────────────────────── */}
+
+                    {/* ─── WHITE BOTTOM SECTION ─────────────────────────── */}
+                    {/*
+                      paddingTop gives room so content starts below
+                      the overlapping invoiceSubCard
+                    */}
+                    <View style={s.whiteSection}>
+
+                        {/* Bills box */}
+                        <View style={s.infoBox}>
+                            <View style={s.infoBoxHeader}>
+                                <Text style={s.infoBoxCaption}>BILLS</Text>
+                                <Text style={s.infoBoxCaption}>TOTAL</Text>
+                            </View>
+                            {displayData.payments && displayData.payments.length > 0 ? (
+                                displayData.payments.map((pmt, idx) => (
+                                    <View
+                                        key={pmt._id}
+                                        style={[
+                                            s.billRow,
+                                            idx === displayData.payments.length - 1 && { borderBottomWidth: 0, paddingBottom: 0 },
+                                        ]}
+                                    >
+                                        <Text style={s.billTxt}>
+                                            Bill {68 + idx}{'  -  '}{formatBillDate(pmt.paidAt)}
+                                        </Text>
+                                        <Text style={s.billAmt}>{fmt(pmt.amount)}</Text>
+                                    </View>
+                                ))
+                            ) : (
+                                <Text style={s.emptyTxt}>No bills yet</Text>
+                            )}
+                        </View>
+
+                        {/* Notes box */}
+                        {totalBalance > 0 && (
+                            <View style={s.infoBox}>
+                                <View style={s.infoBoxHeader}>
+                                    <Text style={s.infoBoxCaption}>NOTES</Text>
+                                    <Text style={s.infoBoxCaption}>TOTAL AMOUNT</Text>
                                 </View>
-                            ))}
-                        </View>
-                    )}
-
-                    {/* No Bills Message - Show only when there are no payments */}
-                    {(!profileData.payments || profileData.payments.length === 0) && (
-                        <View style={styles.noBillsSection}>
-                            <Ionicons name="receipt-outline" size={48} color="#fff" />
-                            <Text style={styles.noBillsText}>No Bills Yet</Text>
-                            <Text style={styles.noBillsSubtext}>No payments recorded for this customer</Text>
-                        </View>
-                    )}
-
-                    {/* Notes Section - Only show if there is a pending balance */}
-                    {totalBalance > 0 && (
-                        <View style={styles.notesSection}>
-                            <View style={styles.notesHeader}>
-                                <Text style={styles.notesLabel}>NOTES</Text>
-                                <Text style={styles.totalLabel}>TOTAL AMOUNT</Text>
+                                <View style={s.notesRow}>
+                                    <Text style={s.notesTxt}>
+                                        Friendly reminder from JK TRADERS: You have a balance of{' '}
+                                        <Text style={s.notesBold}>{fmt(totalBalance)}</Text>
+                                        {' '}remaining. Tap to pay or stop by soon. Thanks!
+                                    </Text>
+                                    <Text style={s.totalAmt}>{fmt(totalBalance)}</Text>
+                                </View>
                             </View>
-                            <View style={styles.notesContent}>
-                                <Text style={styles.notesText}>
-                                    Friendly reminder from JK TRADERS: You have a balance of{' '}
-                                    <Text style={styles.notesAmount}>{formatCurrency(totalBalance)}</Text>{' '}
-                                    remaining. Tap below to mark as paid!
-                                </Text>
-                                <Text style={styles.totalAmount}>{formatCurrency(totalBalance)}</Text>
-                            </View>
-                        </View>
-                    )}
+                        )}
 
-                    {/* Action Buttons */}
-                    <View style={styles.actionButtons}>
-                        <TouchableOpacity style={styles.saveButton} onPress={handleSaveAndPrint}>
-                            <Ionicons name="save-outline" size={20} color="#fff" />
-                            <Text style={styles.saveButtonText}>Save & Print</Text>
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.iconButton}>
-                            <Ionicons name="download-outline" size={20} color="#333" />
-                        </TouchableOpacity>
-                        <TouchableOpacity style={styles.iconButton} onPress={handleShare}>
-                            <Ionicons name="share-social-outline" size={20} color="#333" />
-                        </TouchableOpacity>
+                        {/* Action buttons */}
+                        <View style={s.actionRow}>
+                            {/* Orange Save & Print */}
+                            <TouchableOpacity
+                                style={s.savePrintBtn}
+                                onPress={handleSaveAndPrint}
+                                activeOpacity={0.85}
+                            >
+                                <Ionicons name="save-outline" size={17} color="#fff" />
+                                <Text style={s.savePrintTxt}>Save &amp; Print</Text>
+                            </TouchableOpacity>
+
+                            {/* Download icon */}
+                            <TouchableOpacity
+                                style={s.sqBtn}
+                                onPress={handleDownload}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="download-outline" size={20} color="#555" />
+                            </TouchableOpacity>
+
+                            {/* Share icon */}
+                            <TouchableOpacity
+                                style={s.sqBtn}
+                                onPress={() => setShareModalVisible(true)}
+                                activeOpacity={0.8}
+                            >
+                                <Ionicons name="share-social-outline" size={20} color="#555" />
+                            </TouchableOpacity>
+                        </View>
+
                     </View>
+                    {/* ─── end whiteSection ──────────────────────────────── */}
+
                 </View>
+                {/* ─── end mainCard ──────────────────────────────────────── */}
+
             </ScrollView>
-            
-            {/* Share Modal */}
+
+            {/* ══ SHARE MODAL ══ */}
             <Modal
                 visible={shareModalVisible}
-                transparent={true}
+                transparent={false}
                 animationType="slide"
                 onRequestClose={() => setShareModalVisible(false)}
             >
-                <View style={styles.shareModalOverlay}>
-                    <View style={styles.shareModalContent}>
-                        {/* Header */}
-                        <View style={styles.shareModalHeader}>
-                            <TouchableOpacity onPress={() => setShareModalVisible(false)}>
-                                <Ionicons name="close" size={24} color="#fff" />
-                            </TouchableOpacity>
-                            <Text style={styles.shareModalTitle}>Share</Text>
-                            <View style={styles.shareModalSpacer} />
-                        </View>
+                <View style={s.modalOverlay}>
 
-                        {/* Customer Card Preview */}
-                        <ScrollView 
-                            style={styles.sharePreviewScroll}
-                            showsVerticalScrollIndicator={false}
-                        >
-                            <View style={styles.sharePreview}>
-                                <View style={styles.shareCustomerCard}>
-                                    <Text style={styles.shareWatermark}>Viveha.ai</Text>
-                                    
-                                    <View style={styles.customerHeader}>
-                                        <Text style={styles.customerName}>{customer.name}</Text>
-                                        <Text style={styles.invoiceNumber}>
-                                            Invoice No: {pendingInvoices.length > 0 ? pendingInvoices[0].invoiceNumber : 'N/A'}
-                                        </Text>
+                    {/* ── Header: × left  Share center ── */}
+                    <View style={[s.modalHeader, { paddingTop: 54 }]}>
+                        <TouchableOpacity onPress={() => setShareModalVisible(false)} style={s.modalCloseBtn}>
+                            <Ionicons name="close" size={20} color="#fff" />
+                        </TouchableOpacity>
+                        <Text style={s.modalTitle}>Share</Text>
+                        <View style={{ width: 36 }} />
+                    </View>
+
+                    {/* ── Full card preview ── */}
+                    <ScrollView
+                        style={{ flex: 1 }}
+                        contentContainerStyle={{ padding: 16, paddingBottom: 24 }}
+                        showsVerticalScrollIndicator={false}
+                    >
+                        {/* Mini card: coral top */}
+                        <View style={s.shareCardWrap}>
+
+                            {/* Coral header */}
+                            <View style={s.shareCoralTop}>
+                                <Text style={s.shareWM}>viveha.ai</Text>
+                                <Text style={s.shareCustomerName}>{customer.name}</Text>
+                                <Text style={s.shareInvoiceNo}>Invoice No.: {fi?.invoiceNumber ?? 'N/A'}</Text>
+
+                                {/* Invoice sub-card inside coral */}
+                                <View style={s.shareInvoiceSubCard}>
+                                    <View style={s.subLeft}>
+                                        <Text style={s.subCaption}>INVOICE FOR</Text>
+                                        <Text style={s.subName}>{customer.name}</Text>
+                                        {customer.address
+                                            ? <Text style={s.subBody}>{customer.address}</Text>
+                                            : null}
+                                        <Text style={s.subBody}>Ph.no: {customer.phoneNumber}</Text>
                                     </View>
-
-                                    <View style={styles.detailsBox}>
-                                        <View style={styles.detailsLeft}>
-                                            <Text style={styles.detailsLabel}>INVOICE FOR</Text>
-                                            <Text style={styles.detailsName}>{customer.name}</Text>
-                                            {customer.address && (
-                                                <Text style={styles.detailsText}>{customer.address}</Text>
-                                            )}
-                                            <Text style={styles.detailsText}>Phone: {customer.phoneNumber}</Text>
-                                        </View>
-                                        <View style={styles.detailsRight}>
-                                            <Text style={styles.detailsLabel}>AMOUNT DUE</Text>
-                                            <Text style={styles.amountDue}>{formatCurrency(totalBalance)}</Text>
-                                            {pendingInvoices.length > 0 && pendingInvoices[0].dueDate && (
-                                                <Text style={styles.dueDate}>
-                                                    {formatDate(pendingInvoices[0].dueDate)}
-                                                </Text>
-                                            )}
-                                        </View>
+                                    <View style={s.subDivider} />
+                                    <View style={s.subRight}>
+                                        <Text style={s.subCaption}>AMOUNT DUE</Text>
+                                        <Text style={s.subAmount}>{fmt(totalBalance)}</Text>
+                                        {fi?.dueDate
+                                            ? <Text style={s.subDue}>{formatDate(fi.dueDate)}</Text>
+                                            : null}
                                     </View>
-
-                                    {/* Bills Section in Share Modal - Show payments made */}
-                                    {profileData.payments && profileData.payments.length > 0 && (
-                                        <View style={styles.billsSection}>
-                                            <View style={styles.billsHeader}>
-                                                <Text style={styles.billsLabel}>BILLS</Text>
-                                                <Text style={styles.billsLabel}>TOTAL</Text>
-                                            </View>
-                                            {profileData.payments.map((payment, index) => (
-                                                <View key={payment._id} style={styles.billRow}>
-                                                    <Text style={styles.billText}>
-                                                        Bill {index + 1} - {formatBillDate(payment.paidAt)}
-                                                    </Text>
-                                                    <Text style={styles.billAmount}>
-                                                        {formatCurrency(payment.amount)}
-                                                    </Text>
-                                                </View>
-                                            ))}
-                                        </View>
-                                    )}
-
-                                    {/* No Bills Message in Share Modal */}
-                                    {(!profileData.payments || profileData.payments.length === 0) && (
-                                        <View style={styles.noBillsSection}>
-                                            <Ionicons name="receipt-outline" size={48} color="#fff" />
-                                            <Text style={styles.noBillsText}>No Bills Yet</Text>
-                                            <Text style={styles.noBillsSubtext}>No payments recorded for this customer</Text>
-                                        </View>
-                                    )}
-
-                                    {/* Notes Section in Share Modal - Only show if there is a pending balance */}
-                                    {totalBalance > 0 && (
-                                        <View style={styles.notesSection}>
-                                            <View style={styles.notesHeader}>
-                                                <Text style={styles.notesLabel}>NOTES</Text>
-                                                <Text style={styles.totalLabel}>TOTAL AMOUNT</Text>
-                                            </View>
-                                            <View style={styles.notesContent}>
-                                                <Text style={styles.notesText}>
-                                                    Friendly reminder from JK TRADERS: You have a balance of{' '}
-                                                    <Text style={styles.notesAmount}>{formatCurrency(totalBalance)}</Text>{' '}
-                                                    remaining. Tap below to mark as paid!
-                                                </Text>
-                                                <Text style={styles.totalAmount}>{formatCurrency(totalBalance)}</Text>
-                                            </View>
-                                        </View>
-                                    )}
                                 </View>
                             </View>
-                        </ScrollView>
 
-                        {/* Share Options */}
-                        <View style={styles.shareOptions}>
-                            <TouchableOpacity style={styles.shareOption} onPress={handleCopyUrl}>
-                                <View style={styles.shareOptionIcon}>
-                                    <Ionicons name="link" size={24} color="#fff" />
+                            {/* White bottom: Bills */}
+                            <View style={s.shareWhiteSection}>
+                                <View style={s.infoBoxHeader}>
+                                    <Text style={s.infoBoxCaption}>BILLS</Text>
+                                    <Text style={s.infoBoxCaption}>TOTAL</Text>
                                 </View>
-                                <Text style={styles.shareOptionText}>Copy url</Text>
-                            </TouchableOpacity>
+                                {displayData.payments && displayData.payments.length > 0 ? (
+                                    displayData.payments.map((pmt, idx) => (
+                                        <View
+                                            key={pmt._id}
+                                            style={[
+                                                s.billRow,
+                                                idx === displayData.payments.length - 1 && { borderBottomWidth: 0, paddingBottom: 0 },
+                                            ]}
+                                        >
+                                            <Text style={s.billTxt}>Bill {68 + idx}{'  -  '}{formatBillDate(pmt.paidAt)}</Text>
+                                            <Text style={s.billAmt}>{fmt(pmt.amount)}</Text>
+                                        </View>
+                                    ))
+                                ) : (
+                                    <Text style={s.emptyTxt}>No bills yet</Text>
+                                )}
 
-                            <TouchableOpacity style={styles.shareOption} onPress={handleShareMessenger}>
-                                <View style={[styles.shareOptionIcon, styles.messengerIcon]}>
-                                    <Ionicons name="logo-facebook" size={24} color="#fff" />
-                                </View>
-                                <Text style={styles.shareOptionText}>Messenger</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={styles.shareOption} onPress={handleShareWhatsApp}>
-                                <View style={[styles.shareOptionIcon, styles.whatsappIcon]}>
-                                    <Ionicons name="logo-whatsapp" size={24} color="#fff" />
-                                </View>
-                                <Text style={styles.shareOptionText}>WhatsApp</Text>
-                            </TouchableOpacity>
-
-                            <TouchableOpacity style={styles.shareOption} onPress={handleShareMore}>
-                                <View style={styles.shareOptionIcon}>
-                                    <Ionicons name="ellipsis-horizontal" size={24} color="#fff" />
-                                </View>
-                                <Text style={styles.shareOptionText}>More</Text>
-                            </TouchableOpacity>
+                                {/* Notes */}
+                                {totalBalance > 0 && (
+                                    <View style={[s.infoBox, { marginTop: 4 }]}>
+                                        <View style={s.infoBoxHeader}>
+                                            <Text style={s.infoBoxCaption}>NOTES</Text>
+                                            <Text style={s.infoBoxCaption}>TOTAL AMOUNT</Text>
+                                        </View>
+                                        <View style={s.notesRow}>
+                                            <Text style={s.notesTxt}>
+                                                Friendly reminder from JK TRADERS: You have a balance of{' '}
+                                                <Text style={s.notesBold}>{fmt(totalBalance)}</Text>
+                                                {' '}remaining. Tap to pay or stop by soon. Thanks!
+                                            </Text>
+                                            <Text style={s.totalAmt}>{fmt(totalBalance)}</Text>
+                                        </View>
+                                    </View>
+                                )}
+                            </View>
                         </View>
+                    </ScrollView>
+
+                    {/* ── Bottom share icons ── */}
+                    <View style={s.shareBar}>
+                        <TouchableOpacity style={s.shareOpt} onPress={handleCopyUrl}>
+                            <View style={[s.shareCircle, { backgroundColor: '#3A3A3C' }]}>
+                                <Ionicons name="link" size={22} color="#fff" />
+                            </View>
+                            <Text style={s.shareLbl}>Copy url</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={s.shareOpt} onPress={handleShareMessenger}>
+                            <View style={[s.shareCircle, { backgroundColor: '#A033FF' }]}>
+                                <Ionicons name="chatbubble-ellipses" size={22} color="#fff" />
+                            </View>
+                            <Text style={s.shareLbl}>Messenger</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={s.shareOpt} onPress={handleShareWhatsApp}>
+                            <View style={[s.shareCircle, { backgroundColor: '#25D366' }]}>
+                                <Ionicons name="logo-whatsapp" size={22} color="#fff" />
+                            </View>
+                            <Text style={s.shareLbl}>WhatsApp</Text>
+                        </TouchableOpacity>
+
+                        <TouchableOpacity style={s.shareOpt} onPress={handleShareMore}>
+                            <View style={[s.shareCircle, { backgroundColor: '#3A3A3C' }]}>
+                                <Ionicons name="ellipsis-horizontal" size={22} color="#fff" />
+                            </View>
+                            <Text style={s.shareLbl}>More</Text>
+                        </TouchableOpacity>
                     </View>
+
                 </View>
             </Modal>
-            
+
+            {/* ══ FOOTER ══ */}
             <Footer navigation={navigation} activeTab="Pendings" />
         </View>
     );
 }
 
-const styles = StyleSheet.create({
-    container: {
-        flex: 1,
-        backgroundColor: '#F5F5F5',
-    },
+// ─── Styles ───────────────────────────────────────────────────────────────────
+const s = StyleSheet.create({
+
+    // Page
+    container: { flex: 1, backgroundColor: '#EFEFEF' },
+    scroll: { flex: 1 },
+
+    // ── White app header ──────────────────────────────────────────────────────
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
         backgroundColor: '#fff',
+        paddingHorizontal: 18,
+        paddingBottom: 12,
         borderBottomWidth: 1,
-        borderBottomColor: '#E5E5E5',
+        borderBottomColor: '#E8E8E8',
+        zIndex: 10,
     },
-    logoContainer: {
-        width: 32,
-    },
+    logo: { width: 32, height: 32 },
     headerTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#000',
         flex: 1,
         textAlign: 'center',
+        fontSize: 17,
+        fontWeight: '700',
+        color: '#1A1A1A',
     },
-    headerSpacer: {
-        width: 32,
+
+    // ── MAIN CARD (wraps coral + white) ──────────────────────────────────────
+    mainCard: {
+        borderRadius: 18,
+        overflow: 'hidden',          // clips children to rounded corners
+        backgroundColor: '#fff',     // white shows through the bottom section
+        // Card shadow
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.10,
+        shadowRadius: 16,
+        elevation: 6,
     },
-    cardHeaderIcons: {
+
+    // ── Coral top section ─────────────────────────────────────────────────────
+    coralSection: {
+        backgroundColor: ROSE,
+        paddingHorizontal: 18,
+        paddingTop: 14,
+        paddingBottom: 0,            // invoiceSubCard's negative margin handles spacing
+    },
+    iconRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
         alignItems: 'center',
-        marginBottom: 15,
+        marginBottom: 14,
     },
-    cardHeaderRight: {
-        flexDirection: 'row',
-        gap: 10,
-    },
-    cardIconButton: {
-        width: 32,
-        height: 32,
-        borderRadius: 6,
-        backgroundColor: 'rgba(255, 255, 255, 0.2)',
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    scrollView: {
-        flex: 1,
-    },
-    loadingContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-    },
-    loadingText: {
-        marginTop: 10,
-        fontSize: 16,
-        color: '#666',
-    },
-    errorContainer: {
-        flex: 1,
-        justifyContent: 'center',
-        alignItems: 'center',
-        padding: 20,
-    },
-    errorText: {
-        fontSize: 16,
-        color: '#666',
-        marginTop: 15,
-        marginBottom: 20,
-    },
-    retryButton: {
-        backgroundColor: '#E88E99',
-        paddingHorizontal: 30,
-        paddingVertical: 12,
+    iconRowRight: { flexDirection: 'row', gap: 8 },
+    iconBtn: {
+        width: 28, height: 28,
         borderRadius: 8,
-    },
-    retryButtonText: {
-        color: '#fff',
-        fontSize: 16,
-        fontWeight: '600',
-    },
-    customerCard: {
-        backgroundColor: '#E88E99',
-        margin: 16,
-        borderRadius: 12,
-        padding: 16,
-        shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.1,
-        shadowRadius: 8,
-        elevation: 3,
-    },
-    customerHeader: {
-        marginBottom: 12,
+        backgroundColor: 'rgba(255,255,255,0.25)',
+        justifyContent: 'center',
+        alignItems: 'center',
     },
     customerName: {
-        fontSize: 24,
-        fontWeight: '700',
+        fontSize: 28,
+        fontWeight: '800',
         color: '#fff',
+        letterSpacing: 0.2,
         marginBottom: 4,
     },
-    invoiceNumber: {
-        fontSize: 12,
-        color: '#fff',
-        opacity: 0.85,
+    invoiceNo: {
+        fontSize: 12.5,
+        color: 'rgba(255,255,255,0.88)',
+        fontWeight: '400',
+        marginBottom: 16,
     },
-    detailsBox: {
+
+    // ── White invoice sub-card (bridges coral → white) ────────────────────────
+    invoiceSubCard: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
         backgroundColor: '#fff',
-        borderRadius: 8,
-        padding: 12,
+        marginHorizontal: 14,
+        marginBottom: -32,          // extends 32px DOWN into the white section
+        borderRadius: 12,           // all 4 corners rounded (proper floating card)
+        padding: 14,
+        zIndex: 2,                  // renders on top of whiteSection
+        elevation: 6,               // Android layering
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 3 },
+        shadowOpacity: 0.10,
+        shadowRadius: 8,
+    },
+    subLeft: { flex: 1, paddingRight: 8 },
+    subDivider: { width: 1, alignSelf: 'stretch', backgroundColor: '#EBEBEB', marginHorizontal: 10 },
+    subRight: { alignItems: 'flex-end', minWidth: 108 },
+    subCaption: {
+        fontSize: 8.5, fontWeight: '700', color: '#AAAAAA',
+        letterSpacing: 1, textTransform: 'uppercase', marginBottom: 6,
+    },
+    subName: { fontSize: 13.5, fontWeight: '700', color: '#1A1A1A', marginBottom: 3 },
+    subBody: { fontSize: 11.5, color: '#666', lineHeight: 17, marginBottom: 1 },
+    subAmount: { fontSize: 24, fontWeight: '800', color: '#1A1A1A', letterSpacing: -0.5, marginBottom: 4 },
+    subDue: { fontSize: 10.5, color: '#E03535', fontWeight: '700', letterSpacing: 0.3 },
+
+    // ── White bottom section ──────────────────────────────────────────────────
+    whiteSection: {
+        backgroundColor: '#fff',
+        paddingHorizontal: 16,
+        paddingTop: 38,             // leaves room for the overlapping invoiceSubCard above
+        paddingBottom: 16,
+    },
+
+    // ── Info boxes (Bills, Notes) ─────────────────────────────────────────────
+    infoBox: {
+        borderTopWidth: 1,
+        borderTopColor: '#F0F0F0',
+        paddingTop: 12,
+        paddingBottom: 12,
+    },
+    infoBoxHeader: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        marginBottom: 12,
+        marginBottom: 8,
     },
-    detailsLeft: {
-        flex: 1,
+    infoBoxCaption: {
+        fontSize: 8.5, fontWeight: '700', color: '#AAAAAA',
+        letterSpacing: 1, textTransform: 'uppercase',
     },
-    detailsRight: {
-        alignItems: 'flex-end',
-    },
-    detailsLabel: {
-        fontSize: 9,
-        fontWeight: '600',
-        color: '#999',
-        marginBottom: 4,
-        letterSpacing: 0.5,
-    },
-    detailsName: {
-        fontSize: 14,
-        fontWeight: '700',
-        color: '#000',
-        marginBottom: 3,
-    },
-    detailsText: {
-        fontSize: 11,
-        color: '#666',
-        marginBottom: 2,
-    },
-    amountDue: {
-        fontSize: 20,
-        fontWeight: '700',
-        color: '#E88E99',
-        marginBottom: 3,
-    },
-    dueDate: {
-        fontSize: 10,
-        color: '#E88E99',
-        fontWeight: '600',
-    },
-    billsSection: {
-        marginBottom: 12,
-    },
-    billsHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 6,
-    },
-    billsLabel: {
-        fontSize: 10,
-        fontWeight: '600',
-        color: '#fff',
-        opacity: 0.8,
-        letterSpacing: 0.5,
-    },
+
+    // Bills
     billRow: {
         flexDirection: 'row',
         justifyContent: 'space-between',
-        paddingVertical: 5,
-    },
-    billText: {
-        fontSize: 13,
-        color: '#fff',
-    },
-    billAmount: {
-        fontSize: 13,
-        fontWeight: '600',
-        color: '#fff',
-    },
-    noBillsSection: {
         alignItems: 'center',
-        justifyContent: 'center',
-        paddingVertical: 30,
-        marginBottom: 12,
+        paddingVertical: 6,
+        borderBottomWidth: 1,
+        borderBottomColor: '#F5F5F5',
     },
-    noBillsText: {
-        fontSize: 16,
-        fontWeight: '700',
-        color: '#fff',
-        marginTop: 12,
-        marginBottom: 4,
-    },
-    noBillsSubtext: {
-        fontSize: 12,
-        color: '#fff',
-        opacity: 0.8,
-    },
-    notesSection: {
-        marginBottom: 12,
-    },
-    notesHeader: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        marginBottom: 6,
-    },
-    notesLabel: {
-        fontSize: 10,
-        fontWeight: '600',
-        color: '#fff',
-        opacity: 0.8,
-        letterSpacing: 0.5,
-    },
-    totalLabel: {
-        fontSize: 10,
-        fontWeight: '600',
-        color: '#fff',
-        opacity: 0.8,
-        letterSpacing: 0.5,
-    },
-    notesContent: {
-        flexDirection: 'row',
-        justifyContent: 'space-between',
-        alignItems: 'flex-start',
-    },
-    notesText: {
-        flex: 1,
-        fontSize: 11,
-        color: '#fff',
-        lineHeight: 16,
-        marginRight: 12,
-    },
-    notesAmount: {
-        fontWeight: '700',
-    },
-    totalAmount: {
-        fontSize: 18,
-        fontWeight: '700',
-        color: '#fff',
-    },
-    actionButtons: {
+    billTxt: { fontSize: 13, color: '#1A1A1A', fontWeight: '500' },
+    billAmt: { fontSize: 13, color: '#1A1A1A', fontWeight: '700' },
+    emptyTxt: { fontSize: 12.5, color: '#AAAAAA', fontStyle: 'italic', paddingVertical: 6 },
+
+    // Notes
+    notesRow: { flexDirection: 'row', alignItems: 'flex-start', justifyContent: 'space-between' },
+    notesTxt: { flex: 1, fontSize: 11, color: '#666', lineHeight: 17, marginRight: 10 },
+    notesBold: { fontWeight: '800', color: '#1A1A1A' },
+    totalAmt: { fontSize: 22, fontWeight: '800', color: '#1A1A1A', letterSpacing: -0.4 },
+
+    // ── Action buttons ────────────────────────────────────────────────────────
+    actionRow: {
         flexDirection: 'row',
         alignItems: 'center',
-        gap: 8,
+        gap: 10,
         marginTop: 4,
     },
-    saveButton: {
+    savePrintBtn: {
         flex: 1,
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'center',
-        backgroundColor: '#FF7043',
-        paddingVertical: 12,
-        borderRadius: 8,
-        gap: 6,
+        backgroundColor: ORANGE,
+        paddingVertical: 14,
+        borderRadius: 12,
+        gap: 8,
+        shadowColor: ORANGE,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.35,
+        shadowRadius: 8,
+        elevation: 4,
     },
-    saveButtonText: {
-        color: '#fff',
-        fontSize: 14,
-        fontWeight: '600',
-    },
-    iconButton: {
-        width: 44,
-        height: 44,
-        backgroundColor: '#fff',
-        borderRadius: 8,
+    savePrintTxt: { fontSize: 15, fontWeight: '700', color: '#fff', letterSpacing: 0.2 },
+    sqBtn: {
+        width: 50, height: 50,
+        backgroundColor: '#F0EEEE',
+        borderRadius: 12,
         justifyContent: 'center',
         alignItems: 'center',
     },
-    shareModalOverlay: {
+
+    // ── Loading / Error ───────────────────────────────────────────────────────
+    centred: { flex: 1, justifyContent: 'center', alignItems: 'center', padding: 24 },
+    loadingTxt: { marginTop: 10, fontSize: 15, color: '#888' },
+    errorTxt: { fontSize: 15, color: '#888', marginTop: 14, marginBottom: 20 },
+    retryBtn: { backgroundColor: ROSE, paddingHorizontal: 30, paddingVertical: 12, borderRadius: 10 },
+    retryBtnTxt: { color: '#fff', fontSize: 15, fontWeight: '700' },
+
+    // ── Share modal ───────────────────────────────────────────────────────────
+    // Full-screen dark charcoal background (matches image)
+    modalOverlay: {
         flex: 1,
-        backgroundColor: 'rgba(0, 0, 0, 0.85)',
-        justifyContent: 'flex-start',
+        backgroundColor: '#1C1C1E',
     },
-    shareModalContent: {
-        flex: 1,
-        paddingTop: 40,
-    },
-    shareModalHeader: {
+    modalHeader: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
-        paddingHorizontal: 20,
-        paddingVertical: 15,
+        paddingHorizontal: 18,
+        paddingBottom: 16,
     },
-    shareModalTitle: {
-        fontSize: 18,
-        fontWeight: '600',
+    modalCloseBtn: {
+        width: 36, height: 36,
+        borderRadius: 18,
+        backgroundColor: '#3A3A3C',
+        justifyContent: 'center',
+        alignItems: 'center',
+    },
+    modalTitle: {
+        fontSize: 17,
+        fontWeight: '700',
         color: '#fff',
         flex: 1,
         textAlign: 'center',
     },
-    shareModalSpacer: {
-        width: 24,
+
+    // Card preview wrapper (rounded + shadow)
+    shareCardWrap: {
+        borderRadius: 16,
+        overflow: 'hidden',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 6 },
+        shadowOpacity: 0.4,
+        shadowRadius: 16,
+        elevation: 10,
     },
-    sharePreviewScroll: {
-        flex: 1,
-    },
-    sharePreview: {
-        paddingHorizontal: 20,
-        paddingBottom: 20,
-    },
-    shareCustomerCard: {
-        backgroundColor: '#E88E99',
-        borderRadius: 12,
-        padding: 16,
+    // Coral top inside the share preview card
+    shareCoralTop: {
+        backgroundColor: ROSE,
+        paddingHorizontal: 16,
+        paddingTop: 14,
+        paddingBottom: 0,
         position: 'relative',
     },
-    shareWatermark: {
+    shareWM: {
         position: 'absolute',
-        top: 16,
-        right: 16,
-        fontSize: 10,
-        fontWeight: '600',
-        color: 'rgba(255, 255, 255, 0.4)',
-        letterSpacing: 1,
+        top: 12, right: 14,
+        fontSize: 9,
+        fontWeight: '700',
+        color: 'rgba(255,255,255,0.45)',
+        letterSpacing: 1.2,
     },
-    shareOptions: {
+    shareCustomerName: {
+        fontSize: 26,
+        fontWeight: '800',
+        color: '#fff',
+        letterSpacing: 0.2,
+        marginBottom: 3,
+    },
+    shareInvoiceNo: {
+        fontSize: 12,
+        color: 'rgba(255,255,255,0.85)',
+        marginBottom: 14,
+    },
+    // White invoice sub-card inside modal coral section
+    shareInvoiceSubCard: {
+        flexDirection: 'row',
+        alignItems: 'flex-start',
+        backgroundColor: '#fff',
+        borderTopLeftRadius: 10,
+        borderTopRightRadius: 10,
+        padding: 14,
+    },
+    // White bills+notes section inside modal card
+    shareWhiteSection: {
+        backgroundColor: '#fff',
+        paddingHorizontal: 14,
+        paddingTop: 10,
+        paddingBottom: 14,
+    },
+
+    // Bottom share icon bar
+    shareBar: {
         flexDirection: 'row',
         justifyContent: 'space-around',
-        paddingHorizontal: 20,
-        paddingVertical: 25,
-        backgroundColor: 'rgba(0, 0, 0, 0.3)',
-        borderTopLeftRadius: 20,
-        borderTopRightRadius: 20,
-    },
-    shareOption: {
         alignItems: 'center',
-        gap: 8,
+        paddingHorizontal: 16,
+        paddingVertical: 28,
+        paddingBottom: 40,
+        borderTopWidth: 1,
+        borderTopColor: '#2C2C2E',
     },
-    shareOptionIcon: {
-        width: 56,
-        height: 56,
+    shareOpt: { alignItems: 'center', gap: 8 },
+    shareCard: { backgroundColor: ROSE, borderRadius: 14, padding: 16, position: 'relative' },
+    shareOptions: { flexDirection: 'row', justifyContent: 'space-around', paddingHorizontal: 20, paddingVertical: 24 },
+    shareCircle: {
+        width: 56, height: 56,
         borderRadius: 28,
-        backgroundColor: '#666',
         justifyContent: 'center',
         alignItems: 'center',
     },
-    messengerIcon: {
-        backgroundColor: '#0084FF',
-    },
-    whatsappIcon: {
-        backgroundColor: '#25D366',
-    },
-    shareOptionText: {
-        fontSize: 12,
-        color: '#fff',
-        fontWeight: '500',
-    },
+    shareLbl: { fontSize: 11.5, color: '#AEAEB2', fontWeight: '500' },
 });

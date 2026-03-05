@@ -9,6 +9,7 @@ import {
     ActivityIndicator,
     SafeAreaView,
     StatusBar,
+    Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
@@ -196,7 +197,11 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps): Rea
                     <Text style={styles.loadingText}>Gathering insights...</Text>
                 </View>
             ) : (
-                <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
+                <ScrollView 
+                    style={styles.scrollView} 
+                    showsVerticalScrollIndicator={false}
+                    contentContainerStyle={styles.scrollContent}
+                >
                     {/* Top Value Cards */}
                     <LinearGradient
                         colors={['#E88E99', '#E88E99']}
@@ -329,7 +334,7 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingTop: 20,
+        paddingTop: Platform.OS === 'android' ? (StatusBar.currentHeight || 0) + 10 : 10,
         paddingBottom: 15,
         backgroundColor: '#fff',
     },
@@ -355,6 +360,9 @@ const styles = StyleSheet.create({
     },
     scrollView: {
         flex: 1,
+    },
+    scrollContent: {
+        paddingBottom: Platform.OS === 'ios' ? 100 : 80,
     },
     
     // Top Cards Gradient
@@ -533,6 +541,6 @@ const styles = StyleSheet.create({
         fontSize: 14,
     },
     bottomSpacing: {
-        height: 80,
+        height: 20,
     },
 });

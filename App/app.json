@@ -25,7 +25,7 @@
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.isaiiai.vivehaai",
+      "package": "com.isaiiai.vivehaaiapp",
       "permissions": [
         "READ_CONTACTS"
       ]

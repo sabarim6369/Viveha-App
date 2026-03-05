@@ -87,16 +87,20 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
   const [isTransactionsLoading, setIsTransactionsLoading] = useState<boolean>(true);
   const [transactions, setTransactions] = useState<Transaction[]>([]);
   const [balance, setBalance] = useState<number>(0);
+  const [isBalanceLoading, setIsBalanceLoading] = useState<boolean>(true);
   const [isBalanceVisible, setIsBalanceVisible] = useState<boolean>(true);
 
   // Use useFocusEffect to refresh data when screen comes into focus
   useFocusEffect(
     useCallback(() => {
-      loadShopDetails();
-      loadUserData();
-      loadRecentTransactions();
-      loadBalance();
-      updatePendingSyncCount();
+      const initializeData = async () => {
+        loadShopDetails();
+        await loadUserData(); // Wait for user data to be fetched first
+        await loadBalance(); // Then load balance from cached data
+        await loadRecentTransactions(); // Then load transactions
+        updatePendingSyncCount();
+      };
+      initializeData();
     }, [])
   );
 
@@ -117,10 +121,12 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
         const pending = await getPendingSyncItems();
         if (pending.length > 0) {
           setIsSyncing(true);
-          setTimeout(() => {
+          setTimeout(async () => {
             setIsSyncing(false);
             updatePendingSyncCount();
-            loadUserData();
+            await loadUserData();
+            await loadBalance();
+            await loadRecentTransactions();
           }, 3000);
         }
       };
@@ -165,6 +171,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
 
   const loadBalance = async (): Promise<void> => {
     try {
+      setIsBalanceLoading(true);
       const pendingInvoices: Invoice[] = await getPendingInvoices();
       if (Array.isArray(pendingInvoices)) {
         const total = pendingInvoices.reduce((sum: number, inv: Invoice) => {
@@ -176,6 +183,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
       }
     } catch (error) {
       console.error('Error loading balance:', error);
+    } finally {
+      setIsBalanceLoading(false);
     }
   };
 
@@ -289,9 +298,13 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
               </TouchableOpacity>
             </View>
             <Text style={styles.balanceAmount}>
-              {isBalanceVisible
-                ? `Rs.${balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
-                : 'Rs. ****'}
+              {isBalanceLoading ? (
+                'Loading...'
+              ) : isBalanceVisible ? (
+                `Rs.${balance.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`
+              ) : (
+                'Rs. ****'
+              )}
             </Text>
           </View>
 
