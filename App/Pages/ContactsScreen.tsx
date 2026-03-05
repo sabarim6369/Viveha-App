@@ -60,10 +60,29 @@ export default function ContactsScreen({ navigation }: ContactsScreenProps): Rea
     // Reload contacts when screen comes into focus
     useFocusEffect(
         useCallback(() => {
+            console.log('📱 [ContactsScreen] Screen focused - reloading contacts...');
             loadClients();
             updatePendingSyncCount();
+            return () => {
+                console.log('📱 [ContactsScreen] Screen unfocused');
+            };
         }, [])
     );
+
+    // Add navigation listener to force reload when navigating to this screen
+    useEffect(() => {
+        const unsubscribe = navigation.addListener('focus', () => {
+            console.log('🔄 [ContactsScreen] Navigation focus event - force reload');
+            // Force reload with a delay to ensure AsyncStorage is updated
+            setTimeout(() => {
+                console.log('⏰ [ContactsScreen] Executing delayed reload after navigation focus');
+                loadClients();
+                updatePendingSyncCount();
+            }, 300);
+        });
+
+        return unsubscribe;
+    }, [navigation]);
 
     // Update pending sync count
     const updatePendingSyncCount = async () => {
