@@ -16,6 +16,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
 import {
@@ -68,8 +69,12 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
     const [profileData, setProfileData] = useState<ProfileData | null>(null);
     const [filteredData, setFilteredData] = useState<ProfileData | null>(null);
     const [shareModalVisible, setShareModalVisible] = useState<boolean>(false);
+    const [shopName, setShopName] = useState<string>('My Shop');
 
-    useEffect(() => { loadCustomerProfile(); }, [customerId]);
+    useEffect(() => { 
+        loadCustomerProfile();
+        loadShopDetails();
+    }, [customerId]);
 
     useEffect(() => {
         if (isConnected && isInternetReachable) {
@@ -79,6 +84,19 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
             })();
         }
     }, [isConnected, isInternetReachable]);
+
+    // ── Load shop details ────────────────────────────────────────────────────────
+    const loadShopDetails = async (): Promise<void> => {
+        try {
+            const shopDetails = await AsyncStorage.getItem('@viveha_shop_details');
+            if (shopDetails) {
+                const details = JSON.parse(shopDetails);
+                setShopName(details.shopName || 'My Shop');
+            }
+        } catch (error) {
+            console.error('Error loading shop details:', error);
+        }
+    };
 
     // ── Data loading ──────────────────────────────────────────────────────────
     const loadCustomerProfile = async (): Promise<void> => {
@@ -125,16 +143,16 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
 
     // ── Helpers ───────────────────────────────────────────────────────────────
     const formatDate = (ds: string): string => {
-        if (!ds) return 'N/A';
+        if (!ds) return '';
         const d = new Date(ds);
-        if (isNaN(d.getTime())) return 'N/A';
+        if (isNaN(d.getTime())) return '';
         const month = d.toLocaleString('en-US', { month: 'short' }).toUpperCase();
         return `${month} ${d.getDate()}, ${d.getFullYear()}`;
     };
     const formatBillDate = (ds: string): string => {
-        if (!ds) return 'N/A';
+        if (!ds) return '';
         const d = new Date(ds);
-        if (isNaN(d.getTime())) return 'N/A';
+        if (isNaN(d.getTime())) return '';
         return `${String(d.getDate()).padStart(2, '0')}/${String(d.getMonth() + 1).padStart(2, '0')}/${d.getFullYear()}`;
     };
     const fmt = (n: number) => `Rs.${n.toLocaleString('en-IN')}`;
@@ -144,7 +162,7 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
         if (!profileData) return '';
         const { customer, pendingInvoices, totalBalance, payments } = profileData;
         const fi = pendingInvoices[0];
-        return `*${customer.name}*\nInvoice No: ${fi?.invoiceNumber ?? 'N/A'}\n\n${payments.map((p, i) => `Bill ${i + 1} - ${formatBillDate(p.paidAt)}  ${fmt(p.amount)}`).join('\n')}\n\n*TOTAL:* ${fmt(totalBalance)}\n\nFriendly reminder from JK TRADERS: balance of ${fmt(totalBalance)} remaining. Thanks!`;
+        return `*${customer.name}*\nInvoice No: ${fi?.invoiceNumber ?? 'N/A'}\n\n${payments.map((p, i) => `Bill ${i + 1} - ${formatBillDate(p.paidAt)}  ${fmt(p.amount)}`).join('\n')}\n\n*TOTAL:* ${fmt(totalBalance)}\n\nFriendly reminder from ${shopName}: balance of ${fmt(totalBalance)} remaining. Thanks!`;
     };
     const openURL = async (url: string) => {
         const ok = await Linking.canOpenURL(url).catch(() => false);
@@ -194,7 +212,7 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
             <body>
                 <div class="header">
                     <div class="title">${specificInvoiceNumber ? `Invoice #${specificInvoiceNumber}` : 'Customer Profile'}</div>
-                    <div style="font-size: 14px; color: #666;">JK TRADERS</div>
+                    <div style="font-size: 14px; color: #666;">${shopName}</div>
                 </div>
                 
                 <div class="customer-info">
@@ -213,7 +231,7 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
                         <div>
                             <div style="font-size: 12px; color: #888; text-align: right;">AMOUNT DUE</div>
                             <div class="amount-due">${fmt(totalBalance)}</div>
-                            ${fi?.dueDate ? `<div style="color: #E07C8C; text-align: right;">${formatDate(fi.dueDate)}</div>` : '<div style="text-align: right; color: #E07C8C;">N/A</div>'}
+                            ${fi?.dueDate && formatDate(fi.dueDate) ? `<div style="color: #E07C8C; text-align: right;">${formatDate(fi.dueDate)}</div>` : ''}
                         </div>
                     </div>
                 </div>
@@ -234,7 +252,7 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
                     <div class="notes">
                         <div style="font-weight: bold; margin-bottom: 10px;">NOTES</div>
                         <div style="color: #555;">
-                            Friendly reminder from JK TRADERS: You have a balance of 
+                            Friendly reminder from ${shopName}: You have a balance of 
                             <strong>${fmt(totalBalance)}</strong> remaining. 
                             Tap to pay or stop by soon. Thanks!
                         </div>
@@ -397,7 +415,7 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
                             <View style={s.subRight}>
                                 <Text style={s.subCaption}>AMOUNT DUE</Text>
                                 <Text style={s.subAmount}>{fmt(totalBalance)}</Text>
-                                {fi?.dueDate
+                                {fi?.dueDate && formatDate(fi.dueDate)
                                     ? <Text style={s.subDue}>{formatDate(fi.dueDate)}</Text>
                                     : null}
                             </View>
@@ -447,7 +465,7 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
                                 </View>
                                 <View style={s.notesRow}>
                                     <Text style={s.notesTxt}>
-                                        Friendly reminder from JK TRADERS: You have a balance of{' '}
+                                        Friendly reminder from {shopName}: You have a balance of{' '}
                                         <Text style={s.notesBold}>{fmt(totalBalance)}</Text>
                                         {' '}remaining. Tap to pay or stop by soon. Thanks!
                                     </Text>
@@ -542,7 +560,7 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
                                     <View style={s.subRight}>
                                         <Text style={s.subCaption}>AMOUNT DUE</Text>
                                         <Text style={s.subAmount}>{fmt(totalBalance)}</Text>
-                                        {fi?.dueDate
+                                        {fi?.dueDate && formatDate(fi.dueDate)
                                             ? <Text style={s.subDue}>{formatDate(fi.dueDate)}</Text>
                                             : null}
                                     </View>
@@ -581,7 +599,7 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
                                         </View>
                                         <View style={s.notesRow}>
                                             <Text style={s.notesTxt}>
-                                                Friendly reminder from JK TRADERS: You have a balance of{' '}
+                                                Friendly reminder from {shopName}: You have a balance of{' '}
                                                 <Text style={s.notesBold}>{fmt(totalBalance)}</Text>
                                                 {' '}remaining. Tap to pay or stop by soon. Thanks!
                                             </Text>

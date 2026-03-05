@@ -515,10 +515,10 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
           <Text style={styles.summaryLabel}>Total Pending</Text>
           <Text style={styles.summaryAmount}>Rs.{getTotalPending().toFixed(2)}</Text>
         </View>
-        <View style={[styles.summaryCard, styles.paidCard]}>
+        {/* <View style={[styles.summaryCard, styles.paidCard]}>
           <Text style={styles.summaryLabel}>Total Paid</Text>
           <Text style={styles.summaryAmountGreen}>Rs.{getTotalPaid().toFixed(2)}</Text>
-        </View>
+        </View> */}
         <View style={[styles.summaryCard, styles.countCard]}>
           <Text style={styles.summaryLabel}>Invoices</Text>
           <Text style={styles.summaryCount}>{invoices.length}</Text>

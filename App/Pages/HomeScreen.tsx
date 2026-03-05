@@ -94,8 +94,16 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
   useFocusEffect(
     useCallback(() => {
       const initializeData = async () => {
+        // Reset loading states when screen focuses
+        setIsBalanceLoading(true);
+        setIsTransactionsLoading(true);
+        
         loadShopDetails();
         await loadUserData(); // Wait for user data to be fetched first
+        
+        // Add a small delay to ensure data is written to AsyncStorage
+        await new Promise(resolve => setTimeout(resolve, 300));
+        
         await loadBalance(); // Then load balance from cached data
         await loadRecentTransactions(); // Then load transactions
         updatePendingSyncCount();
@@ -180,6 +188,24 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
           return sum + (isNaN(pendingAmount) ? 0 : pendingAmount);
         }, 0);
         setBalance(total);
+        
+        // If balance is 0 and we're online, retry once after a short delay
+        // This handles the case where backend data hasn't fully loaded yet
+        if (total === 0 && isConnected && isInternetReachable) {
+          console.log('⚠️ Balance is 0, retrying after 1 second...');
+          await new Promise(resolve => setTimeout(resolve, 1000));
+          const retryInvoices: Invoice[] = await getPendingInvoices();
+          if (Array.isArray(retryInvoices)) {
+            const retryTotal = retryInvoices.reduce((sum: number, inv: Invoice) => {
+              const pendingAmount = parseFloat(String(inv.pendingAmount || inv.amount || 0));
+              return sum + (isNaN(pendingAmount) ? 0 : pendingAmount);
+            }, 0);
+            if (retryTotal > 0) {
+              console.log(`✅ Retry successful: Found balance of Rs.${retryTotal}`);
+              setBalance(retryTotal);
+            }
+          }
+        }
       }
     } catch (error) {
       console.error('Error loading balance:', error);
