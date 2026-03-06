@@ -76,6 +76,9 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
   const [invoice, setInvoice] = useState<Invoice | null>(routeInvoice || null);
   const [shopDetails, setShopDetails] = useState<ShopDetails | null>(null);
   const [headerColor, setHeaderColor] = useState<string>('#5B8DEF');
+  const [showBrandLogo, setShowBrandLogo] = useState<boolean>(true);
+  const [showGSTUIN, setShowGSTUIN] = useState<boolean>(true);
+  const [showQRCode, setShowQRCode] = useState<boolean>(false);
 
   useEffect(() => {
     loadShopDetails();
@@ -100,6 +103,15 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
         const parsed = JSON.parse(settings);
         if (parsed.headerColor) {
           setHeaderColor(parsed.headerColor);
+        }
+        if (parsed.showBrandLogo !== undefined) {
+          setShowBrandLogo(parsed.showBrandLogo);
+        }
+        if (parsed.showGSTUIN !== undefined) {
+          setShowGSTUIN(parsed.showGSTUIN);
+        }
+        if (parsed.showQRCode !== undefined) {
+          setShowQRCode(parsed.showQRCode);
         }
       }
     } catch (error) {
@@ -148,13 +160,14 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     // Calculate values from items if not provided in invoice
     let calculatedSubTotal = 0;
     let calculatedTax = 0;
-    let calculatedDiscount = 0;
+    let calculatedDiscount = 0; // Discount feature disabled
     
     (invoice.items || []).forEach(item => {
       const itemSubtotal = (item.price || 0) * (item.quantity || 0);
       calculatedSubTotal += itemSubtotal;
       calculatedTax += (itemSubtotal * (item.tax || 0)) / 100;
-      calculatedDiscount += (itemSubtotal * (item.discount || 0)) / 100;
+      // Discount calculation disabled
+      // calculatedDiscount += (itemSubtotal * (item.discount || 0)) / 100;
     });
 
     // Use calculated values as fallback
@@ -183,7 +196,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     const itemsRows = (invoice.items || []).map((item, index) => {
       const itemSubtotal = (item.price || 0) * (item.quantity || 0);
       const itemTaxAmount = (itemSubtotal * (item.tax || 0)) / 100;
-      const itemDiscountAmount = (itemSubtotal * (item.discount || 0)) / 100;
+      const itemDiscountAmount = 0; // Discount feature disabled
       const itemTotal = itemSubtotal + itemTaxAmount - itemDiscountAmount;
       
       return `
@@ -320,12 +333,6 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
                 <span class="calc-label">Sub Total</span>
                 <span class="calc-value">₹${subTotal}</span>
               </div>
-              ${parseFloat(discount) > 0 ? `
-              <div class="calc-row">
-                <span class="calc-label">Discount</span>
-                <span class="calc-value">-₹${discount}</span>
-              </div>
-              ` : ''}
               <div class="calc-row">
                 <span class="calc-label">Taxable Amount</span>
                 <span class="calc-value">₹${taxableAmount}</span>
@@ -469,7 +476,8 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     const itemSubtotal = (item.price || 0) * (item.quantity || 0);
     calculatedSubTotal += itemSubtotal;
     calculatedTax += (itemSubtotal * (item.tax || 0)) / 100;
-    calculatedDiscount += (itemSubtotal * (item.discount || 0)) / 100;
+    // Discount calculation disabled
+    // calculatedDiscount += (itemSubtotal * (item.discount || 0)) / 100;
   });
 
   const subTotalDisplay = (invoice.subTotal !== undefined ? invoice.subTotal : calculatedSubTotal).toFixed(2);
@@ -509,17 +517,19 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
         <View style={styles.invoicePaper}>
 
           {/* Brand Header */}
-          <View style={styles.paperHeader}>
-            <View style={styles.brandContainer}>
-              <Image source={require('../assets/logo2.png')} style={styles.brandIcon} resizeMode="contain" />
-              <Text style={styles.brandName}>viveha.ai</Text>
+          {showBrandLogo && (
+            <View style={styles.paperHeader}>
+              <View style={styles.brandContainer}>
+                <Image source={require('../assets/logo2.png')} style={styles.brandIcon} resizeMode="contain" />
+                <Text style={styles.brandName}>viveha.ai</Text>
+              </View>
+              <View style={styles.poweredByContainer}>
+                <Text style={styles.poweredLabel}>Powered by</Text>
+                <Text style={styles.poweredName}>isaii.ai</Text>
+                <Text style={styles.poweredId}>8606892145</Text>
+              </View>
             </View>
-            <View style={styles.poweredByContainer}>
-              <Text style={styles.poweredLabel}>Powered by</Text>
-              <Text style={styles.poweredName}>isaii.ai</Text>
-              <Text style={styles.poweredId}>8606892145</Text>
-            </View>
-          </View>
+          )}
 
           {/* Sender & Invoice Info */}
           <View style={styles.metaRow}>
@@ -527,7 +537,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
               <Text style={styles.senderName}>{shopDetails?.shopName || 'Studio Den'}</Text>
               <Text style={styles.senderAddress}>
                 {shopDetails?.location || '294, 5th Cross, Girinagar,\nBangalore, India - 560085'}{'\n'}
-                GST: 29ABCDE1234F1Z5{'\n'}
+                {showGSTUIN && 'GST: 29ABCDE1234F1Z5\n'}
                 PAN: ABCDE1234F
               </Text>
             </View>
@@ -601,12 +611,6 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
                 <Text style={styles.sumLabel}>Sub Total</Text>
                 <Text style={styles.sumValue}>₹{subTotalDisplay}</Text>
               </View>
-              {parseFloat(discountDisplay) > 0 && (
-                <View style={styles.sumRow}>
-                  <Text style={styles.sumLabel}>Discount</Text>
-                  <Text style={styles.sumValue}>-₹{discountDisplay}</Text>
-                </View>
-              )}
               <View style={styles.sumRow}>
                 <Text style={styles.sumLabel}>Taxable Amount</Text>
                 <Text style={styles.sumValue}>₹{taxableAmountDisplay}</Text>
@@ -681,9 +685,11 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
                 <Text style={styles.val}>footerlabs@okhdfc</Text>
               </View>
               <Text style={[styles.lbl, { marginTop: 4 }]}>UPI - Scan & Pay</Text>
-              <View style={styles.qrPlaceholder}>
-                <Ionicons name={"qr-code-outline" as any} size={32} color="#000" />
-              </View>
+              {showQRCode && (
+                <View style={styles.qrPlaceholder}>
+                  <Ionicons name={"qr-code-outline" as any} size={32} color="#000" />
+                </View>
+              )}
             </View>
           </View>
 

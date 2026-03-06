@@ -158,19 +158,23 @@ export default function InvoiceCustomizationScreen({ navigation }: InvoiceCustom
         {/* Invoice Preview Card */}
         <View style={styles.previewCard}>
           <View style={styles.previewHeader}>
-            <View style={styles.brandSection}>
-              <Image 
-                source={require('../assets/logo2.png')} 
-                style={styles.brandIcon}
-                resizeMode="contain"
-              />
-              <Text style={styles.brandName}>viveha.ai</Text>
-            </View>
+            {settings.showBrandLogo && (
+              <View style={styles.brandSection}>
+                <Image 
+                  source={require('../assets/logo2.png')} 
+                  style={styles.brandIcon}
+                  resizeMode="contain"
+                />
+                <Text style={styles.brandName}>viveha.ai</Text>
+              </View>
+            )}
             
-            <View style={styles.clientSection}>
+            <View style={[styles.clientSection, !settings.showBrandLogo && { flex: 1, justifyContent: 'flex-end' }]}>
               <View style={styles.clientInfo}>
                 <Text style={styles.clientName}>isaii.ai</Text>
-                <Text style={styles.clientStoreId}>Client Store ID</Text>
+                {settings.showGSTUIN && (
+                  <Text style={styles.clientStoreId}>GST: 29ABCDE1234F1Z5</Text>
+                )}
                 <Text style={styles.clientPhone}>9003872804</Text>
               </View>
               <View style={styles.clientAvatar}>

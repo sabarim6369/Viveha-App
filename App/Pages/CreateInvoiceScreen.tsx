@@ -491,7 +491,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
   };
 
   const calculateTotalDiscount = (): number => {
-    return items.reduce((sum, item) => sum + (((item.price || 0) * (item.quantity || 0) * (item.discount || 0)) / 100), 0);
+    return 0; // Discount feature disabled
   };
 
   const calculateTotalAdditionalFees = (): number => {
@@ -1264,7 +1264,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
             <TouchableOpacity style={styles.infoRow}>
               <View style={styles.infoLeft}>
                 <View style={styles.iconContainer}>
-                  <Ionicons name={"business" as any} size={20} color="#E88E99" />
+                  <Ionicons name={"business" as any} size={20} color="#E46269" />
                 </View>
                 <View>
                   <Text style={styles.infoTitle}>From</Text>
@@ -1340,14 +1340,14 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                             style={styles.quantityButton}
                             onPress={() => handleDecreaseQuantity(item.id)}
                           >
-                            <Ionicons name={"remove" as any} size={18} color="#E88E99" />
+                            <Ionicons name={"remove" as any} size={18} color="#E46269" />
                           </TouchableOpacity>
                           <Text style={styles.quantityValue}>{item.quantity}</Text>
                           <TouchableOpacity
                             style={styles.quantityButton}
                             onPress={() => handleIncreaseQuantity(item.id)}
                           >
-                            <Ionicons name={"add" as any} size={18} color="#E88E99" />
+                            <Ionicons name={"add" as any} size={18} color="#E46269" />
                           </TouchableOpacity>
                         </View>
                       </View>
@@ -1393,10 +1393,6 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                   : '(0%)'} :
               </Text>
               <Text style={styles.totalValue}>Rs. {(calculateTotalTax() || 0).toFixed(2)}</Text>
-            </View>
-            <View style={styles.totalRow}>
-              <Text style={styles.totalLabel}>Discount (0%) :</Text>
-              <Text style={styles.totalValue}>Rs. {(calculateTotalDiscount() || 0).toFixed(2)}</Text>
             </View>
             {additionalFees.map((fee) => (
               <View key={fee.id} style={styles.totalRow}>
@@ -1514,7 +1510,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                     style={styles.contactsButton}
                     onPress={handlePickContact}
                   >
-                    <Ionicons name={"people" as any} size={24} color="#E88E99" />
+                    <Ionicons name={"people" as any} size={24} color="#E46269" />
                   </TouchableOpacity>
                 </View>
               </View>
@@ -1637,7 +1633,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                           onPress={() => handleSelectExistingClient(client)}
                         >
                           <View style={styles.clientItemIcon}>
-                            <Ionicons name={"person" as any} size={20} color="#E88E99" />
+                            <Ionicons name={"person" as any} size={20} color="#E46269" />
                           </View>
                           <View style={styles.clientItemInfo}>
                             <Text style={styles.clientItemName}>{client.name}</Text>
@@ -1736,7 +1732,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                   >
                     <View style={styles.selectableItemLeft}>
                       <View style={styles.selectableItemIcon}>
-                        <Ionicons name={"cube" as any} size={20} color="#E88E99" />
+                        <Ionicons name={"cube" as any} size={20} color="#E46269" />
                       </View>
                       <View>
                         <Text style={styles.selectableItemName}>{item.name}</Text>
@@ -1763,7 +1759,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                       </View>
                     </View>
                     {item.stock > 0 && (
-                      <Ionicons name={"add-circle" as any} size={24} color="#E88E99" />
+                      <Ionicons name={"add-circle" as any} size={24} color="#E46269" />
                     )}
                   </TouchableOpacity>
                 ))
@@ -1824,7 +1820,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                     onPress={() => selectContactFromPicker(contact)}
                   >
                     <View style={styles.clientItemIcon}>
-                      <Ionicons name={"person" as any} size={20} color="#E88E99" />
+                      <Ionicons name={"person" as any} size={20} color="#E46269" />
                     </View>
                     <View style={styles.clientItemInfo}>
                       <Text style={styles.clientItemName}>{contact.name}</Text>
@@ -2100,7 +2096,7 @@ const styles = StyleSheet.create({
   itemPrice: {
     fontSize: 16,
     fontWeight: '600',
-    color: '#E88E99',
+    color: '#E46269',
   },
   quantityControl: {
     flexDirection: 'row',
@@ -2126,7 +2122,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E88E99',
+    borderColor: '#E46269',
   },
   quantityValue: {
     fontSize: 18,
@@ -2179,7 +2175,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E88E99',
+    backgroundColor: '#E46269',
     borderRadius: 25,
     paddingVertical: 10,
     marginTop: 15,
@@ -2261,7 +2257,7 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E88E99',
+    backgroundColor: '#E46269',
     borderRadius: 12,
     paddingVertical: 15,
     gap: 8,
@@ -2305,7 +2301,7 @@ const styles = StyleSheet.create({
     paddingVertical: 40,
   },
   goToItemsButton: {
-    backgroundColor: '#E88E99',
+    backgroundColor: '#E46269',
     paddingHorizontal: 24,
     paddingVertical: 12,
     borderRadius: 25,
@@ -2367,12 +2363,12 @@ const styles = StyleSheet.create({
   selectableSalePrice: {
     fontSize: 15,
     fontWeight: '700',
-    color: '#E88E99',
+    color: '#E46269',
   },
   selectableItemPrice: {
     fontSize: 16,
     fontWeight: '700',
-    color: '#E88E99',
+    color: '#E46269',
     marginBottom: 2,
   },
   selectableItemStock: {
@@ -2424,7 +2420,7 @@ const styles = StyleSheet.create({
     fontSize: 16,
     color: '#000',
     borderWidth: 2,
-    borderColor: '#E88E99',
+    borderColor: '#E46269',
   },
 
   contactsButton: {
@@ -2435,7 +2431,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 1,
-    borderColor: '#E88E99',
+    borderColor: '#E46269',
   },
   charCount: {
     fontSize: 12,
@@ -2455,7 +2451,7 @@ const styles = StyleSheet.create({
     marginBottom: 15,
   },
   saveClientButton: {
-    backgroundColor: '#E88E99',
+    backgroundColor: '#E46269',
     borderRadius: 12,
     paddingVertical: 12,
     alignItems: 'center',
