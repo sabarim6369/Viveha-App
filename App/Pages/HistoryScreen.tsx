@@ -182,12 +182,18 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): React
       };
     }
 
-    // Add businessInfo to invoice
+    // Cast to any to access dynamic properties
+    const invoiceData = invoice as any;
+
+    // Add businessInfo to invoice and ensure all financial breakdown fields are properly passed
     const invoiceWithBusinessInfo = {
       ...invoice,
       businessInfo,
-      tax: 0,
-      discount: 0,
+      subtotal: invoiceData.subtotal || invoiceData.subTotal || 0,
+      tax: invoiceData.tax || invoiceData.totalTax || 0,
+      discount: invoiceData.discount || invoiceData.totalDiscount || 0,
+      additionalFees: invoiceData.additionalFees || [],
+      customCharges: invoiceData.customCharges || [],
     };
 
     navigation.navigate('InvoicePreview', { invoice: invoiceWithBusinessInfo, isPreview: false });

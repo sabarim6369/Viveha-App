@@ -32,7 +32,11 @@ interface TopItem {
 
 interface MonthlyData {
     labels: string[];
-    datasets: { data: number[] }[];
+    datasets: Array<{
+        data: number[];
+        color?: (opacity: number) => string;
+        strokeWidth?: number;
+    }>;
 }
 
 interface Metrics {
@@ -45,7 +49,8 @@ interface Metrics {
 
 interface SalesTrend {
     month: string;
-    amount: number;
+    totalInvoiced: number;
+    totalReceived: number;
 }
 
 interface TopItemBackend {
@@ -55,7 +60,8 @@ interface TopItemBackend {
 }
 
 interface Summary {
-    totalSales?: number;
+    totalRevenue?: number;
+    totalReceived?: number;
     pendingAmount?: number;
     pendingInvoices?: number;
 }
@@ -71,7 +77,7 @@ interface InsightsResult {
     source?: string;
 }
 
-export default function InsightsScreen({ navigation }: InsightsScreenProps): React.JSX.Element {
+export default function InsightsScreen({ navigation }: InsightsScreenProps) {
     const [isLoading, setIsLoading] = useState<boolean>(true);
     const [selectedPeriod, setSelectedPeriod] = useState<string>('Today');
     const [metrics, setMetrics] = useState<Metrics>({
@@ -82,8 +88,16 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps): Rea
         monthlyData: {
             labels: ["W1", "W2", "W3", "W4"],
             datasets: [
-                { data: [20000, 35000, 45000, 60000] }, // Sales
-                { data: [15000, 25000, 30000, 40000] }  // Expenses
+                { 
+                    data: [20000, 35000, 45000, 60000],
+                    color: (opacity = 1) => `rgba(231, 76, 60, ${opacity})`,
+                    strokeWidth: 3
+                },
+                { 
+                    data: [15000, 25000, 30000, 40000],
+                    color: (opacity = 1) => `rgba(149, 165, 166, ${opacity})`,
+                    strokeWidth: 3
+                }
             ]
         }
     });
@@ -104,22 +118,24 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps): Rea
             if (result && result.data) {
                 const { summary, salesTrends, topItems } = result.data;
 
-                // Process sales trends for chart - create Sales and Pending data
+                // Get total revenue and received amounts from backend
+                const totalRevenue = summary.totalRevenue || 0;
+                const totalReceived = summary.totalReceived || 0;
+                const pendingAmount = summary.pendingAmount || 0;
+
+                // Process sales trends for chart - Sales vs Received
                 const labels = salesTrends.map((t: SalesTrend) => t.month);
-                const salesData = salesTrends.map((t: SalesTrend) => t.amount);
-                
-                // Calculate pending amounts (we'll use a percentage for visualization)
-                // In real scenarios, this would come from actual pending data per month
-                const pendingData = salesData.map(amount => amount * 0.3); // 30% of sales as pending
+                const salesData = salesTrends.map((t: SalesTrend) => t.totalInvoiced);
+                const receivedData = salesTrends.map((t: SalesTrend) => t.totalReceived);
 
                 // Ensure we have at least some data for the chart to render properly
                 const chartSalesData = salesData.length > 0 ? salesData : [0, 0, 0, 0, 0, 0];
-                const chartPendingData = pendingData.length > 0 ? pendingData : [0, 0, 0, 0, 0, 0];
+                const chartReceivedData = receivedData.length > 0 ? receivedData : [0, 0, 0, 0, 0, 0];
                 const chartLabels = labels.length > 0 ? labels : ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
 
                 setMetrics({
-                    totalSales: summary.totalSales || 0,
-                    totalPending: summary.pendingAmount || 0,
+                    totalSales: totalRevenue,
+                    totalPending: pendingAmount,
                     totalInvoices: summary.pendingInvoices || 0,
                     topItems: topItems.map((item: TopItemBackend) => ({
                         name: item.itemName,
@@ -129,8 +145,16 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps): Rea
                     monthlyData: {
                         labels: chartLabels,
                         datasets: [
-                            { data: chartSalesData },  // Sales line
-                            { data: chartPendingData }  // Pending line
+                            { 
+                                data: chartSalesData,
+                                color: (opacity = 1) => `rgba(231, 76, 60, ${opacity})`,
+                                strokeWidth: 3
+                            },      // Total Sales/Invoiced (red line)
+                            { 
+                                data: chartReceivedData,
+                                color: (opacity = 1) => `rgba(149, 165, 166, ${opacity})`,
+                                strokeWidth: 3
+                            }    // Amount Received (gray line)
                         ]
                     }
                 });
@@ -150,27 +174,25 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps): Rea
         backgroundGradientFrom: "#fff",
         backgroundGradientTo: "#fff",
         color: (opacity = 1, index) => {
-            // First dataset (Sales) - pink
-            if (index === 0) return `rgba(232, 142, 153, ${opacity})`;
-            // Second dataset (Pending) - gray
-            return `rgba(153, 153, 153, ${opacity})`;
+            if (index === 0) return `rgba(231, 76, 60, ${opacity})`;
+            return `rgba(149, 165, 166, ${opacity})`;
         },
         strokeWidth: 3,
         fillShadowGradientOpacity: 0,
-        useShadowColorFromDataset: true,
+        useShadowColorFromDataset: false,
         decimalPlaces: 0,
         propsForBackgroundLines: {
             strokeDasharray: "",
-            stroke: "#f0f0f0",
+            stroke: "#f5f5f5",
             strokeWidth: 1
         },
         propsForLabels: {
             fontSize: 10,
-            fontWeight: '500'
+            fontFamily: 'System'
         },
         propsForDots: {
-            r: "5",
-            strokeWidth: "2",
+            r: 5,
+            strokeWidth: 2,
             stroke: "#fff"
         }
     };
@@ -211,17 +233,19 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps): Rea
                     >
                         <View style={styles.topCardsRow}>
                             <View style={styles.topCardItem}>
-                                <Text style={styles.topCardLabel}>TOTAL VALUE</Text>
+                                <Text style={styles.topCardLabel}>TOTAL REVENUE</Text>
                                 <Text style={styles.topCardValue}>
-                                    Rs.{metrics.totalSales.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    ₹{metrics.totalSales.toLocaleString('en-IN')}
                                 </Text>
+                                <Text style={styles.topCardSubtext}>Total Invoiced</Text>
                             </View>
                             <View style={styles.topCardDivider} />
                             <View style={styles.topCardItem}>
-                                <Text style={styles.topCardLabel}>PAYABLE</Text>
+                                <Text style={styles.topCardLabel}>PENDING</Text>
                                 <Text style={styles.topCardValue}>
-                                    Rs.{metrics.totalPending.toLocaleString('en-IN', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+                                    ₹{metrics.totalPending.toLocaleString('en-IN')}
                                 </Text>
+                                <Text style={styles.topCardSubtext}>Yet to Receive</Text>
                             </View>
                         </View>
                     </LinearGradient>
@@ -252,18 +276,18 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps): Rea
                         ))}
                     </ScrollView>
 
-                    {/* Sales vs Pending Chart */}
+                    {/* Sales vs Received Chart */}
                     <View style={styles.chartSection}>
-                        <View style={styles.chartHeader}>
-                            <Text style={styles.sectionTitle}>Sales vs Pending</Text>
+                        <View style={styles.chartHeader}>95A5A6
+                            <Text style={styles.sectionTitle}>Sales vs Received</Text>
                             <View style={styles.legendContainer}>
                                 <View style={styles.legendItem}>
-                                    <View style={[styles.legendDot, { backgroundColor: '#E88E99' }]} />
+                                    <View style={[styles.legendDot, { backgroundColor: '#E74C3C' }]} />
                                     <Text style={styles.legendText}>Sales</Text>
                                 </View>
                                 <View style={styles.legendItem}>
-                                    <View style={[styles.legendDot, { backgroundColor: '#999' }]} />
-                                    <Text style={styles.legendText}>Pending</Text>
+                                    <View style={[styles.legendDot, { backgroundColor: '#95A5A6' }]} />
+                                    <Text style={styles.legendText}>Received</Text>
                                 </View>
                             </View>
                         </View>
@@ -275,15 +299,16 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps): Rea
                                 chartConfig={chartConfig}
                                 bezier
                                 style={styles.chart}
-                                withInnerLines={true}
+                                withInnerLines={false}
                                 withOuterLines={false}
                                 withVerticalLines={false}
+                                withVerticalLabels={false}
                                 withHorizontalLines={true}
                                 withDots={true}
                                 withShadow={false}
-                                yAxisLabel="Rs."
-                                yAxisSuffix="k"
-                                formatYLabel={(val: string) => Math.round(parseFloat(val) / 1000).toString()}
+                                segments={4}
+                                yAxisInterval={1}
+                                hidePointsAtIndex={[]}
                             />
                         </View>
                     </View>
@@ -305,7 +330,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps): Rea
                                             </View>
                                         </View>
                                         <Text style={styles.topItemRevenue}>
-                                            Rs.{item.revenue.toLocaleString('en-IN')}
+                                            ₹{item.revenue.toLocaleString('en-IN')}
                                         </Text>
                                     </View>
                                 ))
@@ -398,6 +423,12 @@ const styles = StyleSheet.create({
         fontWeight: '700',
         color: '#FFF',
     },
+    topCardSubtext: {
+        fontSize: 10,
+        color: 'rgba(255, 255, 255, 0.8)',
+        fontWeight: '400',
+        marginTop: 4,
+    },
     
     // Period Tabs
     periodsContainer: {
@@ -465,13 +496,18 @@ const styles = StyleSheet.create({
     },
     chartCard: {
         backgroundColor: '#FFF',
-        borderRadius: 16,
-        padding: 15,
+        borderRadius: 12,
+        padding: 10,
         alignItems: 'center',
+        shadowColor: '#000',
+        shadowOffset: { width: 0, height: 1 },
+        shadowOpacity: 0.05,
+        shadowRadius: 4,
+        elevation: 2,
     },
     chart: {
         marginVertical: 8,
-        borderRadius: 16,
+        borderRadius: 12,
     },
     
     // Top Selling Items

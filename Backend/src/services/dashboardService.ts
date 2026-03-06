@@ -38,15 +38,8 @@ export const getDashboardSummary = async (clientId: string) => {
             {
                 $group: {
                     _id: null,
-                    totalSales: {
-                        $sum: {
-                            $cond: [
-                                { $gte: ['$paidAmount', '$totalAmount'] },
-                                '$totalAmount',
-                                0,
-                            ],
-                        },
-                    },
+                    totalRevenue: { $sum: '$totalAmount' }, // Total invoiced amount
+                    totalReceived: { $sum: '$paidAmount' }, // Total amount received
                     pendingAmount: {
                         $sum: {
                             $cond: [
@@ -66,7 +59,8 @@ export const getDashboardSummary = async (clientId: string) => {
         ]);
 
         return {
-            totalSales: summary?.totalSales || 0,
+            totalRevenue: summary?.totalRevenue || 0,
+            totalReceived: summary?.totalReceived || 0,
             pendingAmount: summary?.pendingAmount || 0,
             pendingInvoices: summary?.pendingInvoices || 0,
         };
@@ -82,12 +76,12 @@ export const getSalesTrends = async (clientId: string, months: number = 6) => {
         const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
         startMonth.setMonth(startMonth.getMonth() - (normalizedMonths - 1));
 
-        const results = await Invoice.aggregate([
+        // Get total invoiced amount per month
+        const invoicedResults = await Invoice.aggregate([
             {
                 $match: {
                     clientId: toObjectId(clientId),
                     generatedAt: { $gte: startMonth },
-                    $expr: { $gte: ['$paidAmount', '$totalAmount'] },
                 },
             },
             {
@@ -96,15 +90,19 @@ export const getSalesTrends = async (clientId: string, months: number = 6) => {
                         year: { $year: '$generatedAt' },
                         month: { $month: '$generatedAt' },
                     },
-                    amount: { $sum: '$totalAmount' },
+                    totalInvoiced: { $sum: '$totalAmount' },
+                    totalReceived: { $sum: { $ifNull: ['$paidAmount', 0] } },
                 },
             },
         ]);
 
-        const totalsByMonth = new Map(
-            results.map((entry) => [
+        const dataByMonth = new Map(
+            invoicedResults.map((entry) => [
                 `${entry._id.year}-${entry._id.month}`,
-                entry.amount,
+                {
+                    totalInvoiced: entry.totalInvoiced,
+                    totalReceived: entry.totalReceived,
+                },
             ]),
         );
 
@@ -112,9 +110,11 @@ export const getSalesTrends = async (clientId: string, months: number = 6) => {
         for (let i = normalizedMonths - 1; i >= 0; i -= 1) {
             const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
             const key = `${date.getFullYear()}-${date.getMonth() + 1}`;
+            const data = dataByMonth.get(key) || { totalInvoiced: 0, totalReceived: 0 };
             trends.push({
                 month: MONTH_LABELS[date.getMonth()],
-                amount: totalsByMonth.get(key) || 0,
+                totalInvoiced: data.totalInvoiced,
+                totalReceived: data.totalReceived,
             });
         }
 

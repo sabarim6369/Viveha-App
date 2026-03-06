@@ -80,6 +80,14 @@ interface PendingInvoice {
   products: Product[];
   createdAt?: string;
   additionalFees?: AdditionalFee[];
+  // Financial breakdown fields
+  subtotal?: number;
+  subTotal?: number;
+  tax?: number;
+  totalTax?: number;
+  discount?: number;
+  totalDiscount?: number;
+  customCharges?: any[];
 }
 
 interface PaymentRecord {
@@ -260,6 +268,15 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
             invoiceDate: inv.invoiceDate,
             items: items,
             products: inv.products || [],
+            // Include financial breakdown
+            subtotal: inv.subtotal || inv.subTotal,
+            subTotal: inv.subTotal || inv.subtotal,
+            tax: inv.tax || inv.totalTax,
+            totalTax: inv.totalTax || inv.tax,
+            discount: inv.discount || inv.totalDiscount,
+            totalDiscount: inv.totalDiscount || inv.discount,
+            additionalFees: inv.additionalFees || [],
+            customCharges: inv.customCharges || [],
           };
         })
         .reverse(); // Show newest first
@@ -421,7 +438,7 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
         }));
 
         invoice = {
-          id: pending.invoiceId,
+          id: pending.invoiceId || pending.id,
           serverId: pending.serverId,
           number: pending.invoiceNumber,
           invoiceNumber: pending.invoiceNumber,
@@ -432,25 +449,42 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
           },
           clientName: pending.clientName,
           clientPhone: pending.clientPhone,
-          total: pending.totalAmount,
-          grandTotal: pending.totalAmount,
-          subTotal: pending.totalAmount || 0,
-          totalAmount: pending.totalAmount,
-          paidAmount: pending.paidAmount,
+          total: pending.totalAmount || pending.amount,
+          grandTotal: pending.totalAmount || pending.amount,
+          subTotal: pending.subTotal || pending.subtotal || pending.totalAmount || pending.amount || 0,
+          subtotal: pending.subtotal || pending.subTotal || pending.totalAmount || pending.amount || 0,
+          totalAmount: pending.totalAmount || pending.amount,
+          paidAmount: pending.paidAmount || 0,
           pendingAmount: pending.amount,
-          discount: 0,
-          tax: 0,
+          discount: pending.discount || pending.totalDiscount || 0,
+          totalDiscount: pending.totalDiscount || pending.discount || 0,
+          tax: pending.tax || pending.totalTax || 0,
+          totalTax: pending.totalTax || pending.tax || 0,
           status: pending.status,
           invoiceDate: pending.invoiceDate || pending.date,
           dueDate: pending.dueDate || pending.date,
           items: items,
           createdAt: pending.createdAt,
           additionalFees: pending.additionalFees || [],
+          customCharges: pending.customCharges || [],
         } as any;
       }
 
       if (invoice) {
-        navigation.navigate('InvoicePreview', { invoice, isPreview: false });
+        // Cast to any to access dynamic properties
+        const invoiceData = invoice as any;
+        
+        // Ensure all financial breakdown fields are properly passed
+        const invoiceToPass = {
+          ...invoice,
+          subtotal: invoiceData.subtotal || invoiceData.subTotal || 0,
+          tax: invoiceData.tax || invoiceData.totalTax || 0,
+          discount: invoiceData.discount || invoiceData.totalDiscount || 0,
+          additionalFees: invoiceData.additionalFees || [],
+          customCharges: invoiceData.customCharges || [],
+        };
+        
+        navigation.navigate('InvoicePreview', { invoice: invoiceToPass, isPreview: false });
       } else {
         Toast.show({
           type: 'error',

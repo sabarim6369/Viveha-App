@@ -154,6 +154,7 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
           discount: 0,
         }));
 
+        const invoiceData = invoice as any;
         fullInvoice = {
           id: invoice.invoiceId,
           serverId: invoice.serverId,
@@ -168,18 +169,19 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
           clientPhone: invoice.clientPhone,
           total: invoice.totalAmount,
           grandTotal: invoice.totalAmount,
-          subTotal: invoice.totalAmount || 0,
+          subTotal: invoiceData.subtotal || invoiceData.subTotal || 0,
           totalAmount: invoice.totalAmount,
           paidAmount: invoice.paidAmount,
           pendingAmount: invoice.amount,
-          discount: 0,
-          tax: 0,
+          discount: invoiceData.discount || invoiceData.totalDiscount || 0,
+          tax: invoiceData.tax || invoiceData.totalTax || 0,
           status: invoice.status,
           invoiceDate: invoice.invoiceDate || invoice.date,
           dueDate: invoice.dueDate || invoice.date,
           items: items,
           createdAt: invoice.createdAt,
-          additionalFees: invoice.additionalFees || [],
+          additionalFees: invoiceData.additionalFees || [],
+          customCharges: invoiceData.customCharges || [],
         } as any;
       }
 

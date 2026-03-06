@@ -143,6 +143,20 @@ interface PendingRecord {
   time: string;
   status: string;
   createdAt: string;
+  // Full invoice data for proper viewing
+  subtotal?: number;
+  subTotal?: number;
+  tax?: number;
+  totalTax?: number;
+  discount?: number;
+  totalDiscount?: number;
+  totalAmount?: number;
+  paidAmount?: number;
+  additionalFees?: AdditionalFee[];
+  customCharges?: any[];
+  items?: InvoiceItem[];
+  invoiceDate?: string;
+  dueDate?: string;
 }
 
 export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenProps): React.JSX.Element {
@@ -971,7 +985,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         const result = await createInvoiceViaBackend(invoiceData);
 
         if (result.success) {
-          // Save pending payment record
+          // Save pending payment record with complete invoice data
           const pending: PendingRecord = {
             id: result.invoice._id,
             invoiceNumber: invoiceNumber,
@@ -982,6 +996,20 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
             time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
             status: 'pending',
             createdAt: new Date().toISOString(),
+            // Include full financial breakdown
+            subtotal: subtotal,
+            subTotal: subtotal,
+            tax: tax,
+            totalTax: tax,
+            discount: discount,
+            totalDiscount: discount,
+            totalAmount: total,
+            paidAmount: 0,
+            additionalFees: additionalFees,
+            customCharges: [],
+            items: items,
+            invoiceDate: invoiceDetails.invoiceDate,
+            dueDate: invoiceDetails.dueDate,
           };
 
           const pendings = await AsyncStorage.getItem('@viveha_pendings');
@@ -1026,6 +1054,20 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
           time: new Date().toLocaleTimeString('en-US', { hour: '2-digit', minute: '2-digit' }),
           status: 'pending',
           createdAt: new Date().toISOString(),
+          // Include full financial breakdown
+          subtotal: subtotal,
+          subTotal: subtotal,
+          tax: tax,
+          totalTax: tax,
+          discount: discount,
+          totalDiscount: discount,
+          totalAmount: total,
+          paidAmount: 0,
+          additionalFees: additionalFees,
+          customCharges: [],
+          items: items,
+          invoiceDate: invoiceDetails.invoiceDate,
+          dueDate: invoiceDetails.dueDate,
         };
 
         const pendings = await AsyncStorage.getItem('@viveha_pendings');

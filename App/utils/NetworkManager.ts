@@ -1626,11 +1626,15 @@ export const fetchInvoicesFromBackend = async (): Promise<Invoice[] | null> => {
             serverId: invoice.clientCustomerId
           },
           items: invoice.items || [],
-          subtotal: invoice.subtotal || 0,
-          tax: invoice.totalTax || 0,
-          discount: invoice.discount || 0,
+          subtotal: invoice.subtotal || invoice.subTotal || 0,
+          subTotal: invoice.subTotal || invoice.subtotal || 0,
+          tax: invoice.totalTax || invoice.tax || 0,
+          totalTax: invoice.totalTax || invoice.tax || 0,
+          discount: invoice.totalDiscount || invoice.discount || 0,
+          totalDiscount: invoice.totalDiscount || invoice.discount || 0,
           total: totalAmount,
           grandTotal: totalAmount,
+          totalAmount: totalAmount,
           paidAmount: paidAmount,
           remainingAmount: remainingAmount,
           status: status,
@@ -1638,6 +1642,8 @@ export const fetchInvoicesFromBackend = async (): Promise<Invoice[] | null> => {
           createdAt: invoice.createdAt,
           invoiceDate: invoice.invoiceDate,
           dueDate: invoice.dueDate,
+          additionalFees: invoice.additionalFees || [],
+          customCharges: invoice.customCharges || [],
         };
       });
 
@@ -1775,7 +1781,16 @@ export const getPendingInvoices = async (): Promise<any[]> => {
             status: inv.status || 'pending',
             createdAt: inv.createdAt,
             invoiceDate: inv.invoiceDate,
-            dueDate: inv.dueDate
+            dueDate: inv.dueDate,
+            // Include financial breakdown
+            subtotal: inv.subtotal || inv.subTotal || 0,
+            subTotal: inv.subTotal || inv.subtotal || 0,
+            tax: inv.totalTax || inv.tax || 0,
+            totalTax: inv.totalTax || inv.tax || 0,
+            discount: inv.totalDiscount || inv.discount || 0,
+            totalDiscount: inv.totalDiscount || inv.discount || 0,
+            additionalFees: inv.additionalFees || [],
+            customCharges: inv.customCharges || [],
           }));
 
           // Save to INVOICES storage (merge with existing local invoices)
@@ -1844,7 +1859,16 @@ export const getPendingInvoices = async (): Promise<any[]> => {
         createdAt: inv.createdAt,
         invoiceDate: inv.invoiceDate,
         dueDate: inv.dueDate,
-        status: inv.status
+        status: inv.status,
+        // Include financial breakdown
+        subtotal: (inv as any).subtotal || (inv as any).subTotal || 0,
+        subTotal: (inv as any).subTotal || (inv as any).subtotal || 0,
+        tax: (inv as any).tax || (inv as any).totalTax || 0,
+        totalTax: (inv as any).totalTax || (inv as any).tax || 0,
+        discount: (inv as any).discount || (inv as any).totalDiscount || 0,
+        totalDiscount: (inv as any).totalDiscount || (inv as any).discount || 0,
+        additionalFees: (inv as any).additionalFees || [],
+        customCharges: (inv as any).customCharges || [],
       }));
 
     console.log(`📦 Local invoices: ${localInvoices.length}, Local pendings: ${localPendings.length}`);

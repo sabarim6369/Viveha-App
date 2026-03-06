@@ -18,7 +18,7 @@
     "expo": "~54.0.30",
     "expo-contacts": "^15.0.11",
     "expo-device": "^8.0.10",
-    "expo-file-system": "~18.0.8",
+    "expo-file-system": "~19.0.21",
     "expo-image-picker": "^17.0.10",
     "expo-linear-gradient": "~15.0.8",
     "expo-media-library": "~18.2.1",
