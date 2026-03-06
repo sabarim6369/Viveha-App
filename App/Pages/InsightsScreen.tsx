@@ -215,7 +215,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
 
             {isLoading ? (
                 <View style={styles.loadingContainer}>
-                    <ActivityIndicator size="large" color="#E88E99" />
+                    <ActivityIndicator size="large" color="#E46269" />
                     <Text style={styles.loadingText}>Gathering insights...</Text>
                 </View>
             ) : (
@@ -226,7 +226,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
                 >
                     {/* Top Value Cards */}
                     <LinearGradient
-                        colors={['#E88E99', '#E88E99']}
+                        colors={['#E46269', '#E46269']}
                         start={{ x: 0, y: 0 }}
                         end={{ x: 1, y: 1 }}
                         style={styles.topCardsGradient}
@@ -447,7 +447,7 @@ const styles = StyleSheet.create({
         marginRight: 10,
     },
     periodTabActive: {
-        backgroundColor: '#E88E99',
+        backgroundColor: '#E46269',
     },
     periodText: {
         fontSize: 13,

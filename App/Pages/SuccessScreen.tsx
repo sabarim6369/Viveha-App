@@ -16,7 +16,7 @@ export default function SuccessScreen({ navigation }: SuccessScreenProps): React
   return (
     <View style={styles.container}>
       <Image 
-        source={require('../assets/logo.png')} 
+        source={require('../assets/logo2.png')} 
         style={styles.logo}
         resizeMode="contain"
       />

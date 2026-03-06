@@ -161,6 +161,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
     { id: 1, title: 'History', icon: 'time-outline', color: '#666', screen: 'History' },
     { id: 2, title: 'Insights', icon: 'bar-chart-outline', color: '#666', screen: 'Insights' },
     { id: 3, title: 'My Contacts', icon: 'people-outline', color: '#666', screen: 'MyContacts' },
+    { id: 13, title: 'Customize Invoice', icon: 'color-palette-outline', color: '#FF6B35', screen: 'InvoiceCustomization' },
     { id: 12, title: 'Settings', icon: 'settings-outline', color: '#666', screen: 'Settings' },
     { id: 4, title: 'Notification', icon: 'notifications-outline', color: '#666' },
     // { id: 5, title: 'Payment Methods', icon: 'card-outline', color: '#666', screen: 'PaymentMethod' },
@@ -177,7 +178,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
       {/* Header */}
       <View style={styles.header}>
         <Image
-          source={require('../assets/logo.png')}
+          source={require('../assets/logo2.png')}
           style={styles.logo}
           resizeMode="contain"
         />
@@ -193,7 +194,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
           <View style={styles.profileLeft}>
             <View style={styles.businessLogo}>
               <Image
-                source={require('../assets/logo.png')}
+                source={require('../assets/logo2.png')}
                 style={styles.businessLogoImage}
                 resizeMode="contain"
               />

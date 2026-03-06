@@ -137,7 +137,7 @@ export default function MobileNumberScreen({ navigation, route }: MobileNumberSc
       {/* Footer Branding */}
       <View style={styles.footer}>
         <Image 
-          source={require('../assets/logo.png')} 
+          source={require('../assets/logo2.png')} 
           style={styles.footerLogo}
           resizeMode="contain"
         />

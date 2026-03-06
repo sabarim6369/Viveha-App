@@ -11,9 +11,11 @@ import {
   Dimensions,
   ScrollView,
   KeyboardAvoidingView,
-  Platform
+  Platform,
+  Alert
 } from 'react-native';
 import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 const { width } = Dimensions.get('window');
@@ -30,6 +32,8 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
   const [ownerName, setOwnerName] = useState<string>('');
   const [showStateDropdown, setShowStateDropdown] = useState<boolean>(false);
   const [searchQuery, setSearchQuery] = useState<string>('');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [gstinUin, setGstinUin] = useState<string>('');
 
   const indianStates: string[] = [
     'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -44,6 +48,58 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
     state.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  const handleImagePick = async (): Promise<void> => {
+    Alert.alert(
+      'Add Profile Picture',
+      'Choose an option',
+      [
+        { 
+          text: 'Take Photo', 
+          onPress: async (): Promise<void> => {
+            const { status } = await ImagePicker.requestCameraPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permission needed', 'Camera permission is required to take photos');
+              return;
+            }
+            
+            const result = await ImagePicker.launchCameraAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            });
+            
+            if (!result.canceled) {
+              setProfileImage(result.assets[0].uri);
+            }
+          }
+        },
+        { 
+          text: 'Choose from Gallery', 
+          onPress: async (): Promise<void> => {
+            const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+            if (status !== 'granted') {
+              Alert.alert('Permission needed', 'Gallery permission is required to select photos');
+              return;
+            }
+            
+            const result = await ImagePicker.launchImageLibraryAsync({
+              mediaTypes: ImagePicker.MediaTypeOptions.Images,
+              allowsEditing: true,
+              aspect: [1, 1],
+              quality: 0.8,
+            });
+            
+            if (!result.canceled) {
+              setProfileImage(result.assets[0].uri);
+            }
+          }
+        },
+        { text: 'Cancel', style: 'cancel' }
+      ]
+    );
+  };
+
   const handleNext = async (): Promise<void> => {
     if (shopName && location) {
       // Save shop details to AsyncStorage
@@ -53,7 +109,9 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
           location,
           city,
           state: selectedState,
-          ownerName
+          ownerName,
+          profileImage,
+          gstin: gstinUin
         };
         await AsyncStorage.setItem('@viveha_shop_details', JSON.stringify(shopDetails));
       } catch (error) {
@@ -66,7 +124,9 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
         city,
         state: selectedState,
         ownerName,
-        businessName: shopName
+        businessName: shopName,
+        profileImage,
+        gstin: gstinUin
       });
     }
   };
@@ -99,6 +159,27 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
           <Text style={styles.subtitle}>
             To begin creating account, add shop details.
           </Text>
+
+          {/* Profile Picture Upload */}
+          <TouchableOpacity 
+            style={styles.profileImageContainer}
+            onPress={handleImagePick}
+            activeOpacity={0.7}
+          >
+            {profileImage ? (
+              <Image 
+                source={{ uri: profileImage }} 
+                style={styles.profileImage}
+              />
+            ) : (
+              <View style={styles.profilePlaceholder}>
+                <Ionicons name="person" size={60} color="#CCC" />
+              </View>
+            )}
+            <View style={styles.cameraIconContainer}>
+              <Ionicons name="camera" size={20} color="#fff" />
+            </View>
+          </TouchableOpacity>
 
           <View style={styles.inputContainer}>
             <Text style={styles.label}>Shop Name<Text style={styles.required}>*</Text></Text>
@@ -213,6 +294,30 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
               onChangeText={setOwnerName}
             />
           </View>
+
+          <View style={styles.inputContainer}>
+            <Text style={styles.label}>Additional Details <Text style={styles.optional}>(optional)</Text></Text>
+            <TextInput
+              style={styles.input}
+              placeholder="GSTIN / UIN"
+              placeholderTextColor="#CCC"
+              value={gstinUin}
+              onChangeText={setGstinUin}
+            />
+          </View>
+
+          <TouchableOpacity 
+            style={styles.termsContainer}
+            onPress={() => navigation.navigate('TermsAgreement', {})}
+            activeOpacity={0.7}
+          >
+            <Text style={styles.termsText}>
+              By continuing, you agree to the{' '}
+              <Text style={styles.termsLink}>Terms of Service</Text>
+              {' '}and confirm that you have read our{' '}
+              <Text style={styles.termsLink}>Privacy Policy</Text>
+            </Text>
+          </TouchableOpacity>
         </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -242,7 +347,7 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
         {/* Footer Branding */}
         <View style={styles.footer}>
           <Image 
-            source={require('../assets/logo.png')} 
+            source={require('../assets/logo2.png')} 
             style={styles.footerLogo}
             resizeMode="contain"
           />
@@ -286,6 +391,59 @@ const styles = StyleSheet.create({
     fontSize: 14,
     color: '#666',
     marginBottom: 28,
+  },
+  profileImageContainer: {
+    width: 120,
+    height: 120,
+    alignSelf: 'center',
+    marginBottom: 30,
+    position: 'relative',
+  },
+  profilePlaceholder: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    backgroundColor: '#FFE5E0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  profileImage: {
+    width: 120,
+    height: 120,
+    borderRadius: 60,
+    borderWidth: 2,
+    borderColor: '#FFF',
+    shadowColor: '#000',
+    shadowOffset: {
+      width: 0,
+      height: 2,
+    },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 3,
+  },
+  cameraIconContainer: {
+    position: 'absolute',
+    bottom: 0,
+    right: 0,
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#FF6B35',
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: '#FFF',
   },
   inputContainer: {
     marginBottom: 20,
@@ -442,5 +600,20 @@ const styles = StyleSheet.create({
     fontSize: 13,
     color: '#999',
     fontWeight: '500',
+  },
+  termsContainer: {
+    marginTop: 8,
+    marginBottom: 20,
+  },
+  termsText: {
+    fontSize: 11,
+    color: '#999',
+    textAlign: 'center',
+    lineHeight: 16,
+  },
+  termsLink: {
+    color: '#FF6B35',
+    fontWeight: '600',
+    textDecorationLine: 'underline',
   },
 });

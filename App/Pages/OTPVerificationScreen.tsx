@@ -112,7 +112,7 @@ export default function OTPVerificationScreen({ navigation }: OTPVerificationScr
           <View style={styles.topSection}>
         <View style={styles.headerLogo}>
           <Image 
-            source={require('../assets/logo.png')} 
+            source={require('../assets/logo2.png')} 
             style={styles.logo}
             resizeMode="contain"
           />
@@ -126,7 +126,7 @@ export default function OTPVerificationScreen({ navigation }: OTPVerificationScr
         <View style={styles.overlappingLogoContainer}>
           <View style={styles.overlappingLogo}>
             <Image 
-              source={require('../assets/logo.png')} 
+              source={require('../assets/logo2.png')} 
               style={styles.overlappingLogoImage}
               resizeMode="contain"
             />
@@ -186,10 +186,18 @@ export default function OTPVerificationScreen({ navigation }: OTPVerificationScr
               </Text>
             </TouchableOpacity>
 
-            <Text style={styles.termsText}>
-              By continuing, you agree to the Terms of Service and confirm{'\n'}
-              that you have read our Privacy Policy
-            </Text>
+            <TouchableOpacity 
+              style={styles.termsContainer}
+              onPress={() => navigation.navigate('TermsAgreement', {})}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.termsText}>
+                By continuing, you agree to the{' '}
+                <Text style={styles.termsLink}>Terms of Service</Text>
+                {' '}and confirm that you have read our{' '}
+                <Text style={styles.termsLink}>Privacy Policy</Text>
+              </Text>
+            </TouchableOpacity>
           </View>
         </LinearGradient>
       </View>
@@ -363,10 +371,18 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     textDecorationLine: 'underline',
   },
+  termsContainer: {
+    marginTop: 12,
+  },
   termsText: {
     fontSize: 11,
     color: '#fff',
     textAlign: 'center',
     lineHeight: 16,
+  },
+  termsLink: {
+    color: '#fff',
+    fontWeight: '700',
+    textDecorationLine: 'underline',
   },
 });

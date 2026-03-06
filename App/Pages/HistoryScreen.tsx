@@ -9,6 +9,8 @@ import {
   StatusBar,
   RefreshControl,
   ActivityIndicator,
+  Platform,
+  Modal,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
@@ -69,6 +71,14 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): React
   const [payments, setPayments] = useState<Payment[]>([]);
   const [refreshing, setRefreshing] = useState<boolean>(false);
   const [loading, setLoading] = useState<boolean>(true);
+  
+  // Filter states
+  const [filterModalVisible, setFilterModalVisible] = useState(false);
+  const [sortOption, setSortOption] = useState('amount-high-to-low');
+  const [selectedCustomer, setSelectedCustomer] = useState<string | null>(null);
+  const [customerExpanded, setCustomerExpanded] = useState(false);
+  const [tempSortOption, setTempSortOption] = useState('amount-high-to-low');
+  const [tempSelectedCustomer, setTempSelectedCustomer] = useState<string | null>(null);
 
   useEffect(() => {
     loadHistory();
@@ -207,6 +217,82 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): React
     return payments.reduce((sum, pay) => sum + (parseFloat(String(pay.amount)) || 0), 0);
   };
 
+  // Get unique customers from both invoices and payments
+  const getUniqueCustomers = (): string[] => {
+    const customers = new Set<string>();
+    invoices.forEach(inv => {
+      if (inv.clientInfo?.name) customers.add(inv.clientInfo.name);
+    });
+    payments.forEach(pay => {
+      if (pay.clientName) customers.add(pay.clientName);
+    });
+    return Array.from(customers).sort();
+  };
+
+  // Apply filters function
+  const applyFilters = () => {
+    setSortOption(tempSortOption);
+    setSelectedCustomer(tempSelectedCustomer);
+    setFilterModalVisible(false);
+  };
+
+  // Reset filters function
+  const resetFilters = () => {
+    setTempSortOption('amount-high-to-low');
+    setTempSelectedCustomer(null);
+  };
+
+  // Get filtered and sorted data
+  const getFilteredData = (): (Invoice | Payment)[] => {
+    let data: (Invoice | Payment)[] = activeTab === 'invoices' ? [...invoices] : [...payments];
+    
+    // Filter by customer
+    if (selectedCustomer) {
+      if (activeTab === 'invoices') {
+        data = (data as Invoice[]).filter((item) => item.clientInfo?.name === selectedCustomer);
+      } else {
+        data = (data as Payment[]).filter((item) => item.clientName === selectedCustomer);
+      }
+    }
+    
+    // Sort data
+    switch (sortOption) {
+      case 'amount-high-to-low':
+        data.sort((a: any, b: any) => {
+          const amountA = parseFloat(String(a.total || a.amount || 0));
+          const amountB = parseFloat(String(b.total || b.amount || 0));
+          return amountB - amountA;
+        });
+        break;
+      case 'amount-low-to-high':
+        data.sort((a: any, b: any) => {
+          const amountA = parseFloat(String(a.total || a.amount || 0));
+          const amountB = parseFloat(String(b.total || b.amount || 0));
+          return amountA - amountB;
+        });
+        break;
+      case 'date-newest':
+        data.sort((a: any, b: any) => {
+          const dateA = new Date(a.createdAt || a.date || 0).getTime();
+          const dateB = new Date(b.createdAt || b.date || 0).getTime();
+          return dateB - dateA;
+        });
+        break;
+      case 'date-oldest':
+        data.sort((a: any, b: any) => {
+          const dateA = new Date(a.createdAt || a.date || 0).getTime();
+          const dateB = new Date(b.createdAt || b.date || 0).getTime();
+          return dateA - dateB;
+        });
+        break;
+    }
+    
+    return data;
+  };
+
+  const filteredData = getFilteredData();
+  const uniqueCustomers = getUniqueCustomers();
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -226,8 +312,17 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): React
         >
           <Ionicons name={"arrow-back" as any} size={24} color="#333" />
         </TouchableOpacity>
-        <Text style={styles.headerTitle}>History</Text>
-        <View style={{ width: 24 }} />
+        <Text style={styles.headerTitle}>Transaction History</Text>
+        <TouchableOpacity
+          style={styles.filterButton}
+          onPress={() => {
+            setTempSortOption(sortOption);
+            setTempSelectedCustomer(selectedCustomer);
+            setFilterModalVisible(true);
+          }}
+        >
+          <Ionicons name="options-outline" size={24} color="#333" />
+        </TouchableOpacity>
       </View>
 
       {/* Tab Selector */}
@@ -299,14 +394,14 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): React
                 <ActivityIndicator size="large" color="#E88E99" />
                 <Text style={styles.loadingText}>Loading invoices...</Text>
               </View>
-            ) : invoices.length === 0 ? (
+            ) : filteredData.length === 0 ? (
               <View style={styles.emptyState}>
                 <Ionicons name={"receipt-outline" as any} size={60} color="#ccc" />
-                <Text style={styles.emptyText}>No invoices yet</Text>
-                <Text style={styles.emptySubtext}>Create your first invoice to see it here</Text>
+                <Text style={styles.emptyText}>No invoices found</Text>
+                <Text style={styles.emptySubtext}>{selectedCustomer ? 'Try adjusting your filters' : 'Create your first invoice to see it here'}</Text>
               </View>
             ) : (
-              invoices.map((invoice, index) => (
+              (filteredData as Invoice[]).map((invoice, index) => (
                 <TouchableOpacity
                   key={invoice.id || index}
                   style={styles.historyCard}
@@ -346,14 +441,14 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): React
                 <ActivityIndicator size="large" color="#E88E99" />
                 <Text style={styles.loadingText}>Loading payments...</Text>
               </View>
-            ) : payments.length === 0 ? (
+            ) : filteredData.length === 0 ? (
               <View style={styles.emptyState}>
                 <Ionicons name={"cash-outline" as any} size={60} color="#ccc" />
-                <Text style={styles.emptyText}>No payments yet</Text>
-                <Text style={styles.emptySubtext}>Received payments will appear here</Text>
+                <Text style={styles.emptyText}>No payments found</Text>
+                <Text style={styles.emptySubtext}>{selectedCustomer ? 'Try adjusting your filters' : 'Received payments will appear here'}</Text>
               </View>
             ) : (
-              payments.map((payment, index) => (
+              (filteredData as Payment[]).map((payment, index) => (
                 <View key={payment.id || index} style={styles.historyCard}>
                   <View style={styles.historyCardLeft}>
                     <View style={[styles.iconCircle, styles.iconCircleGreen]}>
@@ -385,6 +480,123 @@ export default function HistoryScreen({ navigation }: HistoryScreenProps): React
 
         <View style={{ height: 20 }} />
       </ScrollView>
+
+      {/* Filter Modal */}
+      <Modal
+        visible={filterModalVisible}
+        transparent={true}
+        animationType="slide"
+        onRequestClose={() => setFilterModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            {/* Modal Header */}
+            <View style={styles.modalHeader}>
+              <TouchableOpacity
+                onPress={() => setFilterModalVisible(false)}
+                style={styles.modalCloseButton}
+              >
+                <Ionicons name="close" size={24} color="#333" />
+              </TouchableOpacity>
+              <Text style={styles.modalTitle}>Sort & Filter</Text>
+              <TouchableOpacity onPress={resetFilters}>
+                <Text style={styles.resetText}>Reset</Text>
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView style={styles.modalScroll} showsVerticalScrollIndicator={false}>
+              {/* Sort By Section */}
+              <Text style={styles.sectionLabel}>SORT BY</Text>
+              
+              <TouchableOpacity
+                style={styles.radioOption}
+                onPress={() => setTempSortOption('amount-high-to-low')}
+              >
+                <Text style={styles.radioLabel}>Amount: High to low</Text>
+                <View style={styles.radioButton}>
+                  {tempSortOption === 'amount-high-to-low' && (
+                    <View style={styles.radioButtonInner} />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.radioOption}
+                onPress={() => setTempSortOption('amount-low-to-high')}
+              >
+                <Text style={styles.radioLabel}>Amount: Low to High</Text>
+                <View style={styles.radioButton}>
+                  {tempSortOption === 'amount-low-to-high' && (
+                    <View style={styles.radioButtonInner} />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.radioOption}
+                onPress={() => setTempSortOption('date-newest')}
+              >
+                <Text style={styles.radioLabel}>Date: Newest First</Text>
+                <View style={styles.radioButton}>
+                  {tempSortOption === 'date-newest' && (
+                    <View style={styles.radioButtonInner} />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              <TouchableOpacity
+                style={styles.radioOption}
+                onPress={() => setTempSortOption('date-oldest')}
+              >
+                <Text style={styles.radioLabel}>Date: Oldest First</Text>
+                <View style={styles.radioButton}>
+                  {tempSortOption === 'date-oldest' && (
+                    <View style={styles.radioButtonInner} />
+                  )}
+                </View>
+              </TouchableOpacity>
+
+              {/* Customer Section */}
+              <TouchableOpacity
+                style={styles.sectionHeader}
+                onPress={() => setCustomerExpanded(!customerExpanded)}
+              >
+                <Text style={styles.sectionLabel}>CUSTOMER</Text>
+                <Ionicons
+                  name={customerExpanded ? 'chevron-up' : 'chevron-down'}
+                  size={20}
+                  color="#666"
+                />
+              </TouchableOpacity>
+
+              {customerExpanded && uniqueCustomers.map((customer, index) => (
+                <TouchableOpacity
+                  key={index}
+                  style={styles.radioOption}
+                  onPress={() => setTempSelectedCustomer(tempSelectedCustomer === customer ? null : customer)}
+                >
+                  <Text style={styles.radioLabel}>{customer}</Text>
+                  <View style={styles.radioButton}>
+                    {tempSelectedCustomer === customer && (
+                      <View style={styles.radioButtonInner} />
+                    )}
+                  </View>
+                </TouchableOpacity>
+              ))}
+
+              <View style={{ height: 100 }} />
+            </ScrollView>
+
+            {/* Apply Button */}
+            <TouchableOpacity
+              style={styles.applyButton}
+              onPress={applyFilters}
+            >
+              <Text style={styles.applyButtonText}>Apply Filters</Text>
+            </TouchableOpacity>
+          </View>
+        </View>
+      </Modal>
     </SafeAreaView>
   );
 }
@@ -393,6 +605,7 @@ const styles = StyleSheet.create({
   container: {
     flex: 1,
     backgroundColor: '#F8F9FA',
+    paddingTop: Platform.OS === 'android' ? StatusBar.currentHeight : 0,
   },
   header: {
     flexDirection: 'row',
@@ -446,16 +659,16 @@ const styles = StyleSheet.create({
   },
   summaryCard: {
     flexDirection: 'row',
-    backgroundColor: '#fff',
+    backgroundColor: '#E46269',
     marginHorizontal: 16,
     marginTop: 16,
     borderRadius: 12,
     padding: 20,
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
+    shadowColor: '#E46269',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
     shadowRadius: 8,
-    elevation: 2,
+    elevation: 4,
   },
   summaryItem: {
     flex: 1,
@@ -463,22 +676,23 @@ const styles = StyleSheet.create({
   },
   summaryLabel: {
     fontSize: 12,
-    color: '#666',
+    color: '#fff',
     marginBottom: 8,
+    fontWeight: '500',
   },
   summaryAmount: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#FF6B6B',
+    color: '#fff',
   },
   summaryCount: {
     fontSize: 24,
     fontWeight: 'bold',
-    color: '#4A90E2',
+    color: '#fff',
   },
   summaryDivider: {
     width: 1,
-    backgroundColor: '#E0E0E0',
+    backgroundColor: 'rgba(255,255,255,0.3)',
     marginHorizontal: 20,
   },
   scrollView: {
@@ -600,5 +814,102 @@ const styles = StyleSheet.create({
     marginTop: 10,
     fontSize: 14,
     color: '#999',
+  },
+  filterButton: {
+    padding: 5,
+  },
+  modalOverlay: {
+    flex: 1,
+    backgroundColor: 'rgba(0, 0, 0, 0.5)',
+    justifyContent: 'flex-end',
+  },
+  modalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 24,
+    borderTopRightRadius: 24,
+    paddingTop: 20,
+    paddingBottom: 20,
+    maxHeight: '85%',
+  },
+  modalHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingBottom: 20,
+    borderBottomWidth: 1,
+    borderBottomColor: '#f0f0f0',
+  },
+  modalCloseButton: {
+    padding: 5,
+  },
+  modalTitle: {
+    fontSize: 18,
+    fontWeight: '600',
+    color: '#000',
+    flex: 1,
+    textAlign: 'center',
+  },
+  resetText: {
+    fontSize: 14,
+    color: '#4A90E2',
+    fontWeight: '500',
+  },
+  modalScroll: {
+    paddingHorizontal: 20,
+    paddingTop: 20,
+  },
+  sectionLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 12,
+    marginTop: 8,
+  },
+  sectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    marginTop: 8,
+    marginBottom: 12,
+  },
+  radioOption: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 14,
+    paddingHorizontal: 4,
+  },
+  radioLabel: {
+    fontSize: 15,
+    color: '#000',
+  },
+  radioButton: {
+    width: 20,
+    height: 20,
+    borderRadius: 10,
+    borderWidth: 2,
+    borderColor: '#E46269',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
+  radioButtonInner: {
+    width: 10,
+    height: 10,
+    borderRadius: 5,
+    backgroundColor: '#E46269',
+  },
+  applyButton: {
+    backgroundColor: '#FF7A59',
+    marginHorizontal: 20,
+    marginTop: 16,
+    paddingVertical: 16,
+    borderRadius: 12,
+    alignItems: 'center',
+  },
+  applyButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '600',
   },
 });

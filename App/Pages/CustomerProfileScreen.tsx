@@ -27,7 +27,7 @@ import {
 import Footer from '../Components/Footer';
 
 // ─── Colour tokens ────────────────────────────────────────────────────────────
-const ROSE = '#E07C8C';   // coral card header bg
+const ROSE = '#E46269';   // coral card header bg
 const ORANGE = '#F07C3A';   // Save & Print button
 
 // ─── Interfaces ───────────────────────────────────────────────────────────────
@@ -169,10 +169,55 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
         if (ok) { await Linking.openURL(url); setShareModalVisible(false); }
         else Alert.alert('Error', 'App not installed');
     };
-    const handleShareWhatsApp = () => openURL(`whatsapp://send?text=${encodeURIComponent(getMsg())}`);
+    
+    const handleShareWhatsApp = async () => {
+        try {
+            Toast.show({ type: 'info', text1: 'Preparing...', text2: 'Creating PDF for WhatsApp', position: 'bottom' });
+            const html = generateProfileHtml();
+            const { uri } = await Print.printToFileAsync({ html });
+            
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(uri, { 
+                    UTI: '.pdf', 
+                    mimeType: 'application/pdf',
+                    dialogTitle: 'Share via WhatsApp'
+                });
+                setShareModalVisible(false);
+                Toast.show({ type: 'success', text1: 'Success', text2: 'PDF ready to share', position: 'bottom' });
+            } else {
+                Alert.alert('Error', 'Sharing not available on this device');
+            }
+        } catch (error) {
+            console.error('WhatsApp share error:', error);
+            Alert.alert('Share Error', 'Failed to create PDF for sharing.');
+        }
+    };
+    
     const handleShareMessenger = () => openURL(`fb-messenger://share?text=${encodeURIComponent(getMsg())}`);
     const handleCopyUrl = async () => { try { await Share.share({ message: getMsg() }); setShareModalVisible(false); } catch { } };
-    const handleShareMore = async () => { try { await Share.share({ message: getMsg() }); setShareModalVisible(false); } catch { } };
+    
+    const handleShareMore = async () => {
+        try {
+            Toast.show({ type: 'info', text1: 'Preparing...', text2: 'Creating PDF', position: 'bottom' });
+            const html = generateProfileHtml();
+            const { uri } = await Print.printToFileAsync({ html });
+            
+            if (await Sharing.isAvailableAsync()) {
+                await Sharing.shareAsync(uri, { 
+                    UTI: '.pdf', 
+                    mimeType: 'application/pdf',
+                    dialogTitle: 'Share Customer Profile'
+                });
+                setShareModalVisible(false);
+                Toast.show({ type: 'success', text1: 'Success', text2: 'PDF ready to share', position: 'bottom' });
+            } else {
+                Alert.alert('Error', 'Sharing not available on this device');
+            }
+        } catch (error) {
+            console.error('Share error:', error);
+            Alert.alert('Share Error', 'Failed to create PDF for sharing.');
+        }
+    };
 
     // ── Print & Download helpers ──────────────────────────────────────────────
     const generateProfileHtml = (): string => {
@@ -195,15 +240,15 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
                 <meta name="viewport" content="width=device-width, initial-scale=1.0">
                 <style>
                     body { font-family: Arial, sans-serif; padding: 20px; }
-                    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #E07C8C; padding-bottom: 10px; }
-                    .title { font-size: 24px; font-weight: bold; color: #E07C8C; }
+                    .header { text-align: center; margin-bottom: 20px; border-bottom: 2px solid #E46269; padding-bottom: 10px; }
+                    .title { font-size: 24px; font-weight: bold; color: #E46269; }
                     .customer-info { margin: 20px 0; }
                     .info-row { margin: 8px 0; }
                     .label { font-weight: bold; color: #555; }
                     .invoice-card { background: #f9f9f9; padding: 15px; margin: 20px 0; border-radius: 8px; }
-                    .amount-due { font-size: 32px; font-weight: bold; color: #E07C8C; text-align: right; }
+                    .amount-due { font-size: 32px; font-weight: bold; color: #E46269; text-align: right; }
                     .table { width: 100%; border-collapse: collapse; margin: 20px 0; }
-                    .table th { background: #E07C8C; color: white; padding: 10px; text-align: left; }
+                    .table th { background: #E46269; color: white; padding: 10px; text-align: left; }
                     .table td { padding: 8px; border-bottom: 1px solid #ddd; }
                     .notes { background: #fff4e6; padding: 15px; margin: 20px 0; border-radius: 8px; border-left: 4px solid #F07C3A; }
                     .total-amount { font-size: 20px; font-weight: bold; color: #F07C3A; text-align: right; margin-top: 10px; }
@@ -231,7 +276,7 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
                         <div>
                             <div style="font-size: 12px; color: #888; text-align: right;">AMOUNT DUE</div>
                             <div class="amount-due">${fmt(totalBalance)}</div>
-                            ${fi?.dueDate && formatDate(fi.dueDate) ? `<div style="color: #E07C8C; text-align: right;">${formatDate(fi.dueDate)}</div>` : ''}
+                            ${fi?.dueDate && formatDate(fi.dueDate) ? `<div style="color: #E46269; text-align: right;">${formatDate(fi.dueDate)}</div>` : ''}
                         </div>
                     </div>
                 </div>

@@ -18,7 +18,7 @@ interface TermsAgreementScreenProps {
 
 export default function TermsAgreementScreen({ navigation, route }: TermsAgreementScreenProps): React.JSX.Element {
   const handleAgree = (): void => {
-    navigation.navigate('ProfilePicture', route.params);
+    navigation.goBack();
   };
 
   return (
@@ -72,7 +72,7 @@ export default function TermsAgreementScreen({ navigation, route }: TermsAgreeme
         {/* Footer Branding */}
         <View style={styles.footer}>
           <Image 
-            source={require('../assets/logo.png')} 
+            source={require('../assets/logo2.png')} 
             style={styles.footerLogo}
             resizeMode="contain"
           />

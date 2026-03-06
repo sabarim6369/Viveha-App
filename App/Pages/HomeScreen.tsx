@@ -271,7 +271,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
     { id: 1, title: 'Create Invoice', icon: 'document-text-outline', screen: 'CreateInvoice' },
     { id: 2, title: 'Pendings', icon: 'time-outline', screen: 'Pendings' },
     { id: 3, title: 'Insights', icon: 'stats-chart-outline', screen: 'Insights' },
-    { id: 4, title: 'Pricelist', icon: 'grid-outline', screen: 'Items' },
+    { id: 4, title: 'Pricelist', icon: 'cash-outline', screen: 'Items' },
   ];
 
   const handleQuickLinkPress = (screen: string): void => {
@@ -292,7 +292,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Header Card */}
         <LinearGradient
-          colors={['#E88E99', '#E88E99']}
+          colors={['#E46269', '#E46269']}
           style={styles.headerCard}
         >
           <View style={styles.headerTop}>
@@ -346,7 +346,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
                   activeOpacity={0.7}
                 >
                   <View style={styles.quickLinkIcon}>
-                    <Ionicons name={link.icon as any} size={24} color="#E88E99" />
+                    <Ionicons name={link.icon as any} size={24} color="#E46269" />
                   </View>
                   <Text style={styles.quickLinkText}>{link.title}</Text>
                 </TouchableOpacity>
@@ -357,7 +357,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
 
         {/* Invite Card */}
         <LinearGradient
-          colors={['#E88E99', '#E88E99']}
+          colors={['#E46269', '#E46269']}
           start={{ x: 0, y: 0 }}
           end={{ x: 1, y: 0 }}
           style={styles.inviteCard}
@@ -391,7 +391,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
 
           {isTransactionsLoading ? (
             <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#E88E99" />
+              <ActivityIndicator size="large" color="#E46269" />
               <Text style={styles.loadingText}>Loading transactions...</Text>
             </View>
           ) : transactions.length === 0 ? (

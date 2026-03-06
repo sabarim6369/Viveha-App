@@ -687,7 +687,7 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
       {/* Header */}
       <View style={styles.header}>
         <Image
-          source={require('../assets/logo.png')}
+          source={require('../assets/logo2.png')}
           style={styles.logo}
           resizeMode="contain"
         />

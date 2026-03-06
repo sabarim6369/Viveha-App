@@ -19,7 +19,7 @@ export default function NameScreen({ navigation }: NameScreenProps): React.JSX.E
   return (
     <View style={styles.container}>
       <Image 
-        source={require('../assets/logo.png')} 
+        source={require('../assets/logo2.png')} 
         style={styles.icon}
         resizeMode="contain"
       />

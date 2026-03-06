@@ -23,6 +23,13 @@ export interface IClient extends Document {
             enableTaxCalculation?: boolean;
             primaryTaxRate?: number;
         };
+        invoiceSettings?: {
+            layoutStyle?: string;
+            showBrandLogo?: boolean;
+            showGSTUIN?: boolean;
+            showQRCode?: boolean;
+            headerColor?: string;
+        };
     };
     isActive?: boolean;
     createdAt?: Date;
@@ -106,6 +113,29 @@ const clientSchema = new Schema<IClient>(
                     default: 0,
                     min: [0, 'Tax rate cannot be negative'],
                     max: [100, 'Tax rate cannot exceed 100%'],
+                },
+            },
+            invoiceSettings: {
+                layoutStyle: {
+                    type: String,
+                    default: 'Modern',
+                    enum: ['Classic', 'Modern', 'Compact'],
+                },
+                showBrandLogo: {
+                    type: Boolean,
+                    default: true,
+                },
+                showGSTUIN: {
+                    type: Boolean,
+                    default: true,
+                },
+                showQRCode: {
+                    type: Boolean,
+                    default: false,
+                },
+                headerColor: {
+                    type: String,
+                    default: '#5B8DEF',
                 },
             },
         },

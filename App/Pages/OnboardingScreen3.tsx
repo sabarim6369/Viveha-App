@@ -1,5 +1,6 @@
 import React from 'react';
 import { View, Text, TouchableOpacity, StyleSheet, Image } from 'react-native';
+import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 
 interface OnboardingScreen3Props {
@@ -46,7 +47,8 @@ export default function OnboardingScreen3({ navigation }: OnboardingScreen3Props
           onPress={handleNext}
           activeOpacity={0.8}
         >
-          <Text style={styles.buttonText}>Get Started →</Text>
+          <Text style={styles.buttonText}>Get Started</Text>
+          <Ionicons name="arrow-forward" size={20} color="#fff" style={styles.buttonIcon} />
         </TouchableOpacity>
 
         <Text style={styles.branding}>✓ viveha.ai</Text>
@@ -109,11 +111,16 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     marginBottom: 15,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  buttonIcon: {
+    marginLeft: 8,
   },
   branding: {
     color: '#B0B0B0',

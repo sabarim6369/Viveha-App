@@ -37,7 +37,7 @@ export default function OnboardingScreen4({ navigation }: OnboardingScreen4Props
           {/* Invoice Preview */}
           <View style={styles.invoicePreview}>
             <Image 
-              source={require('../assets/logo.png')} 
+              source={require('../assets/logo2.png')} 
               style={styles.previewImage}
               resizeMode="contain"
             />
@@ -148,7 +148,8 @@ export default function OnboardingScreen4({ navigation }: OnboardingScreen4Props
           onPress={handleNext}
           activeOpacity={0.8}
         >
-          <Text style={styles.buttonText}>Next →</Text>
+          <Text style={styles.buttonText}>Next</Text>
+          <Ionicons name="arrow-forward" size={20} color="#fff" style={styles.buttonIcon} />
         </TouchableOpacity>
         <Text style={styles.branding}>✓ viveha.ai</Text>
       </View>
@@ -338,11 +339,16 @@ const styles = StyleSheet.create({
     borderRadius: 30,
     marginBottom: 15,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   buttonText: {
     color: '#fff',
     fontSize: 16,
     fontWeight: '600',
+  },
+  buttonIcon: {
+    marginLeft: 8,
   },
   branding: {
     color: '#B0B0B0',

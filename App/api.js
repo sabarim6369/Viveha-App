@@ -1,6 +1,6 @@
 // const apiurl = "http://172.16.141.214:10000/api";
-// const apiurl = "http://172.17.6.200:10000/api";
+const apiurl = "http://172.16.140.185:10000/api";
 
 // const apiurl = "https://viveha-backend.onrender.com/api";
-const apiurl = "https://server.vivehaai.isaii.in/api";
+// const apiurl = "https://server.vivehaai.isaii.in/api";
 export default apiurl;

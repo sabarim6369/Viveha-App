@@ -145,7 +145,7 @@ export default function InviteFriendsScreen({ navigation }: InviteFriendsScreenP
           </View>
           <View style={styles.bannerIcon}>
             <Image
-              source={require('../assets/logo.png')}
+              source={require('../assets/logo2.png')}
               style={styles.bannerLogo}
               resizeMode="contain"
             />
@@ -155,13 +155,13 @@ export default function InviteFriendsScreen({ navigation }: InviteFriendsScreenP
         {/* Illustration */}
         <View style={styles.illustrationContainer}>
           <View style={styles.illustrationCircle}>
-            <Ionicons name="mail-outline" size={80} color="#E88E99" />
+            <Ionicons name="mail-outline" size={80} color="#E46269" />
           </View>
           <View style={styles.iconBadge1}>
             <Ionicons name="person" size={30} color="#fff" />
           </View>
           <View style={styles.iconBadge2}>
-            <Ionicons name="share-social" size={24} color="#E88E99" />
+            <Ionicons name="share-social" size={24} color="#E46269" />
           </View>
         </View>
 
@@ -263,7 +263,7 @@ const styles = StyleSheet.create({
   },
   bannerCard: {
     flexDirection: 'row',
-    backgroundColor: '#E88E99',
+    backgroundColor: '#E46269',
     borderRadius: 15,
     padding: 20,
     marginTop: 20,
@@ -330,7 +330,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     borderWidth: 2,
-    borderColor: '#E88E99',
+    borderColor: '#E46269',
   },
   codeContainer: {
     alignItems: 'center',
@@ -338,7 +338,7 @@ const styles = StyleSheet.create({
   },
   codeBox: {
     borderWidth: 2,
-    borderColor: '#E88E99',
+    borderColor: '#E46269',
     borderRadius: 10,
     borderStyle: 'dashed',
     paddingHorizontal: 30,
@@ -347,7 +347,7 @@ const styles = StyleSheet.create({
   codeText: {
     fontSize: 20,
     fontWeight: '700',
-    color: '#E88E99',
+    color: '#E46269',
     letterSpacing: 2,
   },
   title: {

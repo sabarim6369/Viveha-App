@@ -8,6 +8,7 @@ import {
   Linking,
   Alert,
   Platform,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Footer from '../Components/Footer';
@@ -97,44 +98,18 @@ export default function RateUsScreen({ navigation }: RateUsScreenProps): React.J
       <View style={styles.content}>
         {/* Illustration */}
         <View style={styles.illustrationContainer}>
-          <View style={styles.illustration}>
-            {/* Chat bubble left */}
-            <View style={[styles.chatBubble, styles.chatBubbleLeft]}>
-              <Ionicons name="chatbubble" size={40} color="#A3C4F3" />
-              <Ionicons 
-                name="star" 
-                size={16} 
-                color="#FFD700" 
-                style={styles.starIcon}
-              />
-            </View>
-            
-            {/* Person icon */}
-            <View style={styles.personContainer}>
-              <View style={styles.personCircle}>
-                <Ionicons name="person" size={60} color="#E88E99" />
-              </View>
-              <View style={styles.chairBase} />
-            </View>
-
-            {/* Chat bubble right */}
-            <View style={[styles.chatBubble, styles.chatBubbleRight]}>
-              <Ionicons name="chatbubbles" size={40} color="#B8A4E8" />
-              <Ionicons 
-                name="star" 
-                size={16} 
-                color="#FFD700" 
-                style={styles.starIcon}
-              />
-            </View>
-          </View>
+          <Image
+            source={require('../assets/rating.jpeg')}
+            style={styles.illustrationImage}
+            resizeMode="contain"
+          />
         </View>
 
         {/* Title */}
         <Text style={styles.title}>Enjoying the App?</Text>
         
         {/* Subtitle */}
-        <Text style={styles.subtitle}>Rate us your opinion matter to us</Text>
+        <Text style={styles.subtitle}>Rate us. Your opinion matter to us!</Text>
 
         {/* Star Rating */}
         <View style={styles.ratingContainer}>
@@ -147,7 +122,7 @@ export default function RateUsScreen({ navigation }: RateUsScreenProps): React.J
             >
               <Ionicons
                 name={star <= rating ? 'star' : 'star-outline'}
-                size={40}
+                size={32}
                 color={star <= rating ? '#FFD700' : '#DDD'}
               />
             </TouchableOpacity>
@@ -208,79 +183,41 @@ const styles = StyleSheet.create({
   },
   illustrationContainer: {
     marginBottom: 30,
-  },
-  illustration: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    height: 200,
-    gap: 20,
-  },
-  chatBubble: {
-    position: 'relative',
-    padding: 10,
-  },
-  chatBubbleLeft: {
-    marginTop: -30,
-  },
-  chatBubbleRight: {
-    marginTop: 30,
-  },
-  starIcon: {
-    position: 'absolute',
-    top: 5,
-    right: 5,
-  },
-  personContainer: {
     alignItems: 'center',
   },
-  personCircle: {
-    width: 100,
-    height: 100,
-    borderRadius: 50,
-    backgroundColor: '#FFF3F3',
-    alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 3,
-    borderColor: '#E88E99',
-    marginBottom: 10,
-  },
-  chairBase: {
-    width: 120,
-    height: 60,
-    backgroundColor: '#7CC8D8',
-    borderRadius: 30,
-    marginTop: -20,
+  illustrationImage: {
+    width: 320,
+    height: 280,
   },
   title: {
-    fontSize: 24,
+    fontSize: 18,
     fontWeight: '700',
     color: '#333',
-    marginBottom: 10,
+    marginBottom: 8,
     textAlign: 'center',
   },
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#999',
-    marginBottom: 40,
+    marginBottom: 30,
     textAlign: 'center',
   },
   ratingContainer: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    gap: 15,
-    marginBottom: 50,
+    gap: 10,
+    marginBottom: 40,
   },
   starButton: {
     padding: 5,
   },
   notNowButton: {
-    backgroundColor: '#FF8C59',
+    backgroundColor: '#F98648',
     paddingVertical: 16,
     paddingHorizontal: 80,
     borderRadius: 25,
-    shadowColor: '#FF8C59',
+    shadowColor: '#F98648',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
     shadowRadius: 8,

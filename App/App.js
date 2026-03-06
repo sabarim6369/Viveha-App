@@ -97,6 +97,7 @@ import CustomerProfileScreen from './Pages/CustomerProfileScreen';
 import CreateCustomerScreen from './Pages/CreateCustomerScreen';
 import HelpSupportScreen from './Pages/HelpSupportScreen';
 import RateUsScreen from './Pages/RateUsScreen';
+import InvoiceCustomizationScreen from './Pages/InvoiceCustomizationScreen';
 // import PaymentMethodScreen from './Pages/PaymentMethodScreen';
 import ExportCenterScreen from './Pages/ExportCenterScreen';
 
@@ -179,6 +180,7 @@ export default function App() {
           <Stack.Screen name="InvoicePreview" component={InvoicePreviewScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
           <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="InvoiceCustomization" component={InvoiceCustomizationScreen} />
           <Stack.Screen name="VisitingCard" component={VisitingCardScreen} />
           <Stack.Screen name="History" component={HistoryScreen} />
           <Stack.Screen name="DiscountOffer" component={DiscountOfferScreen} />

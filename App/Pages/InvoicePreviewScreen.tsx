@@ -75,9 +75,11 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
   
   const [invoice, setInvoice] = useState<Invoice | null>(routeInvoice || null);
   const [shopDetails, setShopDetails] = useState<ShopDetails | null>(null);
+  const [headerColor, setHeaderColor] = useState<string>('#5B8DEF');
 
   useEffect(() => {
     loadShopDetails();
+    loadInvoiceSettings();
   }, []);
 
   const loadShopDetails = async (): Promise<void> => {
@@ -88,6 +90,20 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
       }
     } catch (error) {
       console.error('Error loading shop details:', error);
+    }
+  };
+
+  const loadInvoiceSettings = async (): Promise<void> => {
+    try {
+      const settings = await AsyncStorage.getItem('@viveha_invoice_settings');
+      if (settings) {
+        const parsed = JSON.parse(settings);
+        if (parsed.headerColor) {
+          setHeaderColor(parsed.headerColor);
+        }
+      }
+    } catch (error) {
+      console.error('Error loading invoice settings:', error);
     }
   };
 
@@ -495,7 +511,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
           {/* Brand Header */}
           <View style={styles.paperHeader}>
             <View style={styles.brandContainer}>
-              <Image source={require('../assets/logo.png')} style={styles.brandIcon} resizeMode="contain" />
+              <Image source={require('../assets/logo2.png')} style={styles.brandIcon} resizeMode="contain" />
               <Text style={styles.brandName}>viveha.ai</Text>
             </View>
             <View style={styles.poweredByContainer}>
@@ -537,7 +553,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
 
           {/* Items Table */}
           <View style={styles.table}>
-            <View style={styles.tableHeader}>
+            <View style={[styles.tableHeader, { backgroundColor: headerColor }]}>
               <Text style={[styles.th, styles.colDesc]}>Item/Service Description</Text>
 
               <Text style={[styles.th, styles.colBrief, { textAlign: 'center' }]}>Qty.</Text>

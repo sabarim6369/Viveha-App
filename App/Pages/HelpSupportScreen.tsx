@@ -21,7 +21,7 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
     const insets = useSafeAreaInsets();
 
     const handleCallNow = async (): Promise<void> => {
-        const phoneNumber = '+919090721804';
+        const phoneNumber = '+919603072804';
         const url = `tel:${phoneNumber}`;
         
         try {
@@ -56,7 +56,7 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
     };
 
     const handleWhatsAppChat = async (): Promise<void> => {
-        const phoneNumber = '919090721804';
+        const phoneNumber = '919603072804';
         const message = 'Hello, I need support with Viveha app.';
         const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
         
@@ -91,10 +91,11 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
             >
                 {/* Illustration */}
                 <View style={styles.illustrationContainer}>
-                    <View style={styles.illustrationBackground}>
-                        <Ionicons name="headset" size={120} color="#E88E99" />
-                    </View>
-                    <Text style={styles.illustrationText}>We're here to help you</Text>
+                    <Image
+                        source={require('../assets/helpandsupport.jpeg')}
+                        style={styles.illustrationImage}
+                        resizeMode="contain"
+                    />
                 </View>
 
                 {/* Contact Options */}
@@ -107,7 +108,7 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
                             </View>
                             <View style={styles.contactInfo}>
                                 <Text style={styles.contactTitle}>Call Us</Text>
-                                <Text style={styles.contactDetails}>+91-9090721804</Text>
+                                <Text style={styles.contactDetails}>+91-9603072804</Text>
                             </View>
                         </View>
                         <TouchableOpacity style={styles.actionButton} onPress={handleCallNow}>
@@ -147,13 +148,6 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
                         </TouchableOpacity>
                     </View>
                 </View>
-
-                {/* Additional Info */}
-                <View style={styles.infoContainer}>
-                    <Text style={styles.infoTitle}>Working Hours</Text>
-                    <Text style={styles.infoText}>Monday - Saturday: 9:00 AM - 6:00 PM</Text>
-                    <Text style={styles.infoText}>Sunday: Closed</Text>
-                </View>
             </ScrollView>
 
             <Footer navigation={navigation} activeTab="Profile" />
@@ -164,7 +158,7 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
 const styles = StyleSheet.create({
     container: {
         flex: 1,
-        backgroundColor: '#F5F5F5',
+        backgroundColor: '#fff',
     },
     header: {
         flexDirection: 'row',
@@ -191,27 +185,18 @@ const styles = StyleSheet.create({
     },
     illustrationContainer: {
         alignItems: 'center',
-        paddingVertical: 40,
+        paddingVertical: 30,
         paddingHorizontal: 20,
+        backgroundColor: '#fff',
     },
-    illustrationBackground: {
-        width: 200,
-        height: 200,
-        borderRadius: 100,
-        backgroundColor: '#FFF0F3',
-        justifyContent: 'center',
-        alignItems: 'center',
-        marginBottom: 20,
-    },
-    illustrationText: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#333',
-        marginTop: 10,
+    illustrationImage: {
+        width: 280,
+        height: 220,
     },
     contactContainer: {
         paddingHorizontal: 20,
         marginBottom: 20,
+        backgroundColor: '#fff',
     },
     contactCard: {
         flexDirection: 'row',
@@ -255,32 +240,17 @@ const styles = StyleSheet.create({
         color: '#666',
     },
     actionButton: {
-        backgroundColor: '#E88E99',
-        paddingHorizontal: 20,
+        backgroundColor: '#E46269',
+        paddingHorizontal: 16,
         paddingVertical: 10,
-        borderRadius: 8,
+        borderRadius: 20,
+        minWidth: 100,
+        alignItems: 'center',
+        justifyContent: 'center',
     },
     actionButtonText: {
         color: '#fff',
         fontSize: 14,
         fontWeight: '600',
-    },
-    infoContainer: {
-        marginHorizontal: 20,
-        backgroundColor: '#fff',
-        padding: 20,
-        borderRadius: 12,
-        marginBottom: 20,
-    },
-    infoTitle: {
-        fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 12,
-    },
-    infoText: {
-        fontSize: 14,
-        color: '#666',
-        marginBottom: 6,
     },
 });

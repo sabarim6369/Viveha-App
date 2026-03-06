@@ -168,7 +168,7 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
           <View style={styles.topSection}>
         <View style={styles.headerLogo}>
           <Image 
-            source={require('../assets/logo.png')} 
+            source={require('../assets/logo2.png')} 
             style={styles.logo}
             resizeMode="contain"
           />
@@ -182,7 +182,7 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
         <View style={styles.overlappingLogoContainer}>
           <View style={styles.overlappingLogo}>
             <Image 
-              source={require('../assets/logo.png')} 
+              source={require('../assets/logo2.png')} 
               style={styles.overlappingLogoImage}
               resizeMode="contain"
             />

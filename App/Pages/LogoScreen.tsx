@@ -18,7 +18,7 @@ export default function LogoScreen({ navigation }: LogoScreenProps): React.JSX.E
   return (
     <View style={styles.container}>
       <Image 
-        source={require('../assets/logo.png')} 
+        source={require('../assets/logo2.png')} 
         style={styles.logo}
         resizeMode="contain"
       />

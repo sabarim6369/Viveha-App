@@ -11,6 +11,14 @@ export interface TaxSettings {
     primaryTaxRate: number;
 }
 
+export interface InvoiceSettings {
+    layoutStyle: string;
+    showBrandLogo: boolean;
+    showGSTUIN: boolean;
+    showQRCode: boolean;
+    headerColor: string;
+}
+
 export const defaultCustomerFieldSettings: CustomerFieldSettings = {
     address: false,
     gstNo: false,
@@ -22,11 +30,21 @@ export const defaultTaxSettings: TaxSettings = {
     primaryTaxRate: 0,
 };
 
+export const defaultInvoiceSettings: InvoiceSettings = {
+    layoutStyle: 'Modern',
+    showBrandLogo: true,
+    showGSTUIN: true,
+    showQRCode: false,
+    headerColor: '#5B8DEF',
+};
+
 export const buildClientSettings = (client: any) => {
     const customerFields =
         client?.clientSettings?.customerFields || defaultCustomerFieldSettings;
     const taxSettings =
         client?.clientSettings?.taxSettings || defaultTaxSettings;
+    const invoiceSettings =
+        client?.clientSettings?.invoiceSettings || defaultInvoiceSettings;
     return {
         customerFields: {
             ...defaultCustomerFieldSettings,
@@ -35,6 +53,10 @@ export const buildClientSettings = (client: any) => {
         taxSettings: {
             ...defaultTaxSettings,
             ...taxSettings,
+        },
+        invoiceSettings: {
+            ...defaultInvoiceSettings,
+            ...invoiceSettings,
         },
     };
 };
@@ -74,6 +96,7 @@ interface UpdateClientData {
     clientSettings?: {
         customerFields?: Partial<CustomerFieldSettings>;
         taxSettings?: Partial<TaxSettings>;
+        invoiceSettings?: Partial<InvoiceSettings>;
     };
 }
 
@@ -95,8 +118,11 @@ export const updateClientProfile = async (clientId: string, updateData: UpdateCl
         updateData?.clientSettings?.customerFields || null;
     const requestedTaxSettings =
         updateData?.clientSettings?.taxSettings || null;
+    const requestedInvoiceSettings =
+        updateData?.clientSettings?.invoiceSettings || null;
     let sanitizedCustomerFields: Partial<CustomerFieldSettings> | null = null;
     let sanitizedTaxSettings: Partial<TaxSettings> | null = null;
+    let sanitizedInvoiceSettings: Partial<InvoiceSettings> | null = null;
 
     // Get existing client for reference
     const existingClient =
@@ -141,6 +167,33 @@ export const updateClientProfile = async (clientId: string, updateData: UpdateCl
         };
     }
 
+    if (requestedInvoiceSettings) {
+        const currentInvoiceSettings = existingSettings.invoiceSettings as Record<string, string | boolean>;
+        const requestedInvoice = requestedInvoiceSettings as Record<string, string | boolean>;
+        const validLayoutStyles = ['Classic', 'Modern', 'Compact'];
+        const validColors = ['#5B8DEF', '#FF8A50', '#34D399', '#8B5CF6', '#F43F5E', '#475569'];
+
+        sanitizedInvoiceSettings = {
+            ...existingSettings.invoiceSettings,
+            ...Object.entries(requestedInvoice).reduce((acc, [key, value]) => {
+                if (Object.prototype.hasOwnProperty.call(currentInvoiceSettings, key)) {
+                    if (key === 'layoutStyle' && typeof value === 'string') {
+                        if (validLayoutStyles.includes(value)) {
+                            (acc as any)[key] = value;
+                        }
+                    } else if (key === 'headerColor' && typeof value === 'string') {
+                        if (validColors.includes(value)) {
+                            (acc as any)[key] = value;
+                        }
+                    } else if (['showBrandLogo', 'showGSTUIN', 'showQRCode'].includes(key)) {
+                        (acc as any)[key] = Boolean(value);
+                    }
+                }
+                return acc;
+            }, {} as Partial<InvoiceSettings>),
+        };
+    }
+
     const sanitizedUpdate = Object.entries(updateData || {})
         .filter(([key]) => allowedFields.includes(key))
         .reduce((acc, [key, value]) => {
@@ -151,6 +204,9 @@ export const updateClientProfile = async (clientId: string, updateData: UpdateCl
                 }
                 if (sanitizedTaxSettings) {
                     settings.taxSettings = sanitizedTaxSettings;
+                }
+                if (sanitizedInvoiceSettings) {
+                    settings.invoiceSettings = sanitizedInvoiceSettings;
                 }
                 if (Object.keys(settings).length > 0) {
                     acc.clientSettings = settings;
@@ -185,6 +241,11 @@ export const updateClientProfile = async (clientId: string, updateData: UpdateCl
         if (sanitizedTaxSettings) {
             client.set('clientSettings.taxSettings', sanitizedTaxSettings);
             client.markModified('clientSettings.taxSettings');
+        }
+
+        if (sanitizedInvoiceSettings) {
+            client.set('clientSettings.invoiceSettings', sanitizedInvoiceSettings);
+            client.markModified('clientSettings.invoiceSettings');
         }
 
         // client.updatedAt is handled by timestamps: true in schema, but prompt logic had it explicitly?

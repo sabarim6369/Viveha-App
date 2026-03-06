@@ -82,11 +82,11 @@ export default function ConfirmationCodeScreen({ navigation, route }: Confirmati
           }
           
           alert('Registration successful!');
-          navigation.navigate('TermsAgreement', {
+          navigation.navigate('Success', {
             ...route.params,
             confirmationCode,
             clientId: registerResponse.data.clientId,
-            registered: true
+            isRegistration: true
           });
         } else {
           alert(registerResponse.data.message || 'Registration failed');

@@ -22,7 +22,7 @@ export default function Footer({ activeTab = 'Home', navigation, pendingCount = 
   
   const leftTabs: Tab[] = [
     { name: 'Home', icon: 'home-outline', activeIcon: 'home', label: 'Home' },
-    { name: 'Items', icon: 'pricetag-outline', activeIcon: 'pricetag', label: 'Pricelist' },
+    { name: 'Items', icon: 'cash-outline', activeIcon: 'cash', label: 'Pricelist' },
   ];
 
   const rightTabs: Tab[] = [
@@ -168,15 +168,15 @@ const styles = StyleSheet.create({
     width: 60,
     height: 60,
     borderRadius: 30,
-    backgroundColor: '#E88E99',
+    backgroundColor: '#E46269',
     alignItems: 'center',
     justifyContent: 'center',
-    shadowColor: '#E88E99',
+    shadowColor: '#E46269',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.4,
     shadowRadius: 8,
     elevation: 8,
-    borderWidth: 4,
+    borderWidth: 2,
     borderColor: '#fff',
   },
   badge: {
