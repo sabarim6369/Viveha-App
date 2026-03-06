@@ -181,7 +181,7 @@ export default function ConfirmationCodeScreen({ navigation, route }: Confirmati
       {/* Footer Branding */}
       <View style={styles.footer}>
         <Image 
-          source={require('../assets/logo.png')} 
+          source={require('../assets/logo2.png')} 
           style={styles.footerLogo}
           resizeMode="contain"
         />

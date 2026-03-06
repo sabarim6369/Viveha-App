@@ -298,7 +298,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
           <View style={styles.headerTop}>
             <View style={styles.headerLeft}>
               <Image
-                source={require('../assets/logo.png')}
+                source={require('../assets/logo2.png')}
                 style={styles.logo}
                 resizeMode="contain"
               />
@@ -374,7 +374,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
             </TouchableOpacity>
           </View>
           <Image
-            source={require('../assets/logo.png')}
+            source={require('../assets/logo2.png')}
             style={styles.inviteLogo}
             resizeMode="contain"
           />
