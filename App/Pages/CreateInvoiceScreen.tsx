@@ -542,12 +542,6 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
       }]);
 
       setSelectItemModalVisible(false);
-      Toast.show({
-        type: 'success',
-        text1: 'Success',
-        text2: 'Item quantity increased!' + (!isConnected ? ' (Saved offline)' : ''),
-        position: 'bottom',
-      });
     } else {
       // Item doesn't exist, add new
       const defaultTaxRate = taxSettings.enableTaxCalculation ? taxSettings.primaryTaxRate : 0;
@@ -583,12 +577,6 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
       }]);
 
       setSelectItemModalVisible(false);
-      Toast.show({
-        type: 'success',
-        text1: 'Success',
-        text2: 'Item added to invoice!' + (!isConnected ? ' (Saved offline)' : ''),
-        position: 'bottom',
-      });
     }
   };
 

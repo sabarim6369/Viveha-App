@@ -617,63 +617,17 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
       // Generate HTML from the invoice data (same design as preview)
       const html = generateInvoiceHtml(invoice, logoBase64, qrCodeBase64);
       
-      // Show options: Print or Preview as PDF
-      Alert.alert(
-        'Save & Print',
-        'Choose an option:',
-        [
-          {
-            text: 'Preview PDF',
-            onPress: async () => {
-              try {
-                // Generate PDF for preview
-                const { uri: pdfUri } = await Print.printToFileAsync({ html });
-                
-                // Show success and offer to view
-                Toast.show({
-                  type: 'success',
-                  text1: 'PDF Generated',
-                  text2: 'Opening preview...',
-                  position: 'bottom',
-                });
-                
-                // Share the PDF so user can view it
-                await Sharing.shareAsync(pdfUri, { 
-                  mimeType: 'application/pdf',
-                  UTI: 'com.adobe.pdf'
-                });
-              } catch (error) {
-                console.error('PDF generation error:', error);
-                Alert.alert('Error', 'Failed to generate PDF preview.');
-              }
-            }
-          },
-          {
-            text: 'Print',
-            onPress: async () => {
-              try {
-                await Print.printAsync({ html });
-              } catch (error) {
-                console.error('Print error:', error);
-                Alert.alert('Error', 'Failed to print invoice.');
-              }
-            }
-          },
-          {
-            text: 'Cancel',
-            style: 'cancel'
-          }
-        ]
-      );
+      // Directly print the invoice
+      await Print.printAsync({ html });
     } catch (error) {
       console.error('Print error:', error);
-      Alert.alert('Error', 'Failed to prepare invoice.');
+      Alert.alert('Error', 'Failed to print invoice.');
     }
   };
 
   const handleDownload = async (): Promise<void> => {
     try {
-      if (!invoice || !invoiceRef.current) return;
+      if (!invoice) return;
       
       // Request media library permissions (only for saving photos)
       const { status } = await MediaLibrary.requestPermissionsAsync(false);
@@ -682,19 +636,56 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
         return;
       }
       
-      // Capture the invoice view as an image
-      const uri = await captureRef(invoiceRef, {
-        format: 'png',
-        quality: 1,
-      });
+      // Load logo as base64
+      let logoBase64 = '';
+      try {
+        const logoAsset = Asset.fromModule(require('../assets/logo1.png'));
+        await logoAsset.downloadAsync();
+        const logoUri = logoAsset.localUri || logoAsset.uri;
+        const logoData = await FileSystem.readAsStringAsync(logoUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        logoBase64 = `data:image/png;base64,${logoData}`;
+      } catch (error) {
+        console.error('Error loading logo:', error);
+      }
       
-      // Create a filename for the image
-      const fileName = `Invoice_${invoice.number}_${new Date().getTime()}.png`;
+      // Generate UPI QR code using online API and convert to base64
+      let qrCodeBase64 = '';
+      try {
+        const totalAmount = invoice.total || invoice.grandTotal || 0;
+        const upiString = `upi://pay?pa=footerlabs@okhdfc&pn=${encodeURIComponent(shopDetails?.shopName || 'Viveha')}&am=${totalAmount}&cu=INR`;
+        
+        // Use QR Server API to generate QR code image
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiString)}`;
+        
+        // Download QR code image to temp file and convert to base64
+        const qrDownload = await FileSystem.downloadAsync(
+          qrApiUrl,
+          FileSystem.documentDirectory + 'temp_qr.png'
+        );
+        
+        if (qrDownload.status === 200) {
+          const qrBase64 = await FileSystem.readAsStringAsync(qrDownload.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          qrCodeBase64 = `data:image/png;base64,${qrBase64}`;
+        }
+      } catch (error) {
+        console.error('Error generating QR code:', error);
+      }
+      
+      // Generate HTML from the invoice data and create PDF
+      const html = generateInvoiceHtml(invoice, logoBase64, qrCodeBase64);
+      const { uri: pdfUri } = await Print.printToFileAsync({ html });
+      
+      // Create a filename for the PDF
+      const fileName = `Invoice_${invoice.number}_${new Date().getTime()}.pdf`;
       const downloadPath = FileSystem.documentDirectory + fileName;
       
-      // Copy the image to the document directory
+      // Copy the PDF to the document directory
       await FileSystem.copyAsync({
-        from: uri,
+        from: pdfUri,
         to: downloadPath
       });
       
@@ -713,7 +704,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
       Toast.show({
         type: 'success',
         text1: 'Invoice Downloaded',
-        text2: 'Saved to Photos and Documents',
+        text2: 'PDF saved to Photos and Documents',
         position: 'bottom',
       });
       
@@ -722,13 +713,16 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
         setTimeout(() => {
           Alert.alert(
             'Download Complete',
-            'Invoice saved to your Photos. Would you like to share it?',
+            'Invoice PDF saved to your Photos. Would you like to share it?',
             [
               { text: 'Later', style: 'cancel' },
               { 
                 text: 'Share', 
                 onPress: async () => {
-                  await Sharing.shareAsync(downloadPath, { mimeType: 'image/png' });
+                  await Sharing.shareAsync(downloadPath, { 
+                    mimeType: 'application/pdf',
+                    UTI: 'com.adobe.pdf'
+                  });
                 }
               }
             ]
@@ -743,15 +737,56 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
 
   const handleShare = async (): Promise<void> => {
     try {
-      if (!invoice || !invoiceRef.current) return;
+      if (!invoice) return;
       
-      // Capture the invoice view as an image
-      const uri = await captureRef(invoiceRef, {
-        format: 'png',
-        quality: 1,
+      // Load logo as base64
+      let logoBase64 = '';
+      try {
+        const logoAsset = Asset.fromModule(require('../assets/logo1.png'));
+        await logoAsset.downloadAsync();
+        const logoUri = logoAsset.localUri || logoAsset.uri;
+        const logoData = await FileSystem.readAsStringAsync(logoUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        logoBase64 = `data:image/png;base64,${logoData}`;
+      } catch (error) {
+        console.error('Error loading logo:', error);
+      }
+      
+      // Generate UPI QR code using online API and convert to base64
+      let qrCodeBase64 = '';
+      try {
+        const totalAmount = invoice.total || invoice.grandTotal || 0;
+        const upiString = `upi://pay?pa=footerlabs@okhdfc&pn=${encodeURIComponent(shopDetails?.shopName || 'Viveha')}&am=${totalAmount}&cu=INR`;
+        
+        // Use QR Server API to generate QR code image
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiString)}`;
+        
+        // Download QR code image to temp file and convert to base64
+        const qrDownload = await FileSystem.downloadAsync(
+          qrApiUrl,
+          FileSystem.documentDirectory + 'temp_qr.png'
+        );
+        
+        if (qrDownload.status === 200) {
+          const qrBase64 = await FileSystem.readAsStringAsync(qrDownload.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          qrCodeBase64 = `data:image/png;base64,${qrBase64}`;
+        }
+      } catch (error) {
+        console.error('Error generating QR code:', error);
+      }
+      
+      // Generate HTML from the invoice data and create PDF
+      const html = generateInvoiceHtml(invoice, logoBase64, qrCodeBase64);
+      const { uri: pdfUri } = await Print.printToFileAsync({ html });
+      
+      // Share the PDF
+      await Sharing.shareAsync(pdfUri, { 
+        mimeType: 'application/pdf',
+        UTI: 'com.adobe.pdf'
       });
-      
-      await Sharing.shareAsync(uri, { mimeType: 'image/png' });
     } catch (error) {
       console.error('Share error:', error);
       Alert.alert('Error', 'Failed to share invoice.');
@@ -1012,7 +1047,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
       <View style={styles.actionBar}>
         <TouchableOpacity style={styles.savePrintBtn} onPress={handlePrint}>
           <Ionicons name={"print-outline" as any} size={20} color="#fff" />
-          <Text style={styles.btnText}>Save & Print</Text>
+          <Text style={styles.btnText}>Print</Text>
         </TouchableOpacity>
 
         <TouchableOpacity style={styles.iconBtn} onPress={handleDownload}>

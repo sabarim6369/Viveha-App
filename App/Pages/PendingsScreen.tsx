@@ -13,6 +13,7 @@ import {
   TextInput,
   Alert,
   ActivityIndicator,
+  Linking,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -841,13 +842,18 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
                     <TouchableOpacity
                       style={styles.phoneIconButton}
                       onPress={() => {
-                        // Phone call functionality
-                        Toast.show({
-                          type: 'info',
-                          text1: 'Calling',
-                          text2: customer.clientPhone,
-                          position: 'bottom',
-                        });
+                        // Open phone dialer with customer's phone number
+                        const phoneNumber = customer.clientPhone;
+                        if (phoneNumber) {
+                          Linking.openURL(`tel:${phoneNumber}`);
+                        } else {
+                          Toast.show({
+                            type: 'error',
+                            text1: 'No Phone Number',
+                            text2: 'Customer phone number is not available',
+                            position: 'bottom',
+                          });
+                        }
                       }}
                       activeOpacity={0.8}
                     >

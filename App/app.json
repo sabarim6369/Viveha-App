@@ -45,7 +45,8 @@
         {
           "photosPermission": "Allow Viveha to save invoices to your photos.",
           "savePhotosPermission": "Allow Viveha to save invoices to your photos.",
-          "isAccessMediaLocationEnabled": true
+          "isAccessMediaLocationEnabled": true,
+          "writeOnly": true
         }
       ]
     ]

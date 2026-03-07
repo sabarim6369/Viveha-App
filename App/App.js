@@ -58,6 +58,7 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
+import { CustomToastConfig } from './Components/CustomToast';
 
 // Import all screens
 import LogoScreen from './Pages/LogoScreen';
@@ -197,7 +198,7 @@ export default function App() {
           <Stack.Screen name="RateUs" component={RateUsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
-      <Toast position="bottom" bottomOffset={100} />
+      <Toast config={CustomToastConfig} position="bottom" bottomOffset={100} />
     </SafeAreaProvider>
   );
 }
