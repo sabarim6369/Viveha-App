@@ -16,6 +16,7 @@ import adminRoutes from './src/apis/admin/route.js';
 import syncRoutes from './src/apis/sync/route.js';
 import reminderRoutes from './src/apis/reminder/route.js';
 import uploadRoutes from './src/apis/upload/route.js';
+import insightsRoutes from './src/apis/insights/route.js';
 
 // Load environment variables
 dotenv.config();
@@ -74,6 +75,9 @@ app.use('/api/admin', adminRoutes);
 
 // Upload Routes
 app.use('/api/upload', uploadRoutes);
+
+// Insights Routes (Page time tracking)
+app.use('/api/insights', insightsRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req: Request, res: Response) => {
