@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   Image,
   SafeAreaView,
   StatusBar,
@@ -44,7 +44,7 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
   ];
 
   // Filter states based on search query
-  const filteredStates = indianStates.filter(state => 
+  const filteredStates = indianStates.filter(state =>
     state.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
@@ -53,43 +53,43 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
       'Add Profile Picture',
       'Choose an option',
       [
-        { 
-          text: 'Take Photo', 
+        {
+          text: 'Take Photo',
           onPress: async (): Promise<void> => {
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
             if (status !== 'granted') {
               Alert.alert('Permission needed', 'Camera permission is required to take photos');
               return;
             }
-            
+
             const result = await ImagePicker.launchCameraAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
               allowsEditing: true,
               aspect: [1, 1],
               quality: 0.8,
             });
-            
+
             if (!result.canceled) {
               setProfileImage(result.assets[0].uri);
             }
           }
         },
-        { 
-          text: 'Choose from Gallery', 
+        {
+          text: 'Choose from Gallery',
           onPress: async (): Promise<void> => {
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
             if (status !== 'granted') {
               Alert.alert('Permission needed', 'Gallery permission is required to select photos');
               return;
             }
-            
+
             const result = await ImagePicker.launchImageLibraryAsync({
               mediaTypes: ImagePicker.MediaTypeOptions.Images,
               allowsEditing: true,
               aspect: [1, 1],
               quality: 0.8,
             });
-            
+
             if (!result.canceled) {
               setProfileImage(result.assets[0].uri);
             }
@@ -101,7 +101,7 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
   };
 
   const handleNext = async (): Promise<void> => {
-    if (shopName && location) {
+    if (shopName && location && ownerName && ownerName.length > 2) {
       // Save shop details to AsyncStorage
       try {
         const shopDetails = {
@@ -118,8 +118,8 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
         console.error('Error saving shop details:', error);
       }
 
-      navigation.navigate('MobileNumber', { 
-        shopName, 
+      navigation.navigate('MobileNumber', {
+        shopName,
         location,
         city,
         state: selectedState,
@@ -134,9 +134,9 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      
+
       {/* Back Button */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.backButton}
         onPress={() => navigation.goBack()}
       >
@@ -148,193 +148,192 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
       >
         {/* Main Content */}
-        <ScrollView 
+        <ScrollView
           style={styles.scrollView}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
-        <View style={styles.content}>
-          <Text style={styles.title}>Tell us about your shop</Text>
-          <Text style={styles.subtitle}>
-            To begin creating account, add shop details.
-          </Text>
+          <View style={styles.content}>
+            <Text style={styles.title}>Tell us about your shop</Text>
+            <Text style={styles.subtitle}>
+              To begin creating account, add shop details.
+            </Text>
 
-          {/* Profile Picture Upload */}
-          <TouchableOpacity 
-            style={styles.profileImageContainer}
-            onPress={handleImagePick}
-            activeOpacity={0.7}
-          >
-            {profileImage ? (
-              <Image 
-                source={{ uri: profileImage }} 
-                style={styles.profileImage}
-              />
-            ) : (
-              <View style={styles.profilePlaceholder}>
-                <Ionicons name="person" size={60} color="#CCC" />
+            {/* Profile Picture Upload */}
+            <TouchableOpacity
+              style={styles.profileImageContainer}
+              onPress={handleImagePick}
+              activeOpacity={0.7}
+            >
+              {profileImage ? (
+                <Image
+                  source={{ uri: profileImage }}
+                  style={styles.profileImage}
+                />
+              ) : (
+                <View style={styles.profilePlaceholder}>
+                  <Ionicons name="person" size={60} color="#CCC" />
+                </View>
+              )}
+              <View style={styles.cameraIconContainer}>
+                <Ionicons name="camera" size={20} color="#fff" />
               </View>
-            )}
-            <View style={styles.cameraIconContainer}>
-              <Ionicons name="camera" size={20} color="#fff" />
-            </View>
-          </TouchableOpacity>
+            </TouchableOpacity>
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Shop Name<Text style={styles.required}>*</Text></Text>
-            <TextInput
-              style={styles.input}
-              placeholder="e.g. Viveha Automobiles"
-              placeholderTextColor="#CCC"
-              value={shopName}
-              onChangeText={setShopName}
-            />
-          </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Location<Text style={styles.required}>*</Text></Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Street Address, Area, Building"
-              placeholderTextColor="#CCC"
-              value={location}
-              onChangeText={setLocation}
-            />
-          </View>
-
-          <View style={styles.rowContainer}>
-            <View style={styles.halfInputContainer}>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Shop Name<Text style={styles.required}>*</Text></Text>
               <TextInput
                 style={styles.input}
-                placeholder="City"
+                placeholder="e.g. Viveha Automobiles"
                 placeholderTextColor="#CCC"
-                value={city}
-                onChangeText={setCity}
+                value={shopName}
+                onChangeText={setShopName}
               />
             </View>
 
-            <View style={styles.halfInputContainer}>
-              <TouchableOpacity 
-                style={styles.dropdownButton}
-                onPress={() => {
-                  setShowStateDropdown(!showStateDropdown);
-                  if (showStateDropdown) {
-                    setSearchQuery('');
-                  }
-                }}
-              >
-                <Text style={[styles.dropdownButtonText, !selectedState && styles.placeholder]}>
-                  {selectedState || 'State'}
-                </Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                  <Ionicons 
-                    name="search"
-                    size={16} 
-                    color="#999" 
-                  />
-                  <MaterialIcons 
-                    name="keyboard-arrow-down"
-                    size={20} 
-                    color="#999" 
-                  />
-                </View>
-              </TouchableOpacity>
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Location<Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Street Address, Area, Building"
+                placeholderTextColor="#CCC"
+                value={location}
+                onChangeText={setLocation}
+              />
             </View>
-          </View>
 
-          {showStateDropdown && (
-            <View style={styles.dropdownList}>
-              <View style={styles.searchContainer}>
-                <Ionicons name="search" size={18} color="#999" style={styles.searchIcon} />
+            <View style={styles.rowContainer}>
+              <View style={styles.halfInputContainer}>
                 <TextInput
-                  style={styles.searchInput}
-                  placeholder="Search state..."
-                  value={searchQuery}
-                  onChangeText={setSearchQuery}
-                  autoFocus
+                  style={styles.input}
+                  placeholder="City"
+                  placeholderTextColor="#CCC"
+                  value={city}
+                  onChangeText={setCity}
                 />
-                {searchQuery.length > 0 && (
-                  <TouchableOpacity onPress={() => setSearchQuery('')}>
-                    <Ionicons name="close-circle" size={18} color="#999" />
-                  </TouchableOpacity>
-                )}
               </View>
-              <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
-                {filteredStates.length > 0 ? (
-                  filteredStates.map((state: string, index: number) => (
-                    <TouchableOpacity
-                      key={index}
-                      style={styles.dropdownItem}
-                      onPress={() => {
-                        setSelectedState(state);
-                        setShowStateDropdown(false);
-                        setSearchQuery('');
-                      }}
-                    >
-                      <Text style={styles.dropdownItemText}>{state}</Text>
-                    </TouchableOpacity>
-                  ))
-                ) : (
-                  <View style={styles.noResultsContainer}>
-                    <Text style={styles.noResultsText}>No states found</Text>
+
+              <View style={styles.halfInputContainer}>
+                <TouchableOpacity
+                  style={styles.dropdownButton}
+                  onPress={() => {
+                    setShowStateDropdown(!showStateDropdown);
+                    if (showStateDropdown) {
+                      setSearchQuery('');
+                    }
+                  }}
+                >
+                  <Text style={[styles.dropdownButtonText, !selectedState && styles.placeholder]}>
+                    {selectedState || 'State'}
+                  </Text>
+                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                    <Ionicons
+                      name="search"
+                      size={16}
+                      color="#999"
+                    />
+                    <MaterialIcons
+                      name="keyboard-arrow-down"
+                      size={20}
+                      color="#999"
+                    />
                   </View>
-                )}
-              </ScrollView>
+                </TouchableOpacity>
+              </View>
             </View>
-          )}
 
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Owner Name <Text style={styles.optional}>(optional)</Text></Text>
-            <TextInput
-              style={styles.input}
-              placeholder="Enter your name"
-              placeholderTextColor="#CCC"
-              value={ownerName}
-              onChangeText={setOwnerName}
-            />
+            {showStateDropdown && (
+              <View style={styles.dropdownList}>
+                <View style={styles.searchContainer}>
+                  <Ionicons name="search" size={18} color="#999" style={styles.searchIcon} />
+                  <TextInput
+                    style={styles.searchInput}
+                    placeholder="Search state..."
+                    value={searchQuery}
+                    onChangeText={setSearchQuery}
+                    autoFocus
+                  />
+                  {searchQuery.length > 0 && (
+                    <TouchableOpacity onPress={() => setSearchQuery('')}>
+                      <Ionicons name="close-circle" size={18} color="#999" />
+                    </TouchableOpacity>
+                  )}
+                </View>
+                <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
+                  {filteredStates.length > 0 ? (
+                    filteredStates.map((state: string, index: number) => (
+                      <TouchableOpacity
+                        key={index}
+                        style={styles.dropdownItem}
+                        onPress={() => {
+                          setSelectedState(state);
+                          setShowStateDropdown(false);
+                          setSearchQuery('');
+                        }}
+                      >
+                        <Text style={styles.dropdownItemText}>{state}</Text>
+                      </TouchableOpacity>
+                    ))
+                  ) : (
+                    <View style={styles.noResultsContainer}>
+                      <Text style={styles.noResultsText}>No states found</Text>
+                    </View>
+                  )}
+                </ScrollView>
+              </View>
+            )}
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Owner Name<Text style={styles.required}>*</Text></Text>
+              <TextInput
+                style={styles.input}
+                placeholder="Enter your name"
+                placeholderTextColor="#CCC"
+                value={ownerName}
+                onChangeText={setOwnerName}
+              />
+            </View>
+
+            <View style={styles.inputContainer}>
+              <Text style={styles.label}>Additional Details <Text style={styles.optional}>(optional)</Text></Text>
+              <TextInput
+                style={styles.input}
+                placeholder="GSTIN / UIN"
+                placeholderTextColor="#CCC"
+                value={gstinUin}
+                onChangeText={setGstinUin}
+              />
+            </View>
+
+            <TouchableOpacity
+              style={styles.termsContainer}
+              onPress={() => navigation.navigate('TermsAgreement', {})}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.termsText}>
+                By continuing, you agree to the{' '}
+                <Text style={styles.termsLink}>Terms of Service</Text>
+                {' '}and confirm that you have read our{' '}
+                <Text style={styles.termsLink}>Privacy Policy</Text>
+              </Text>
+            </TouchableOpacity>
           </View>
-
-          <View style={styles.inputContainer}>
-            <Text style={styles.label}>Additional Details <Text style={styles.optional}>(optional)</Text></Text>
-            <TextInput
-              style={styles.input}
-              placeholder="GSTIN / UIN"
-              placeholderTextColor="#CCC"
-              value={gstinUin}
-              onChangeText={setGstinUin}
-            />
-          </View>
-
-          <TouchableOpacity 
-            style={styles.termsContainer}
-            onPress={() => navigation.navigate('TermsAgreement', {})}
-            activeOpacity={0.7}
-          >
-            <Text style={styles.termsText}>
-              By continuing, you agree to the{' '}
-              <Text style={styles.termsLink}>Terms of Service</Text>
-              {' '}and confirm that you have read our{' '}
-              <Text style={styles.termsLink}>Privacy Policy</Text>
-            </Text>
-          </TouchableOpacity>
-        </View>
         </ScrollView>
       </KeyboardAvoidingView>
 
-      {/* Bottom Section */}
       <View style={styles.bottomSection}>
-        <TouchableOpacity 
-          style={[styles.button, (!shopName || !location) && styles.buttonDisabled]}
+        <TouchableOpacity
+          style={[styles.button, (!shopName || !location || !ownerName || ownerName.length <= 2) && styles.buttonDisabled]}
           onPress={handleNext}
           activeOpacity={0.8}
-          disabled={!shopName || !location}
+          disabled={!shopName || !location || !ownerName || ownerName.length <= 2}
         >
           <Text style={styles.buttonText}>Next</Text>
         </TouchableOpacity>
 
         {/* Login Link */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.loginButton}
           onPress={() => navigation.navigate('OTPVerification')}
           activeOpacity={0.7}
@@ -346,8 +345,8 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
 
         {/* Footer Branding */}
         <View style={styles.footer}>
-          <Image 
-            source={require('../assets/logo2.png')} 
+          <Image
+            source={require('../assets/logo2.png')}
             style={styles.footerLogo}
             resizeMode="contain"
           />

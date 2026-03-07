@@ -14,17 +14,20 @@ import {
   Alert,
   ActivityIndicator,
   Linking,
+  Platform,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
+import DateTimePicker from '@react-native-community/datetimepicker';
 import {
   getInvoices,
   getPendingInvoices,
   saveInvoice,
   recordPayment,
-  useNetworkStatus
+  useNetworkStatus,
+  createReminder,
 } from '../utils/NetworkManager';
 import Footer from '../Components/Footer';
 import PaymentSuccessModal from '../Components/PaymentSuccessModal';
@@ -133,6 +136,11 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
     paidAmount: number;
     remainingAmount: number;
   } | null>(null);
+  const [reminderModalVisible, setReminderModalVisible] = useState<boolean>(false);
+  const [reminderCustomer, setReminderCustomer] = useState<GroupedCustomer | null>(null);
+  const [reminderDate, setReminderDate] = useState<Date>(new Date());
+  const [showDatePicker, setShowDatePicker] = useState<boolean>(false);
+  const [reminderMessage, setReminderMessage] = useState<string>('');
   const { isConnected, isInternetReachable } = useNetworkStatus();
 
   useEffect(() => {
@@ -360,6 +368,48 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
     return Array.from(customerMap.values());
   };
 
+  // Check if invoice is overdue
+  const isOverdue = (invoice: PendingInvoice): boolean => {
+    if (!invoice.dueDate) return false;
+    
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+    
+    // Parse date in DD/MM/YYYY format
+    let dueDate: Date;
+    if (invoice.dueDate.includes('/')) {
+      const [day, month, year] = invoice.dueDate.split('/').map(num => parseInt(num, 10));
+      dueDate = new Date(year, month - 1, day); // month is 0-indexed
+    } else {
+      dueDate = new Date(invoice.dueDate);
+    }
+    dueDate.setHours(0, 0, 0, 0);
+    
+    return dueDate < today;
+  };
+
+  // Check if any of customer's invoices are overdue
+  const hasOverdueInvoice = (customer: GroupedCustomer): boolean => {
+    return customer.invoices.some(inv => isOverdue(inv));
+  };
+
+  // Split customers into overdue and regular
+  const splitCustomersByDueDate = () => {
+    const allCustomers = groupedCustomers();
+    const overdue: GroupedCustomer[] = [];
+    const regular: GroupedCustomer[] = [];
+
+    allCustomers.forEach(customer => {
+      if (hasOverdueInvoice(customer)) {
+        overdue.push(customer);
+      } else {
+        regular.push(customer);
+      }
+    });
+
+    return { overdue, regular };
+  };
+
   const handleCustomerPress = (customer: GroupedCustomer): void => {
     console.log('🚀 Navigating to CustomerInvoices with customer:', {
       clientName: customer.clientName,
@@ -372,15 +422,28 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
   };
 
   // Filter customers based on search query
-  const filteredCustomers = groupedCustomers().filter((customer) => {
-    if (!searchQuery.trim()) return true;
+  const getFilteredCustomers = () => {
+    const { overdue, regular } = splitCustomersByDueDate();
+    
+    if (!searchQuery.trim()) {
+      return { overdue, regular };
+    }
 
     const query = searchQuery.toLowerCase().trim();
-    const clientName = (customer.clientName || '').toLowerCase();
-    const clientPhone = (customer.clientPhone || '').toLowerCase();
+    
+    const filterCustomer = (customer: GroupedCustomer) => {
+      const clientName = (customer.clientName || '').toLowerCase();
+      const clientPhone = (customer.clientPhone || '').toLowerCase();
+      return clientName.includes(query) || clientPhone.includes(query);
+    };
 
-    return clientName.includes(query) || clientPhone.includes(query);
-  });
+    return {
+      overdue: overdue.filter(filterCustomer),
+      regular: regular.filter(filterCustomer)
+    };
+  };
+
+  const { overdue: overdueCustomers, regular: regularCustomers } = getFilteredCustomers();
 
   const handlePayPress = (pending: PendingInvoice): void => {
     setSelectedPending(pending);
@@ -681,6 +744,61 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
     }
   };
 
+  // Open reminder modal
+  const openReminderModal = (customer: GroupedCustomer) => {
+    setReminderCustomer(customer);
+    setReminderDate(new Date());
+    setReminderMessage('');
+    setReminderModalVisible(true);
+  };
+
+  // Save reminder to backend
+  const saveReminder = async () => {
+    if (!reminderCustomer) return;
+
+    try {
+      console.log('🔔 Setting reminder for:', reminderCustomer.clientName);
+      console.log('📅 Reminder date:', reminderDate.toISOString());
+      
+      // Create reminder via backend API
+      const result = await createReminder({
+        customerName: reminderCustomer.clientName,
+        customerPhone: reminderCustomer.clientPhone,
+        customerId: reminderCustomer.clientCustomerId,
+        amount: reminderCustomer.totalPending,
+        reminderDate: reminderDate,
+        message: reminderMessage || `Follow up with ${reminderCustomer.clientName} for pending payment`,
+      });
+
+      console.log('📥 Reminder result:', result);
+
+      if (result.success) {
+        console.log('✅ Reminder created successfully');
+        // Show success toast
+        Toast.show({
+          type: 'success',
+          text1: 'Reminder Set',
+          text2: `Reminder set for ${reminderDate.toLocaleDateString()}`,
+        });
+
+        // Close modal
+        setReminderModalVisible(false);
+        setReminderCustomer(null);
+        setReminderMessage('');
+      } else {
+        console.error('❌ Failed to create reminder:', result.error);
+        throw new Error(result.error || 'Failed to set reminder');
+      }
+    } catch (error: any) {
+      console.error('❌ Error saving reminder:', error);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: error.message || 'Failed to set reminder',
+      });
+    }
+  };
+
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
@@ -758,12 +876,102 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
         </View>
 
         {/* Action Required Section */}
+        {overdueCustomers.length > 0 && (
+          <View style={styles.section}>
+            <View style={styles.sectionTitleRow}>
+              <View style={styles.actionRequiredHeader}>
+                <Ionicons name={"alert-circle" as any} size={20} color="#EF4444" />
+                <Text style={[styles.sectionTitle, styles.actionRequiredTitle]}>Action Required</Text>
+              </View>
+              {searchQuery.length > 0 && (
+                <Text style={styles.resultCount}>
+                  {overdueCustomers.length}
+                </Text>
+              )}
+            </View>
+            <Text style={styles.sectionSubtitle}>Invoices past due date</Text>
+
+            {overdueCustomers.map((customer) => {
+              const customerKey = `overdue-${customer.clientName}-${customer.clientPhone}`;
+              
+              // Calculate days since last invoice
+              const lastInvoiceDate = customer.invoices && customer.invoices[0] && customer.invoices[0].createdAt 
+                ? new Date(customer.invoices[0].createdAt) 
+                : new Date();
+              const daysSince = Math.floor((Date.now() - lastInvoiceDate.getTime()) / (1000 * 60 * 60 * 24));
+
+              return (
+                <View
+                  key={customerKey}
+                  style={[styles.customerCard, styles.overdueCustomerCard]}
+                >
+                  <TouchableOpacity
+                    style={styles.customerHeader}
+                    onPress={() => handleCustomerPress(customer)}
+                    activeOpacity={0.7}
+                  >
+                    <View style={styles.customerLeft}>
+                      <View style={[styles.avatarPlaceholder, styles.overdueAvatar]}>
+                        <Ionicons name={"person" as any} size={24} color="#EF4444" />
+                      </View>
+                      <View style={styles.customerInfo}>
+                        <Text style={styles.customerName}>{customer.clientName}</Text>
+                        <Text style={styles.customerPaymentFinalized}>
+                          {customer.clientPhone}
+                        </Text>
+                      </View>
+                    </View>
+                    <View style={styles.customerRight}>
+                      <Text style={styles.customerTotalAmountRed}>Rs {customer.totalPending.toFixed(2)}</Text>
+                      <Text style={styles.overdueLabel}>Overdue</Text>
+                    </View>
+                  </TouchableOpacity>
+                  
+                  {/* Action Buttons */}
+                  <View style={styles.customerActions}>
+                    <TouchableOpacity
+                      style={styles.sendReminderButton}
+                      onPress={() => openReminderModal(customer)}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name={"alarm" as any} size={18} color="#fff" />
+                      <Text style={styles.sendReminderButtonText}>Set Reminder</Text>
+                    </TouchableOpacity>
+                    
+                    <TouchableOpacity
+                      style={styles.phoneIconButton}
+                      onPress={() => {
+                        // Open phone dialer with customer's phone number
+                        const phoneNumber = customer.clientPhone;
+                        if (phoneNumber) {
+                          Linking.openURL(`tel:${phoneNumber}`);
+                        } else {
+                          Toast.show({
+                            type: 'error',
+                            text1: 'No Phone Number',
+                            text2: 'Customer phone number is not available',
+                            position: 'bottom',
+                          });
+                        }
+                      }}
+                      activeOpacity={0.8}
+                    >
+                      <Ionicons name={"call" as any} size={20} color="#666" />
+                    </TouchableOpacity>
+                  </View>
+                </View>
+              );
+            })}
+          </View>
+        )}
+
+        {/* Pending Customers Section */}
         <View style={styles.section}>
           <View style={styles.sectionTitleRow}>
             <Text style={styles.sectionTitle}>Pending Customers</Text>
             {searchQuery.length > 0 && (
               <Text style={styles.resultCount}>
-                {filteredCustomers.length} result{filteredCustomers.length !== 1 ? 's' : ''}
+                {regularCustomers.length} result{regularCustomers.length !== 1 ? 's' : ''}
               </Text>
             )}
           </View>
@@ -773,7 +981,7 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
               <ActivityIndicator size="large" color="#E88E99" />
               <Text style={styles.loadingText}>Loading pending invoices...</Text>
             </View>
-          ) : filteredCustomers.length === 0 ? (
+          ) : regularCustomers.length === 0 && overdueCustomers.length === 0 ? (
             <View style={styles.emptyState}>
               <Ionicons name={(searchQuery.length > 0 ? "search-outline" : "receipt-outline") as any} size={60} color="#ccc" />
               <Text style={styles.emptyText}>
@@ -783,8 +991,14 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
                 {searchQuery.length > 0 ? 'Try searching with a different keyword' : 'Create an invoice to get started'}
               </Text>
             </View>
+          ) : regularCustomers.length === 0 ? (
+            <View style={styles.emptyState}>
+              <Ionicons name={"checkmark-circle-outline" as any} size={60} color="#10B981" />
+              <Text style={styles.emptyText}>All caught up!</Text>
+              <Text style={styles.emptySubtext}>No pending invoices within due date</Text>
+            </View>
           ) : (
-            filteredCustomers.map((customer) => {
+            regularCustomers.map((customer) => {
               const customerKey = `${customer.clientName}-${customer.clientPhone}`;
               
               // Calculate days since last invoice
@@ -824,19 +1038,11 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
                   <View style={styles.customerActions}>
                     <TouchableOpacity
                       style={styles.sendReminderButton}
-                      onPress={() => {
-                        // Send reminder functionality
-                        Toast.show({
-                          type: 'success',
-                          text1: 'Reminder Sent',
-                          text2: `Reminder sent to ${customer.clientName}`,
-                          position: 'bottom',
-                        });
-                      }}
+                      onPress={() => openReminderModal(customer)}
                       activeOpacity={0.8}
                     >
-                      <Ionicons name={"send" as any} size={18} color="#fff" />
-                      <Text style={styles.sendReminderButtonText}>Send Remainder</Text>
+                      <Ionicons name={"alarm" as any} size={18} color="#fff" />
+                      <Text style={styles.sendReminderButtonText}>Set Reminder</Text>
                     </TouchableOpacity>
                     
                     <TouchableOpacity
@@ -1007,6 +1213,85 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
         />
       )}
 
+      {/* Reminder Modal */}
+      <Modal
+        animationType="slide"
+        transparent={true}
+        visible={reminderModalVisible}
+        onRequestClose={() => setReminderModalVisible(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.modalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Set Reminder</Text>
+              <TouchableOpacity onPress={() => setReminderModalVisible(false)}>
+                <Ionicons name={"close" as any} size={24} color="#666" />
+              </TouchableOpacity>
+            </View>
+
+            <ScrollView showsVerticalScrollIndicator={false}>
+            {reminderCustomer && (
+              <View>
+                <View style={styles.paymentInfo}>
+                  <Text style={styles.paymentInfoLabel}>Customer:</Text>
+                  <Text style={styles.paymentInfoClient}>{reminderCustomer.clientName}</Text>
+                  <Text style={styles.paymentInfoAmount}>Pending: Rs.{reminderCustomer.totalPending.toFixed(2)}</Text>
+                </View>
+
+                {/* Date Picker */}
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Reminder Date</Text>
+                  <TouchableOpacity
+                    style={styles.datePickerButton}
+                    onPress={() => setShowDatePicker(true)}
+                  >
+                    <Ionicons name="calendar-outline" size={20} color="#666" />
+                    <Text style={styles.datePickerText}>{reminderDate.toLocaleDateString()}</Text>
+                  </TouchableOpacity>
+                  
+                  {showDatePicker && (
+                    <DateTimePicker
+                      value={reminderDate}
+                      mode="date"
+                      display={Platform.OS === 'ios' ? 'spinner' : 'default'}
+                      onChange={(event, selectedDate) => {
+                        setShowDatePicker(Platform.OS === 'ios');
+                        if (selectedDate) {
+                          setReminderDate(selectedDate);
+                        }
+                      }}
+                      minimumDate={new Date()}
+                    />
+                  )}
+                </View>
+
+                {/* Message Input */}
+                <View style={styles.inputContainer}>
+                  <Text style={styles.inputLabel}>Message (Optional)</Text>
+                  <TextInput
+                    style={styles.messageInput}
+                    placeholder="Add a note for this reminder..."
+                    value={reminderMessage}
+                    onChangeText={setReminderMessage}
+                    multiline
+                    numberOfLines={3}
+                  />
+                </View>
+
+                <TouchableOpacity
+                  style={styles.submitButton}
+                  onPress={saveReminder}
+                >
+                  <Ionicons name="alarm-outline" size={20} color="#fff" style={{ marginRight: 8 }} />
+                  <Text style={styles.submitButtonText}>Set Reminder</Text>
+                </TouchableOpacity>
+              </View>
+            )}
+            </ScrollView>
+          </View>
+        </View>
+      </Modal>
+
       <Footer
         activeTab="Pendings"
         navigation={navigation}
@@ -1171,6 +1456,34 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#DC143C',
     marginBottom: 12,
+  },
+  actionRequiredHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+  },
+  actionRequiredTitle: {
+    color: '#EF4444',
+    marginBottom: 0,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginTop: -8,
+    marginBottom: 12,
+  },
+  overdueCustomerCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#EF4444',
+  },
+  overdueAvatar: {
+    backgroundColor: '#FEE2E2',
+  },
+  overdueLabel: {
+    fontSize: 11,
+    color: '#EF4444',
+    fontWeight: '600',
+    marginTop: 2,
   },
   seeAllText: {
     fontSize: 14,
@@ -1554,7 +1867,7 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 20,
     borderTopRightRadius: 20,
     padding: 20,
-    minHeight: 300,
+    maxHeight: '80%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -1662,11 +1975,40 @@ const styles = StyleSheet.create({
     borderRadius: 12,
     paddingVertical: 16,
     alignItems: 'center',
+    flexDirection: 'row',
+    justifyContent: 'center',
   },
   submitButtonText: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  datePickerButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    paddingVertical: 14,
+    paddingHorizontal: 16,
+    gap: 12,
+  },
+  datePickerText: {
+    fontSize: 16,
+    color: '#333',
+    flex: 1,
+  },
+  messageInput: {
+    backgroundColor: '#fff',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 16,
+    fontSize: 16,
+    minHeight: 80,
+    textAlignVertical: 'top',
   },
   fab: {
     position: 'absolute',

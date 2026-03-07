@@ -185,7 +185,7 @@ export default function InviteFriendsScreen({ navigation }: InviteFriendsScreenP
         </TouchableOpacity>
 
         {/* Share Options */}
-        <View style={styles.shareOptions}>
+        <View style={[styles.shareOptions, { marginBottom: Math.max(insets.bottom, 30) }]}>
           <TouchableOpacity
             style={styles.shareOption}
             onPress={() => handleShare('copy')}
@@ -383,10 +383,12 @@ const styles = StyleSheet.create({
     justifyContent: 'space-around',
     alignItems: 'center',
     marginTop: 10,
+    paddingVertical: 10,
   },
   shareOption: {
     alignItems: 'center',
     gap: 8,
+    padding: 10,
   },
   shareIconContainer: {
     width: 50,

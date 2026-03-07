@@ -3,6 +3,7 @@ import dotenv from 'dotenv';
 // @ts-ignore
 import cors from 'cors';
 import { connectDB } from './src/config/db.js';
+import { startReminderCronJobs } from './src/services/reminderCron.js';
 
 // Import routes
 import otpRoutes from './src/apis/otp/route.js';
@@ -13,6 +14,7 @@ import businessRoutes from './src/apis/business/route.js';
 import dashboardRoutes from './src/apis/dashboard/route.js';
 import adminRoutes from './src/apis/admin/route.js';
 import syncRoutes from './src/apis/sync/route.js';
+import reminderRoutes from './src/apis/reminder/route.js';
 
 // Load environment variables
 dotenv.config();
@@ -60,6 +62,9 @@ app.use('/api/dashboard', dashboardRoutes);
 // Sync Routes (Offline sync)
 app.use('/api', syncRoutes);
 
+// Reminder Routes
+app.use('/api/reminders', reminderRoutes);
+
 // Admin Routes (maintenance)
 app.use('/api/admin', adminRoutes);
 
@@ -97,6 +102,9 @@ const startServer = async () => {
     try {
         // Connect to MongoDB
         await connectDB();
+
+        // Start reminder cron jobs
+        startReminderCronJobs();
 
         // Start Express server
         app.listen(PORT, () => {

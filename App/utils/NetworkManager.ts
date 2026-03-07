@@ -155,6 +155,7 @@ interface ShopDetails {
   state?: string;
   ownerName?: string;
   phoneNumber?: string;
+  invoiceCount?: number;
 }
 
 export interface SaveResult<T> {
@@ -988,10 +989,10 @@ export const fetchItemsFromBackend = async (): Promise<Item[]> => {
         // Otherwise, treat backend price as salePrice and use it for actualPrice too (until backend is updated)
         const hasActualPrice = item.actualPrice !== undefined && item.actualPrice !== null;
         const hasSalePrice = item.salePrice !== undefined && item.salePrice !== null;
-        
+
         let actualPrice: number;
         let salePrice: number;
-        
+
         if (hasActualPrice && hasSalePrice) {
           // Backend has both prices
           actualPrice = item.actualPrice;
@@ -1009,7 +1010,7 @@ export const fetchItemsFromBackend = async (): Promise<Item[]> => {
           actualPrice = item.price || 0;
           salePrice = item.price || 0;
         }
-        
+
         return {
           id: item._id,
           serverId: item._id,
@@ -1100,10 +1101,10 @@ export const saveItem = async (item: Item, isUpdate: boolean = false): Promise<S
           // Update with server data, but preserve local dual pricing if backend doesn't support it yet
           const hasActualPrice = data.item.actualPrice !== undefined && data.item.actualPrice !== null;
           const hasSalePrice = data.item.salePrice !== undefined && data.item.salePrice !== null;
-          
+
           let actualPrice: number;
           let salePrice: number;
-          
+
           if (hasActualPrice && hasSalePrice) {
             // Backend supports dual pricing
             actualPrice = data.item.actualPrice;
@@ -1113,7 +1114,7 @@ export const saveItem = async (item: Item, isUpdate: boolean = false): Promise<S
             actualPrice = item.actualPrice;
             salePrice = item.salePrice;
           }
-          
+
           const savedItem: Item = {
             id: item.id,
             serverId: data.item._id,
@@ -1239,15 +1240,15 @@ export const getItems = async (): Promise<Item[]> => {
         // Merge backend items with local items to preserve dual pricing
         // if backend doesn't support it yet
         const mergedItems = backendItems.map(backendItem => {
-          const localItem = localItems.find(li => 
+          const localItem = localItems.find(li =>
             li.serverId === backendItem.serverId || li.id === backendItem.id
           );
-          
+
           // If local item exists and has different prices but backend doesn't,
           // preserve the local pricing
-          if (localItem && 
-              localItem.actualPrice !== localItem.salePrice &&
-              backendItem.actualPrice === backendItem.salePrice) {
+          if (localItem &&
+            localItem.actualPrice !== localItem.salePrice &&
+            backendItem.actualPrice === backendItem.salePrice) {
             return {
               ...backendItem,
               actualPrice: localItem.actualPrice,
@@ -1256,10 +1257,10 @@ export const getItems = async (): Promise<Item[]> => {
               price: localItem.salePrice,
             };
           }
-          
+
           return backendItem;
         });
-        
+
         // Save merged data to local storage
         await saveLocalData(STORAGE_KEYS.ITEMS, mergedItems);
         return mergedItems;
@@ -1546,7 +1547,7 @@ export const getCustomerProfile = async (customerId: string): Promise<any> => {
   try {
     const clientId = await getClientId();
     const token = await getToken();
-    
+
     if (!clientId || !token) {
       throw new Error('Not authenticated');
     }
@@ -2652,7 +2653,8 @@ export const fetchClientProfile = async (): Promise<ShopDetails | null> => {
         city: data.client.city || '',
         state: data.client.state || '',
         ownerName: data.client.ownerName || '',
-        phoneNumber: data.client.phoneNumber || ''
+        phoneNumber: data.client.phoneNumber || '',
+        invoiceCount: data.client.invoiceCount || 0
       };
       await AsyncStorage.setItem('@viveha_shop_details', JSON.stringify(shopDetails));
       console.log('✅ Client profile fetched and saved:', shopDetails.location);
@@ -2992,3 +2994,267 @@ export const getDashboardInsights = async (months: number = 6, limit: number = 5
     return null;
   }
 };
+
+// ============================================================================
+// REMINDER API FUNCTIONS
+// ============================================================================
+
+export interface Reminder {
+  id: string;
+  clientId: string;
+  customerName: string;
+  customerPhone: string;
+  customerId?: string;
+  amount: number;
+  reminderDate: string;
+  message?: string;
+  status: 'pending' | 'sent' | 'failed' | 'cancelled';
+  sentAt?: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface ReminderNotification {
+  id: string;
+  type: 'reminder';
+  title: string;
+  message: string;
+  customerName: string;
+  customerPhone: string;
+  amount: number;
+  timestamp: number;
+  reminderDate: number;
+  read: boolean;
+  status: string;
+}
+
+// Create a new reminder
+export const createReminder = async (reminderData: {
+  customerName: string;
+  customerPhone: string;
+  customerId?: string;
+  amount: number;
+  reminderDate: Date;
+  message?: string;
+}): Promise<SaveResult<Reminder>> => {
+  try {
+    const token = await getToken();
+
+    if (!token) {
+      console.error('❌ No authentication token found');
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    console.log('📤 Creating reminder:', {
+      customerName: reminderData.customerName,
+      amount: reminderData.amount,
+      reminderDate: reminderData.reminderDate.toISOString(),
+    });
+
+    const requestBody = {
+      ...reminderData,
+      reminderDate: reminderData.reminderDate.toISOString(), // Ensure proper date format
+    };
+
+    console.log('📡 Sending to:', `${apiurl}/reminders`);
+
+    const response = await fetch(`${apiurl}/reminders`, {
+      method: 'POST',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify(requestBody),
+    });
+
+    console.log('📥 Response status:', response.status);
+
+    const data = await response.json();
+    console.log('📥 Response data:', data);
+
+    if (!response.ok) {
+      console.error('❌ Server error:', data.error || 'Failed to create reminder');
+      return { success: false, error: data.error || 'Failed to create reminder' };
+    }
+
+    console.log('✅ Reminder created successfully');
+    return { success: true };
+  } catch (error: any) {
+    console.error('❌ Network/Parse error creating reminder:', error);
+    return { success: false, error: error.message || 'Failed to create reminder' };
+  }
+};
+
+// Get all reminders for the client
+export const getReminders = async (filters?: {
+  status?: string;
+  startDate?: Date;
+  endDate?: Date;
+}): Promise<Reminder[]> => {
+  try {
+    const token = await getToken();
+
+    if (!token) {
+      console.log('No token found');
+      return [];
+    }
+
+    let url = `${apiurl}/reminders`;
+    const params = new URLSearchParams();
+
+    if (filters?.status) {
+      params.append('status', filters.status);
+    }
+    if (filters?.startDate) {
+      params.append('startDate', filters.startDate.toISOString());
+    }
+    if (filters?.endDate) {
+      params.append('endDate', filters.endDate.toISOString());
+    }
+
+    if (params.toString()) {
+      url += `?${params.toString()}`;
+    }
+
+    const response = await fetch(url, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Failed to fetch reminders:', data.error);
+      return [];
+    }
+
+    return data.data || [];
+  } catch (error: any) {
+    console.error('Error fetching reminders:', error);
+    return [];
+  }
+};
+
+// Get pending reminders as notifications
+export const getReminderNotifications = async (): Promise<ReminderNotification[]> => {
+  try {
+    const token = await getToken();
+
+    if (!token) {
+      console.log('No token found');
+      return [];
+    }
+
+    const response = await fetch(`${apiurl}/reminders/notifications`, {
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      console.error('Failed to fetch reminder notifications:', data.error);
+      return [];
+    }
+
+    return data.data || [];
+  } catch (error: any) {
+    console.error('Error fetching reminder notifications:', error);
+    return [];
+  }
+};
+
+// Update reminder status (mark as read, cancelled, etc.)
+export const updateReminderStatus = async (
+  reminderId: string,
+  status: 'pending' | 'sent' | 'failed' | 'cancelled'
+): Promise<SaveResult<Reminder>> => {
+  try {
+    const token = await getToken();
+
+    if (!token) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const response = await fetch(`${apiurl}/reminders/${reminderId}/status`, {
+      method: 'PATCH',
+      headers: {
+        'Content-Type': 'application/json',
+        'Authorization': `Bearer ${token}`,
+      },
+      body: JSON.stringify({ status }),
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Failed to update reminder' };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error updating reminder status:', error);
+    return { success: false, error: error.message || 'Failed to update reminder' };
+  }
+};
+
+// Delete a reminder
+export const deleteReminder = async (reminderId: string): Promise<SaveResult<Reminder>> => {
+  try {
+    const token = await getToken();
+
+    if (!token) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const response = await fetch(`${apiurl}/reminders/${reminderId}`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Failed to delete reminder' };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error deleting reminder:', error);
+    return { success: false, error: error.message || 'Failed to delete reminder' };
+  }
+};
+
+// Delete all reminders (clear all notifications)
+export const deleteAllReminders = async (): Promise<SaveResult<any>> => {
+  try {
+    const token = await getToken();
+
+    if (!token) {
+      return { success: false, error: 'Not authenticated' };
+    }
+
+    const response = await fetch(`${apiurl}/reminders`, {
+      method: 'DELETE',
+      headers: {
+        'Authorization': `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok) {
+      return { success: false, error: data.error || 'Failed to delete all reminders' };
+    }
+
+    return { success: true };
+  } catch (error: any) {
+    console.error('Error deleting all reminders:', error);
+    return { success: false, error: error.message || 'Failed to delete all reminders' };
+  }
+};
+

@@ -34,8 +34,8 @@ const buildInvoiceWithProductDetails = async (invoiceDoc: any) => {
         amount: fee.amount || 0,
     }));
 
-    return { 
-        ...invoiceObj, 
+    return {
+        ...invoiceObj,
         products,
         additionalFees,
         // Explicitly ensure date fields are included
@@ -278,7 +278,7 @@ export const updateItem = async (clientId: string, itemId: string, updateData: a
         if (updateData.actualPrice !== undefined && updateData.salePrice === undefined && updateData.price !== undefined) {
             updatedFields.salePrice = updateData.price;
         }
-        
+
         const item = await Item.findOneAndUpdate(
             { _id: itemId, clientId },
             { ...updatedFields, updatedAt: new Date() },
@@ -772,6 +772,9 @@ export const generateInvoice = async (clientId: string, invoiceData: InvoiceData
         // Clear cart after invoice generation
         await clearCart(cartId);
 
+        // Increment invoice count
+        await Client.findByIdAndUpdate(clientId, { $inc: { invoiceCount: 1 } });
+
         const invoiceWithProducts = await buildInvoiceWithProductDetails(invoice);
 
         return { success: true, invoice: invoiceWithProducts };
@@ -1000,6 +1003,9 @@ export const generateInvoiceWithProduct = async (clientId: string, invoiceData: 
                 totalAmount,
             });
         }
+
+        // Increment invoice count
+        await Client.findByIdAndUpdate(clientId, { $inc: { invoiceCount: 1 } });
 
         const invoiceWithProducts = await buildInvoiceWithProductDetails(invoice);
 

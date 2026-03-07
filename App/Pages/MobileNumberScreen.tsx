@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   Image,
   SafeAreaView,
   StatusBar,
@@ -43,7 +43,7 @@ export default function MobileNumberScreen({ navigation, route }: MobileNumberSc
 
         if (response.data.success) {
           alert(response.data.message || 'OTP sent successfully!');
-          navigation.navigate('ConfirmationCode', { 
+          navigation.navigate('ConfirmationCode', {
             ...route.params,
             phoneNumber: phoneNumber
           });
@@ -69,7 +69,7 @@ export default function MobileNumberScreen({ navigation, route }: MobileNumberSc
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      
+
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -80,69 +80,69 @@ export default function MobileNumberScreen({ navigation, route }: MobileNumberSc
           keyboardShouldPersistTaps="handled"
         >
           {/* Back Button */}
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Ionicons name={"arrow-back" as any} size={24} color="#666" />
-      </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name={"arrow-back" as any} size={24} color="#666" />
+          </TouchableOpacity>
 
-      {/* Main Content */}
-      <View style={styles.content}>
-        <Text style={styles.title}>What's your mobile number?</Text>
-        <Text style={styles.subtitle}>
-          Enter the mobile number on which you can be{'\n'}contacted.
-        </Text>
+          {/* Main Content */}
+          <View style={styles.content}>
+            <Text style={styles.title}>What's your mobile number?</Text>
+            <Text style={styles.subtitle}>
+              Enter the mobile number on which you can be{'\n'}contacted.
+            </Text>
 
-        <View style={styles.inputContainer}>
-          <TextInput
-            style={styles.input}
-            placeholder="+91-"
-            placeholderTextColor="#999"
-            value={phoneNumber ? `+91-${phoneNumber}` : ''}
-            onChangeText={(text: string) => {
-              const cleaned = text.replace('+91-', '');
-              setPhoneNumber(formatPhoneNumber(cleaned));
-            }}
-            keyboardType="phone-pad"
-          />
-        </View>
+            <View style={styles.inputContainer}>
+              <TextInput
+                style={styles.input}
+                placeholder="+91-"
+                placeholderTextColor="#999"
+                value={phoneNumber ? `+91-${phoneNumber}` : ''}
+                onChangeText={(text: string) => {
+                  const cleaned = text.replace('+91-', '');
+                  setPhoneNumber(formatPhoneNumber(cleaned));
+                }}
+                keyboardType="phone-pad"
+              />
+            </View>
 
-        <Text style={styles.disclaimer}>
-          You may receive WhatsApp and SMS notifications from us{'\n'}for security and login purposes.
-        </Text>
+            <Text style={styles.disclaimer}>
+              You may receive WhatsApp and SMS notifications from us{'\n'}for security and login purposes.
+            </Text>
 
-        <TouchableOpacity 
-          style={[styles.button, (phoneNumber.length < 10 || loading) && styles.buttonDisabled]}
-          onPress={handleNext}
-          activeOpacity={0.8}
-          disabled={phoneNumber.length < 10 || loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.buttonText}>Next</Text>
-          )}
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.button, (phoneNumber.length < 10 || loading) && styles.buttonDisabled]}
+              onPress={handleNext}
+              activeOpacity={0.8}
+              disabled={phoneNumber.length < 10 || loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.buttonText}>Next</Text>
+              )}
+            </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.loginButton}
-          onPress={() => navigation.navigate('OTPVerification')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.loginButtonText}>Already have an account? <Text style={styles.loginButtonTextBold}>Login</Text></Text>
-        </TouchableOpacity>
-      </View>
+            <TouchableOpacity
+              style={styles.loginButton}
+              onPress={() => navigation.navigate('OTPVerification')}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.loginButtonText}>Already have an account? <Text style={styles.loginButtonTextBold}>Login</Text></Text>
+            </TouchableOpacity>
+          </View>
 
-      {/* Footer Branding */}
-      <View style={styles.footer}>
-        <Image 
-          source={require('../assets/logo2.png')} 
-          style={styles.footerLogo}
-          resizeMode="contain"
-        />
-        <Text style={styles.footerText}>viveha.ai</Text>
-      </View>
+          {/* Footer Branding */}
+          <View style={styles.footer}>
+            <Image
+              source={require('../assets/logo2.png')}
+              style={styles.footerLogo}
+              resizeMode="contain"
+            />
+            <Text style={styles.footerText}>viveha.ai</Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>

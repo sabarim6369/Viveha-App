@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   Image,
   SafeAreaView,
   StatusBar,
@@ -60,7 +60,7 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
       try {
         // Clear any previous user data to prevent data leakage
         await clearAllUserData();
-        
+
         // Login with OTP (backend will verify OTP and create session)
         const loginResponse = await axios.post(`${API_URL}/auth/login`, {
           phoneNumber: phoneNumber,
@@ -80,7 +80,7 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
 
           if (clientResponse.data.success) {
             const clientData = clientResponse.data.client;
-            
+
             // Store shop details in AsyncStorage
             const shopDetails = {
               shopName: clientData.businessName,
@@ -88,17 +88,17 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
               phoneNumber: clientData.phoneNumber,
               clientId: clientData._id
             };
-            
+
             await AsyncStorage.setItem('@viveha_shop_details', JSON.stringify(shopDetails));
             await AsyncStorage.setItem('@viveha_token', loginResponse.data.token);
             await AsyncStorage.setItem('@viveha_client_id', loginResponse.data.clientId);
             await AsyncStorage.setItem('@viveha_device_session_id', loginResponse.data.deviceSessionId);
-            
+
             // Fetch user-specific data from backend
             await fetchAllUserData();
-            
+
             alert('Login successful!');
-            
+
             // Navigate to Success with all data
             navigation.navigate('Success', {
               token: loginResponse.data.token,
@@ -145,9 +145,9 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      
+
       {/* Back Button */}
-      <TouchableOpacity 
+      <TouchableOpacity
         style={styles.backButton}
         onPress={() => navigation.goBack()}
       >
@@ -156,8 +156,8 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
 
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 0}
+        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
+        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
       >
         <ScrollView
           contentContainerStyle={styles.scrollContent}
@@ -166,79 +166,80 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
         >
           {/* Top Section with Logo */}
           <View style={styles.topSection}>
-        <View style={styles.headerLogo}>
-          <Image 
-            source={require('../assets/logo2.png')} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.brandText}>viveha.ai</Text>
-        </View>
-      </View>
-
-      {/* Bottom Section - Full Width Gradient Card */}
-      <View style={styles.bottomSection}>
-        {/* Overlapping Logo */}
-        <View style={styles.overlappingLogoContainer}>
-          <View style={styles.overlappingLogo}>
-            <Image 
-              source={require('../assets/logo2.png')} 
-              style={styles.overlappingLogoImage}
-              resizeMode="contain"
-            />
+            <View style={styles.headerLogo}>
+              <Image
+                source={require('../assets/logo2.png')}
+                style={styles.logo}
+                resizeMode="contain"
+              />
+              <Text style={styles.brandText}>viveha.ai</Text>
+            </View>
           </View>
-        </View>
 
-        <LinearGradient
-          colors={['#8B9FE8', '#E88E99']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.gradientCard}
-        >
-          <View style={styles.cardContent}>
-            <Text style={styles.title}>Verification Code</Text>
-            <Text style={styles.subtitle}>
-              We have sent the verification code to your{'\n'}
-              phone number +91-XXXXX XXXXX
-            </Text>
-
-            <View style={styles.codeContainer}>
-              {code.map((digit, index) => (
-                <View key={index} style={styles.inputBox}>
-                  <TextInput
-                    ref={(ref) => { if (ref) inputRefs.current[index] = ref; return undefined; }}
-                    style={styles.codeInput}
-                    value={digit}
-                    onChangeText={(text) => handleCodeChange(text, index)}
-                    onKeyPress={(e) => handleKeyPress(e, index)}
-                    keyboardType="number-pad"
-                    maxLength={1}
-                    selectTextOnFocus
-                  />
-                </View>
-              ))}
+          {/* Bottom Section - Full Width Gradient Card */}
+          <View style={styles.bottomSection}>
+            {/* Overlapping Logo */}
+            <View style={styles.overlappingLogoContainer}>
+              <View style={styles.overlappingLogo}>
+                <Image
+                  source={require('../assets/logo2.png')}
+                  style={styles.overlappingLogoImage}
+                  resizeMode="contain"
+                />
+              </View>
             </View>
 
-            <TouchableOpacity 
-              style={[styles.button, (code.join('').length < 4 || loading) && styles.buttonDisabled]}
-              onPress={handleConfirm}
-              activeOpacity={0.8}
-              disabled={code.join('').length < 4 || loading}
+            <LinearGradient
+              colors={['#8B9FE8', '#E88E99']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.gradientCard}
             >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Confirm</Text>
-              )}
-            </TouchableOpacity>
+              <View style={styles.cardContent}>
+                <Text style={styles.title}>Verification Code</Text>
+                <Text style={styles.subtitle}>
+                  We have sent the verification code to your{'\n'}
+                  phone number +91-XXXXX XXXXX
+                </Text>
 
-            <Text style={styles.termsText}>
-              By continuing, you agree to the Terms of Service and confirm{'\n'}
-              that you have read our Privacy Policy
-            </Text>
+                <View style={styles.codeContainer}>
+                  {code.map((digit, index) => (
+                    <View key={index} style={styles.inputBox}>
+                      <TextInput
+                        ref={(ref) => { if (ref) inputRefs.current[index] = ref; return undefined; }}
+                        style={styles.codeInput}
+                        value={digit}
+                        onChangeText={(text) => handleCodeChange(text, index)}
+                        onKeyPress={(e) => handleKeyPress(e, index)}
+                        keyboardType="number-pad"
+                        maxLength={1}
+                        selectTextOnFocus
+                      />
+                    </View>
+                  ))}
+                </View>
+
+                <TouchableOpacity
+                  style={[styles.button, (code.join('').length < 4 || loading) && styles.buttonDisabled]}
+                  onPress={handleConfirm}
+                  activeOpacity={0.8}
+                  disabled={code.join('').length < 4 || loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>Confirm</Text>
+                  )}
+                </TouchableOpacity>
+
+                <Text style={styles.termsText}>
+                  By continuing, you agree to the Terms of Service and confirm{'\n'}
+                  that you have read our Privacy Policy
+                </Text>
+              </View>
+            </LinearGradient>
+            <View style={styles.antiGapBlock} />
           </View>
-        </LinearGradient>
-      </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -255,7 +256,7 @@ const styles = StyleSheet.create({
   },
   scrollContent: {
     flexGrow: 1,
-    minHeight: Dimensions.get('window').height - 100,
+    paddingBottom: 40,
   },
   backButton: {
     position: 'absolute',
@@ -267,26 +268,39 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   topSection: {
-    height: 250,
+    flex: 1,
+    minHeight: 150,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 100,
+    paddingBottom: 40,
   },
   headerLogo: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
   logo: {
     width: 50,
     height: 50,
-    marginBottom: 10,
   },
   brandText: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '600',
     color: '#333',
   },
   bottomSection: {
     position: 'relative',
+    marginTop: 'auto', // Pushes to bottom robustly
+  },
+  antiGapBlock: {
+    position: 'absolute',
+    top: '99%',
+    left: 0,
+    right: 0,
+    height: 1000,
+    backgroundColor: '#E88E99',
+    zIndex: -1,
   },
   overlappingLogoContainer: {
     position: 'absolute',
@@ -314,7 +328,7 @@ const styles = StyleSheet.create({
     height: 60,
   },
   gradientCard: {
-    width: width,
+    width: '100%',
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
     paddingTop: 70,

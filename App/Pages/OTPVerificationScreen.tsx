@@ -1,10 +1,10 @@
 import React, { useState } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   Image,
   SafeAreaView,
   StatusBar,
@@ -33,7 +33,7 @@ export default function OTPVerificationScreen({ navigation }: OTPVerificationScr
   const handlePhoneChange = (text: string): void => {
     // Remove all non-numeric characters
     const numericOnly = text.replace(/[^0-9]/g, '');
-    
+
     // Limit to 10 digits
     if (numericOnly.length <= 10) {
       setPhoneNumber(numericOnly);
@@ -47,22 +47,22 @@ export default function OTPVerificationScreen({ navigation }: OTPVerificationScr
       setError('Phone number is required');
       return;
     }
-    
+
     if (phoneNumber.length < 10) {
       setError('Phone number must be 10 digits');
       return;
     }
-    
+
     // Check if number starts with valid digits (6-9 for Indian mobile numbers)
     if (!['6', '7', '8', '9'].includes(phoneNumber[0])) {
       setError('Please enter a valid mobile number');
       return;
     }
-    
+
     // All validations passed
     setError('');
     setLoading(true);
-    
+
     try {
       // Send OTP
       const response = await axios.post(`${API_URL}/otp/send`, {
@@ -89,14 +89,7 @@ export default function OTPVerificationScreen({ navigation }: OTPVerificationScr
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      
-      {/* Back Button */}
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Ionicons name={"arrow-back" as any} size={24} color="#999" />
-      </TouchableOpacity>
+
 
       <KeyboardAvoidingView
         style={styles.keyboardView}
@@ -110,97 +103,97 @@ export default function OTPVerificationScreen({ navigation }: OTPVerificationScr
         >
           {/* Top Section with Logo */}
           <View style={styles.topSection}>
-        <View style={styles.headerLogo}>
-          <Image 
-            source={require('../assets/logo2.png')} 
-            style={styles.logo}
-            resizeMode="contain"
-          />
-          <Text style={styles.brandText}>viveha.ai</Text>
-        </View>
-      </View>
-
-      {/* Bottom Section - Full Width Gradient Card */}
-      <View style={styles.bottomSection}>
-        {/* Overlapping Logo */}
-        <View style={styles.overlappingLogoContainer}>
-          <View style={styles.overlappingLogo}>
-            <Image 
-              source={require('../assets/logo2.png')} 
-              style={styles.overlappingLogoImage}
-              resizeMode="contain"
-            />
-          </View>
-        </View>
-
-        <LinearGradient
-          colors={['#8B9FE8', '#E88E99']}
-          start={{ x: 0, y: 0 }}
-          end={{ x: 0, y: 1 }}
-          style={styles.gradientCard}
-        >
-          <View style={styles.cardContent}>
-            <Text style={styles.title}>OTP Verification</Text>
-            <Text style={styles.subtitle}>
-              Enter phone number to send one time{'\n'}
-              password
-            </Text>
-
-            <View style={styles.inputContainer}>
-              <View style={styles.labelRow}>
-                <Text style={styles.label}>Phone Number</Text>
-                <Text style={styles.charCount}>{phoneNumber.length}/10</Text>
-              </View>
-              <TextInput
-                style={[styles.input, error ? styles.inputError : null]}
-                placeholder="Enter 10 digit mobile number"
-                placeholderTextColor="#999"
-                value={phoneNumber}
-                onChangeText={handlePhoneChange}
-                keyboardType="number-pad"
-                maxLength={10}
+            <View style={styles.headerLogo}>
+              <Image
+                source={require('../assets/logo2.png')}
+                style={styles.logo}
+                resizeMode="contain"
               />
-              {error ? <Text style={styles.errorText}>{error}</Text> : null}
+              <Text style={styles.brandText}>viveha.ai</Text>
+            </View>
+          </View>
+
+          {/* Bottom Section - Full Width Gradient Card */}
+          <View style={styles.bottomSection}>
+            {/* Overlapping Logo */}
+            <View style={styles.overlappingLogoContainer}>
+              <View style={styles.overlappingLogo}>
+                <Image
+                  source={require('../assets/logo2.png')}
+                  style={styles.overlappingLogoImage}
+                  resizeMode="contain"
+                />
+              </View>
             </View>
 
-            <TouchableOpacity 
-              style={[styles.button, (phoneNumber.length < 10 || loading) && styles.buttonDisabled]}
-              onPress={handleContinue}
-              activeOpacity={0.8}
-              disabled={phoneNumber.length < 10 || loading}
+            <LinearGradient
+              colors={['#8B9FE8', '#E88E99']}
+              start={{ x: 0, y: 0 }}
+              end={{ x: 0, y: 1 }}
+              style={styles.gradientCard}
             >
-              {loading ? (
-                <ActivityIndicator color="#fff" />
-              ) : (
-                <Text style={styles.buttonText}>Continue</Text>
-              )}
-            </TouchableOpacity>
+              <View style={styles.cardContent}>
+                <Text style={styles.title}>OTP Verification</Text>
+                <Text style={styles.subtitle}>
+                  Enter phone number to send one time{'\n'}
+                  password
+                </Text>
 
-            <TouchableOpacity 
-              style={styles.registerButton}
-              onPress={() => navigation.navigate('ShopDetails')}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.registerButtonText}>
-                Don't have an account? <Text style={styles.registerButtonTextBold}>Register</Text>
-              </Text>
-            </TouchableOpacity>
+                <View style={styles.inputContainer}>
+                  <View style={styles.labelRow}>
+                    <Text style={styles.label}>Phone Number</Text>
+                    <Text style={styles.charCount}>{phoneNumber.length}/10</Text>
+                  </View>
+                  <TextInput
+                    style={[styles.input, error ? styles.inputError : null]}
+                    placeholder="Enter 10 digit mobile number"
+                    placeholderTextColor="#999"
+                    value={phoneNumber}
+                    onChangeText={handlePhoneChange}
+                    keyboardType="number-pad"
+                    maxLength={10}
+                  />
+                  {error ? <Text style={styles.errorText}>{error}</Text> : null}
+                </View>
 
-            <TouchableOpacity 
-              style={styles.termsContainer}
-              onPress={() => navigation.navigate('TermsAgreement', {})}
-              activeOpacity={0.7}
-            >
-              <Text style={styles.termsText}>
-                By continuing, you agree to the{' '}
-                <Text style={styles.termsLink}>Terms of Service</Text>
-                {' '}and confirm that you have read our{' '}
-                <Text style={styles.termsLink}>Privacy Policy</Text>
-              </Text>
-            </TouchableOpacity>
+                <TouchableOpacity
+                  style={[styles.button, (phoneNumber.length < 10 || loading) && styles.buttonDisabled]}
+                  onPress={handleContinue}
+                  activeOpacity={0.8}
+                  disabled={phoneNumber.length < 10 || loading}
+                >
+                  {loading ? (
+                    <ActivityIndicator color="#fff" />
+                  ) : (
+                    <Text style={styles.buttonText}>Continue</Text>
+                  )}
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.registerButton}
+                  onPress={() => navigation.navigate('ShopDetails')}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.registerButtonText}>
+                    Don't have an account? <Text style={styles.registerButtonTextBold}>Register</Text>
+                  </Text>
+                </TouchableOpacity>
+
+                <TouchableOpacity
+                  style={styles.termsContainer}
+                  onPress={() => navigation.navigate('TermsAgreement', {})}
+                  activeOpacity={0.7}
+                >
+                  <Text style={styles.termsText}>
+                    By continuing, you agree to the{' '}
+                    <Text style={styles.termsLink}>Terms of Service</Text>
+                    {' '}and confirm that you have read our{' '}
+                    <Text style={styles.termsLink}>Privacy Policy</Text>
+                  </Text>
+                </TouchableOpacity>
+              </View>
+            </LinearGradient>
           </View>
-        </LinearGradient>
-      </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -218,15 +211,6 @@ const styles = StyleSheet.create({
   scrollContent: {
     flexGrow: 1,
   },
-  backButton: {
-    position: 'absolute',
-    top: 50,
-    left: 20,
-    zIndex: 10,
-    width: 40,
-    height: 40,
-    justifyContent: 'center',
-  },
   topSection: {
     flex: 1,
     justifyContent: 'center',
@@ -234,15 +218,17 @@ const styles = StyleSheet.create({
     paddingBottom: 100,
   },
   headerLogo: {
+    flexDirection: 'row',
     alignItems: 'center',
+    justifyContent: 'center',
+    gap: 10,
   },
   logo: {
     width: 50,
     height: 50,
-    marginBottom: 10,
   },
   brandText: {
-    fontSize: 24,
+    fontSize: 26,
     fontWeight: '600',
     color: '#333',
   },

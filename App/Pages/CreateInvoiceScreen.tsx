@@ -198,7 +198,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
   const [additionalFees, setAdditionalFees] = useState<AdditionalFee[]>([]);
   const [addFeeModalVisible, setAddFeeModalVisible] = useState<boolean>(false);
   const [feeName, setFeeName] = useState<string>('');
-  const [feeAmount, setFeeAmount] = useState<string>(''); 
+  const [feeAmount, setFeeAmount] = useState<string>('');
 
   // Format date as DD/MM/YYYY
   const formatDate = (date: Date): string => {
@@ -252,13 +252,13 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
       setItemSearchQuery('');
       setClientSearchQuery('');
       setContactSearchQuery('');
-      
+
       // Reset modal states
       setSelectItemModalVisible(false);
       setSelectClientModalVisible(false);
       setContactsModalVisible(false);
       setShowDueDatePicker(false);
-      
+
       // Reset dates
       const now = new Date();
       const dueDateDefault = new Date(Date.now() + 30 * 24 * 60 * 60 * 1000);
@@ -268,14 +268,14 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         invoiceDate: formatDate(now),
         dueDate: formatDate(dueDateDefault),
       });
-      
+
       // Reload fresh data
       loadLocalData();
       loadAvailableItems();
       loadClients();
       loadCustomerFieldSettings();
       loadTaxSettings();
-      
+
       return () => {
         // Cleanup if needed
       };
@@ -372,6 +372,12 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
           phone: '',
           email: '',
         });
+
+        const nextInvoiceNo = (details.invoiceCount || 0) + 1;
+        setInvoiceDetails(prev => ({
+          ...prev,
+          number: `#${String(nextInvoiceNo).padStart(6, '0')}`
+        }));
       }
 
       const savedBusiness = await getLocalData(STORAGE_KEYS.BUSINESS_INFO);
@@ -545,11 +551,11 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
     } else {
       // Item doesn't exist, add new
       const defaultTaxRate = taxSettings.enableTaxCalculation ? taxSettings.primaryTaxRate : 0;
-      
+
       // Use salePrice if available, fallback to price/amount for backward compatibility
       const itemSalePrice = selectedItem.salePrice !== undefined ? selectedItem.salePrice : (selectedItem.price || selectedItem.amount || 0);
       const itemActualPrice = selectedItem.actualPrice !== undefined ? selectedItem.actualPrice : (selectedItem.amount || selectedItem.price || 0);
-      
+
       const newItem: InvoiceItem = {
         id: Date.now().toString(),
         serverId: selectedItem.serverId || selectedItem.id, // Backend item ID for stock deduction
@@ -803,7 +809,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
 
   const handleSelectExistingClient = (client: SavedClient): void => {
     console.log('👤 Selecting client:', client.name, 'Address:', client.address);
-    
+
     // Check if client has fields, if not, ensure empty strings
     const updatedClient: ClientInfo = {
       ...client,
@@ -811,9 +817,9 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
       email: client.email || '',
       gstNo: client.gstNo || '',
     };
-    
+
     console.log('📋 Updated client with all fields:', updatedClient);
-    
+
     setClientInfo(updatedClient);
     setSelectClientModalVisible(false);
     setPhoneSearch('');
@@ -821,18 +827,18 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
 
   const handleUpdateClientAddress = async (address: string): Promise<void> => {
     console.log('🔄 Updating client address:', address);
-    
+
     // Update clientInfo state
     const updatedClientInfo: ClientInfo = { ...clientInfo, address: address.trim() };
     setClientInfo(updatedClientInfo);
-    
+
     console.log('📋 Updated clientInfo:', updatedClientInfo);
-    
+
     // Update in saved clients list
     if (clientInfo.id) {
       try {
         const clients = await getClients();
-        const updatedClients = clients.map(c => 
+        const updatedClients = clients.map(c =>
           c.id === clientInfo.id ? { ...updatedClientInfo, id: clientInfo.id } : c
         ) as SavedClient[];
         await saveLocalData(STORAGE_KEYS.CLIENTS, updatedClients);
@@ -892,7 +898,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
       return;
     }
 
-    const invoiceNumber = `INV-${Date.now()}`;
+    const invoiceNumber = invoiceDetails.number;
     const subtotal = calculateSubTotal();
     const tax = calculateTotalTax();
     const discount = calculateTotalDiscount();
@@ -922,20 +928,20 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
       if (isConnected && isInternetReachable) {
         // CRITICAL: Check if any items don't have serverIds (offline items)
         const itemsNeedingSync = items.filter(item => !item.serverId);
-        
+
         if (itemsNeedingSync.length > 0) {
           console.log(`⚠️ Found ${itemsNeedingSync.length} offline items, syncing first...`);
-          
+
           // Sync pending items first
           const syncResult = await syncWithServer();
-          
+
           if (syncResult.success) {
             // Reload items to get updated serverIds
             const updatedItems = await getItems();
-            
+
             // Update invoice items with serverIds
             const itemsWithServerIds = items.map(invoiceItem => {
-              const syncedItem = updatedItems.find(ui => 
+              const syncedItem = updatedItems.find(ui =>
                 ui.id === invoiceItem.id || ui.serverId === invoiceItem.serverId
               );
               if (syncedItem && syncedItem.serverId) {
@@ -943,7 +949,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
               }
               return invoiceItem;
             });
-            
+
             // Check if all items now have serverIds
             const stillMissingServerIds = itemsWithServerIds.filter(item => !item.serverId);
             if (stillMissingServerIds.length > 0) {
@@ -1023,6 +1029,18 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
           // Clear draft after successful creation
           await saveLocalData(STORAGE_KEYS.DRAFTS, []);
 
+          // Increment local counter
+          const shopDetailsStr = await AsyncStorage.getItem('@viveha_shop_details');
+          if (shopDetailsStr) {
+            const details = JSON.parse(shopDetailsStr);
+            details.invoiceCount = (details.invoiceCount || 0) + 1;
+            await AsyncStorage.setItem('@viveha_shop_details', JSON.stringify(details));
+            setInvoiceDetails(prev => ({
+              ...prev,
+              number: `#${String(details.invoiceCount + 1).padStart(6, '0')}`
+            }));
+          }
+
           setIsSyncing(false);
           return;
         }
@@ -1071,6 +1089,18 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
 
         // Clear draft after successful save
         await saveLocalData(STORAGE_KEYS.DRAFTS, []);
+
+        // Increment local counter
+        const shopDetailsStr = await AsyncStorage.getItem('@viveha_shop_details');
+        if (shopDetailsStr) {
+          const details = JSON.parse(shopDetailsStr);
+          details.invoiceCount = (details.invoiceCount || 0) + 1;
+          await AsyncStorage.setItem('@viveha_shop_details', JSON.stringify(details));
+          setInvoiceDetails(prev => ({
+            ...prev,
+            number: `#${String(details.invoiceCount + 1).padStart(6, '0')}`
+          }));
+        }
 
         const offlineMsg = (!isConnected || !isInternetReachable) ? ' (Will sync when online)' : '';
         Toast.show({
@@ -1206,18 +1236,18 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
 
       {/* Header */}
       <View style={styles.header}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name={"arrow-back" as any} size={24} color="#333" />
+        </TouchableOpacity>
+        <Text style={styles.headerTitle}>Create Invoice</Text>
         <Image
           source={require('../assets/logo2.png')}
           style={styles.logo}
           resizeMode="contain"
         />
-        <Text style={styles.headerTitle}>Create Invoice</Text>
-        <TouchableOpacity
-          style={styles.menuButton}
-          onPress={handleMenuPress}
-        >
-          <Ionicons name={"ellipsis-vertical" as any} size={24} color="#333" />
-        </TouchableOpacity>
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
@@ -1376,8 +1406,8 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
             </View>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>
-                Tax {taxSettings.enableTaxCalculation && taxSettings.primaryTaxRate > 0 
-                  ? `(${taxSettings.primaryTaxRate}%)` 
+                Tax {taxSettings.enableTaxCalculation && taxSettings.primaryTaxRate > 0
+                  ? `(${taxSettings.primaryTaxRate}%)`
                   : '(0%)'} :
               </Text>
               <Text style={styles.totalValue}>Rs. {(calculateTotalTax() || 0).toFixed(2)}</Text>
@@ -1405,7 +1435,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         </View>
 
         {/* Add Additional Fee Button */}
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.addNewCardButton}
           onPress={() => {
             setFeeName('');
@@ -1432,7 +1462,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                 return;
               }
               const previewData = {
-                number: `#INV${Date.now().toString().slice(-6)}`,
+                number: invoiceDetails.number,
                 items,
                 businessInfo,
                 clientInfo,
@@ -1478,7 +1508,12 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalBody}>
+            <ScrollView
+              style={styles.modalBody}
+              keyboardShouldPersistTaps="handled"
+              showsVerticalScrollIndicator={true}
+              contentContainerStyle={{ padding: 20, paddingBottom: 40 }}
+            >
               {/* Phone Number Input */}
               <View style={styles.inputGroup}>
                 <View style={styles.labelRow}>
@@ -1518,7 +1553,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                       autoFocus
                     />
                   </View>
-                  
+
                   {/* Conditionally show Address field */}
                   {customerFieldSettings.address && (
                     <View style={styles.inputGroup}>
@@ -1534,7 +1569,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                       />
                     </View>
                   )}
-                  
+
                   {/* Conditionally show Email field */}
                   {customerFieldSettings.emailId && (
                     <View style={styles.inputGroup}>
@@ -1550,7 +1585,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                       />
                     </View>
                   )}
-                  
+
                   {/* Conditionally show GST Number field */}
                   {customerFieldSettings.gstNo && (
                     <View style={styles.inputGroup}>
@@ -1565,7 +1600,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                       />
                     </View>
                   )}
-                  
+
                   <TouchableOpacity
                     style={styles.saveClientButton}
                     onPress={handleSaveNewClient}
@@ -1651,7 +1686,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                   <Text style={styles.emptyClientsSubtext}>Enter a phone number to add your first client</Text>
                 </View>
               )}
-            </View>
+            </ScrollView>
           </View>
         </View>
       </Modal>
@@ -1956,9 +1991,8 @@ const styles = StyleSheet.create({
     color: '#333',
     flex: 1,
     textAlign: 'center',
-    marginRight: 35,
   },
-  menuButton: {
+  backButton: {
     padding: 5,
   },
   scrollView: {
@@ -2267,6 +2301,8 @@ const styles = StyleSheet.create({
     borderTopLeftRadius: 25,
     borderTopRightRadius: 25,
     maxHeight: '80%',
+    height: '80%',
+    width: '100%',
   },
   modalHeader: {
     flexDirection: 'row',
@@ -2368,7 +2404,7 @@ const styles = StyleSheet.create({
     fontWeight: '600',
   },
   modalBody: {
-    padding: 20,
+    flex: 1,
   },
   inputGroup: {
     marginBottom: 20,

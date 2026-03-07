@@ -34,6 +34,7 @@ export interface IClient extends Document {
     isActive?: boolean;
     createdAt?: Date;
     lastLoginAt?: Date;
+    invoiceCount?: number;
 }
 
 const clientSchema = new Schema<IClient>(
@@ -152,6 +153,10 @@ const clientSchema = new Schema<IClient>(
         lastLoginAt: {
             type: Date,
             default: null,
+        },
+        invoiceCount: {
+            type: Number,
+            default: 0,
         },
     },
     { timestamps: true },
@@ -406,14 +411,14 @@ const itemSchema = new Schema<IItem>(
         },
         actualPrice: {
             type: Number,
-            default: function(this: any) {
+            default: function (this: any) {
                 return this.price || 0;
             },
             min: [0, 'Actual price cannot be negative'],
         },
         salePrice: {
             type: Number,
-            default: function(this: any) {
+            default: function (this: any) {
                 return this.price || 0;
             },
             min: [0, 'Sale price cannot be negative'],

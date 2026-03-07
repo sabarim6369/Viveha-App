@@ -307,7 +307,10 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
                 <Text style={styles.businessName}>{shopName.toUpperCase()}</Text>
               </View>
             </View>
-            <TouchableOpacity style={styles.notificationButton}>
+            <TouchableOpacity 
+              style={styles.notificationButton}
+              onPress={() => navigation.navigate('Notifications')}
+            >
               <Ionicons name="notifications-outline" size={24} color="#fff" />
             </TouchableOpacity>
           </View>
@@ -367,7 +370,8 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
             <Text style={styles.inviteTitle}>both earn Offers</Text>
             <TouchableOpacity 
               style={styles.inviteButton}
-              onPress={() => navigation.navigate('InviteFriends')}
+              // onPress={() => navigation.navigate('InviteFriends')}
+              onPress={() => {}}
             >
               <Text style={styles.inviteButtonText}>Invite Friends</Text>
               <Ionicons name="arrow-forward" size={16} color="#fff" />

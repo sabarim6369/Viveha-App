@@ -101,6 +101,7 @@ import RateUsScreen from './Pages/RateUsScreen';
 import InvoiceCustomizationScreen from './Pages/InvoiceCustomizationScreen';
 // import PaymentMethodScreen from './Pages/PaymentMethodScreen';
 import ExportCenterScreen from './Pages/ExportCenterScreen';
+import NotificationsScreen from './Pages/NotificationsScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -196,6 +197,7 @@ export default function App() {
           <Stack.Screen name="CustomerProfile" component={CustomerProfileScreen} />
           <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
           <Stack.Screen name="RateUs" component={RateUsScreen} />
+          <Stack.Screen name="Notifications" component={NotificationsScreen} />
         </Stack.Navigator>
       </NavigationContainer>
       <Toast config={CustomToastConfig} position="bottom" bottomOffset={100} />

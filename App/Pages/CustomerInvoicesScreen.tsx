@@ -107,6 +107,44 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
     return invoices.reduce((sum, inv) => sum + inv.paidAmount, 0);
   };
 
+  // Check if invoice is overdue
+  const isOverdue = (invoice: PendingInvoice): boolean => {
+    if (!invoice.dueDate) return false;
+
+    const today = new Date();
+    today.setHours(0, 0, 0, 0);
+
+    // Parse date in DD/MM/YYYY format
+    let dueDate: Date;
+    if (invoice.dueDate.includes('/')) {
+      const [day, month, year] = invoice.dueDate.split('/').map(num => parseInt(num, 10));
+      dueDate = new Date(year, month - 1, day); // month is 0-indexed
+    } else {
+      dueDate = new Date(invoice.dueDate);
+    }
+    dueDate.setHours(0, 0, 0, 0);
+
+    return dueDate < today;
+  };
+
+  // Split invoices into overdue and regular
+  const getInvoicesSplit = () => {
+    const overdue: PendingInvoice[] = [];
+    const regular: PendingInvoice[] = [];
+
+    invoices.forEach(invoice => {
+      if (isOverdue(invoice)) {
+        overdue.push(invoice);
+      } else {
+        regular.push(invoice);
+      }
+    });
+
+    return { overdue, regular };
+  };
+
+  const { overdue: overdueInvoices, regular: regularInvoices } = getInvoicesSplit();
+
   const handleViewInvoice = async (invoice: PendingInvoice): Promise<void> => {
     try {
       // Load shop details for businessInfo
@@ -117,7 +155,7 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
         phone: '',
         email: '',
       };
-      
+
       if (shopDetailsStr) {
         const details = JSON.parse(shopDetailsStr);
         businessInfo = {
@@ -217,15 +255,15 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
 
   const getCustomerId = (): string | undefined => {
     // Try multiple sources for customer ID
-    return customer.clientCustomerId || 
-           (customer.invoices && customer.invoices[0]?.clientCustomerId) || 
-           (invoices && invoices[0]?.clientCustomerId);
+    return customer.clientCustomerId ||
+      (customer.invoices && customer.invoices[0]?.clientCustomerId) ||
+      (invoices && invoices[0]?.clientCustomerId);
   };
 
   const handleShowPaymentHistory = async (invoice: PendingInvoice): Promise<void> => {
     // Navigate to Customer Profile Screen - show ONLY this specific invoice
     const customerId = getCustomerId() || invoice.clientCustomerId;
-    
+
     console.log('🔍 Customer ID lookup:', {
       fromCustomer: customer.clientCustomerId,
       fromInvoice: invoice.clientCustomerId,
@@ -233,7 +271,7 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
       finalCustomerId: customerId,
       customer: customer
     });
-    
+
     if (!customerId) {
       Toast.show({
         type: 'error',
@@ -243,7 +281,7 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
       });
       return;
     }
-    
+
     navigation.navigate('CustomerProfile', {
       customerId: customerId,
       customerName: customer.clientName || invoice.clientName,
@@ -290,8 +328,8 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
 
         // Reload invoices
         const allPendings = await getPendingInvoices();
-        const customerInvoices = allPendings.filter((inv: any) => 
-          inv.clientCustomerName === customer.clientName && 
+        const customerInvoices = allPendings.filter((inv: any) =>
+          inv.clientCustomerName === customer.clientName &&
           inv.clientCustomerPhone === customer.clientPhone
         ).map((inv: any) => {
           const invoiceId = inv._id || inv.id;
@@ -425,8 +463,8 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
 
         // Reload invoices
         const allPendings = await getPendingInvoices();
-        const customerInvoices = allPendings.filter((inv: any) => 
-          inv.clientCustomerName === customer.clientName && 
+        const customerInvoices = allPendings.filter((inv: any) =>
+          inv.clientCustomerName === customer.clientName &&
           inv.clientCustomerPhone === customer.clientPhone
         ).map((inv: any) => {
           const invoiceId = inv._id || inv.id;
@@ -533,7 +571,7 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
           style={styles.paymentHistoryMainButton}
           onPress={() => {
             const customerId = getCustomerId();
-            
+
             if (!customerId) {
               Toast.show({
                 type: 'error',
@@ -543,7 +581,7 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
               });
               return;
             }
-            
+
             navigation.navigate('CustomerProfile', {
               customerId: customerId,
               customerName: customer.clientName,
@@ -558,36 +596,34 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
       </View>
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
-        {/* Invoice List */}
-        <View style={styles.invoicesSection}>
-          <Text style={styles.sectionTitle}>All Invoices</Text>
+        {/* Overdue Invoices Section */}
+        {overdueInvoices.length > 0 && (
+          <View style={styles.invoicesSection}>
+            <View style={styles.overdueSectionHeader}>
+              <Ionicons name={"alert-circle" as any} size={20} color="#EF4444" />
+              <Text style={[styles.sectionTitle, styles.overdueSectionTitle]}>Overdue Invoices</Text>
+            </View>
+            <Text style={styles.sectionSubtitle}>Invoices past due date</Text>
 
-          {loading ? (
-            <View style={styles.loadingContainer}>
-              <ActivityIndicator size="large" color="#E88E99" />
-            </View>
-          ) : invoices.length === 0 ? (
-            <View style={styles.emptyState}>
-              <Ionicons name={"receipt-outline" as any} size={60} color="#ccc" />
-              <Text style={styles.emptyText}>No pending invoices</Text>
-            </View>
-          ) : (
-            invoices.map((invoice) => (
-              <View key={invoice.id} style={styles.invoiceCard}>
-                <TouchableOpacity 
+            {overdueInvoices.map((invoice) => (
+              <View key={invoice.id} style={[styles.invoiceCard, styles.overdueInvoiceCard]}>
+                <TouchableOpacity
                   style={styles.invoiceHeader}
                   onPress={() => handleShowPaymentHistory(invoice)}
                   activeOpacity={0.7}
                 >
                   <View style={styles.invoiceLeft}>
-                    <Ionicons name={"document-text-outline" as any} size={24} color="#4A90E2" />
+                    <Ionicons name={"document-text-outline" as any} size={24} color="#EF4444" />
                     <View style={styles.invoiceInfo}>
                       <Text style={styles.invoiceNumber}>{invoice.invoiceNumber}</Text>
                       <Text style={styles.invoiceDate}>{invoice.date} • {invoice.time}</Text>
+                      <View style={styles.overdueTag}>
+                        <Text style={styles.overdueTagText}>OVERDUE</Text>
+                      </View>
                     </View>
                   </View>
                   <View style={styles.invoiceRight}>
-                    <Text style={styles.invoiceAmount}>Rs.{invoice.amount.toFixed(2)}</Text>
+                    <Text style={[styles.invoiceAmount, styles.overdueAmount]}>Rs.{invoice.amount.toFixed(2)}</Text>
                     {invoice.paidAmount > 0 && (
                       <Text style={styles.paidAmountText}>Paid: Rs.{invoice.paidAmount.toFixed(2)}</Text>
                     )}
@@ -601,11 +637,12 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
                 {/* Progress Bar */}
                 <View style={styles.progressContainer}>
                   <View style={styles.progressBar}>
-                    <View 
+                    <View
                       style={[
-                        styles.progressFill, 
+                        styles.progressFill,
+                        styles.overdueProgressFill,
                         { width: `${(invoice.paidAmount / invoice.totalAmount) * 100}%` }
-                      ]} 
+                      ]}
                     />
                   </View>
                   <Text style={styles.progressText}>
@@ -637,9 +674,97 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
                   </TouchableOpacity>
                 </View>
               </View>
-            ))
-          )}
-        </View>
+            ))}
+          </View>
+        )}
+
+        {/* Regular Invoices Section */}
+        {regularInvoices.length > 0 && (
+          <View style={styles.invoicesSection}>
+            <Text style={styles.sectionTitle}>
+              {overdueInvoices.length > 0 ? 'Pending Invoices' : 'All Invoices'}
+            </Text>
+
+            {regularInvoices.map((invoice) => (
+              <View key={invoice.id} style={styles.invoiceCard}>
+                <TouchableOpacity
+                  style={styles.invoiceHeader}
+                  onPress={() => handleShowPaymentHistory(invoice)}
+                  activeOpacity={0.7}
+                >
+                  <View style={styles.invoiceLeft}>
+                    <Ionicons name={"document-text-outline" as any} size={24} color="#4A90E2" />
+                    <View style={styles.invoiceInfo}>
+                      <Text style={styles.invoiceNumber}>{invoice.invoiceNumber}</Text>
+                      <Text style={styles.invoiceDate}>{invoice.date} • {invoice.time}</Text>
+                    </View>
+                  </View>
+                  <View style={styles.invoiceRight}>
+                    <Text style={styles.invoiceAmount}>Rs.{invoice.amount.toFixed(2)}</Text>
+                    {invoice.paidAmount > 0 && (
+                      <Text style={styles.paidAmountText}>Paid: Rs.{invoice.paidAmount.toFixed(2)}</Text>
+                    )}
+                    <View style={styles.historyBadge}>
+                      <Ionicons name={"time-outline" as any} size={12} color="#4A90E2" />
+                      <Text style={styles.historyBadgeText}>History</Text>
+                    </View>
+                  </View>
+                </TouchableOpacity>
+
+                {/* Progress Bar */}
+                <View style={styles.progressContainer}>
+                  <View style={styles.progressBar}>
+                    <View
+                      style={[
+                        styles.progressFill,
+                        { width: `${(invoice.paidAmount / invoice.totalAmount) * 100}%` }
+                      ]}
+                    />
+                  </View>
+                  <Text style={styles.progressText}>
+                    {((invoice.paidAmount / invoice.totalAmount) * 100).toFixed(0)}% paid
+                  </Text>
+                </View>
+
+                <View style={styles.invoiceActions}>
+                  <TouchableOpacity
+                    style={styles.viewButton}
+                    onPress={() => handleViewInvoice(invoice)}
+                  >
+                    <Ionicons name={"eye-outline" as any} size={16} color="#4A90E2" />
+                    <Text style={styles.viewButtonText}>View</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.paymentHistoryButton}
+                    onPress={() => handleShowPaymentHistory(invoice)}
+                  >
+                    <Ionicons name={"time-outline" as any} size={16} color="#666" />
+                    <Text style={styles.paymentHistoryText}>History</Text>
+                  </TouchableOpacity>
+                  <TouchableOpacity
+                    style={styles.payButton}
+                    onPress={() => handlePayPress(invoice)}
+                  >
+                    <Ionicons name={"cash-outline" as any} size={16} color="#fff" />
+                    <Text style={styles.payButtonText}>Pay</Text>
+                  </TouchableOpacity>
+                </View>
+              </View>
+            ))}
+          </View>
+        )}
+
+        {/* Empty State */}
+        {loading ? (
+          <View style={styles.loadingContainer}>
+            <ActivityIndicator size="large" color="#E88E99" />
+          </View>
+        ) : invoices.length === 0 ? (
+          <View style={styles.emptyState}>
+            <Ionicons name={"receipt-outline" as any} size={60} color="#ccc" />
+            <Text style={styles.emptyText}>No pending invoices</Text>
+          </View>
+        ) : null}
 
         <View style={{ height: 40 }} />
       </ScrollView>
@@ -888,6 +1013,43 @@ const styles = StyleSheet.create({
     fontWeight: '700',
     color: '#000',
     marginBottom: 16,
+  },
+  overdueSectionHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 8,
+    marginBottom: 8,
+  },
+  overdueSectionTitle: {
+    color: '#EF4444',
+    marginBottom: 0,
+  },
+  sectionSubtitle: {
+    fontSize: 13,
+    color: '#666',
+    marginBottom: 16,
+  },
+  overdueInvoiceCard: {
+    borderLeftWidth: 3,
+    borderLeftColor: '#EF4444',
+  },
+  overdueTag: {
+    backgroundColor: '#FEE2E2',
+    paddingHorizontal: 8,
+    paddingVertical: 2,
+    borderRadius: 4,
+    marginTop: 4,
+  },
+  overdueTagText: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#EF4444',
+  },
+  overdueAmount: {
+    color: '#EF4444',
+  },
+  overdueProgressFill: {
+    backgroundColor: '#EF4444',
   },
   loadingContainer: {
     padding: 40,
