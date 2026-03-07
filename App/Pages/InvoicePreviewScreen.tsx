@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -14,6 +14,9 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system/legacy';
+import * as MediaLibrary from 'expo-media-library';
+import { captureRef } from 'react-native-view-shot';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { useNetworkStatus } from '../utils/NetworkManager';
@@ -72,6 +75,8 @@ interface ShopDetails {
 export default function InvoicePreviewScreen({ navigation, route }: InvoicePreviewScreenProps): React.JSX.Element {
   const { invoice: routeInvoice, isPreview } = route.params || {};
   const { isConnected, isInternetReachable } = useNetworkStatus();
+  
+  const invoiceRef = useRef<View>(null);
   
   const [invoice, setInvoice] = useState<Invoice | null>(routeInvoice || null);
   const [shopDetails, setShopDetails] = useState<ShopDetails | null>(null);
@@ -186,12 +191,16 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     const sgst = (parseFloat(tax) / 2).toFixed(2);
     const cgst = (parseFloat(tax) / 2).toFixed(2);
 
-    const shopName = shopDetails?.shopName || 'Studio Den';
-    const shopLocation = shopDetails?.location || '123, Main Street, City';
+    const shopName = shopDetails?.shopName || 'Kdjdjkdkkd';
+    const shopLocation = shopDetails?.location || 'Coimbatore';
     const shopPhone = shopDetails?.mobile || '9876543210';
+    const shopCity = shopDetails?.city || 'Congrats';
 
     // Number to words for HTML
     const amountInWords = numberToWords(parseFloat(totalAmount));
+
+    // Get header color with fallback
+    const tableHeaderColor = headerColor || '#EF4444';
 
     const itemsRows = (invoice.items || []).map((item, index) => {
       const itemSubtotal = (item.price || 0) * (item.quantity || 0);
@@ -201,223 +210,320 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
       
       return `
       <tr style="background-color: ${index % 2 === 0 ? '#FFFFFF' : '#F9FAFB'};">
-        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151;">${item.name}</td>
-        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">${item.quantity || 0}</td>
-        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">${(item.tax || 0)}%</td>
-        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: right;">₹${itemSubtotal.toFixed(2)}</td>
-        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">₹${(itemTaxAmount / 2).toFixed(2)}</td>
-        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: center;">₹${(itemTaxAmount / 2).toFixed(2)}</td>
-        <td style="padding: 12px; font-size: 11px; border-bottom: 1px solid #E5E7EB; color: #374151; text-align: right; font-weight: bold;">₹${itemTotal.toFixed(2)}</td>
+        <td style="padding: 10px 12px; font-size: 10px; border-bottom: 1px solid #E5E7EB; color: #1F2937;">${item.name}</td>
+        <td style="padding: 10px 12px; font-size: 10px; border-bottom: 1px solid #E5E7EB; color: #1F2937; text-align: center;">${item.quantity || 0}</td>
+        <td style="padding: 10px 12px; font-size: 10px; border-bottom: 1px solid #E5E7EB; color: #1F2937; text-align: center;">${(item.tax || 0)}%</td>
+        <td style="padding: 10px 12px; font-size: 10px; border-bottom: 1px solid #E5E7EB; color: #1F2937; text-align: right;">₹${itemSubtotal.toFixed(2)}</td>
+        <td style="padding: 10px 12px; font-size: 10px; border-bottom: 1px solid #E5E7EB; color: #1F2937; text-align: center;">₹${(itemTaxAmount / 2).toFixed(2)}</td>
+        <td style="padding: 10px 12px; font-size: 10px; border-bottom: 1px solid #E5E7EB; color: #1F2937; text-align: center;">₹${(itemTaxAmount / 2).toFixed(2)}</td>
+        <td style="padding: 10px 12px; font-size: 10px; border-bottom: 1px solid #E5E7EB; color: #1F2937; text-align: right; font-weight: 600;">₹${itemTotal.toFixed(2)}</td>
       </tr>
     `;
     }).join('');
 
     return `
+      <!DOCTYPE html>
       <html>
         <head>
-          <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, minimum-scale=1.0, user-scalable=no" />
-          <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet">
+          <meta charset="UTF-8">
+          <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
-            body { font-family: 'Inter', sans-serif; color: #111; margin: 0; padding: 40px; background-color: white; }
-            .header { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
-            .brand-logo { font-size: 24px; font-weight: 800; color: #333; display: flex; align-items: center; gap: 8px; }
-            .logo-icon { width: 30px; height: 30px; background: linear-gradient(135deg, #FF9A9E 0%, #FECFEF 99%, #FECFEF 100%); border-radius: 8px; }
+            * { margin: 0; padding: 0; box-sizing: border-box; }
+            body { 
+              font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; 
+              color: #111; 
+              background-color: #FAFAFA; 
+              padding: 20px;
+            }
+            .invoice-container {
+              max-width: 800px;
+              margin: 0 auto;
+              background-color: white;
+              border-radius: 12px;
+              padding: 30px;
+              box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+            }
+            
+            /* Header */
+            .header { 
+              display: flex; 
+              justify-content: space-between; 
+              align-items: flex-start; 
+              margin-bottom: 30px;
+              padding-bottom: 20px;
+              border-bottom: 1px solid #F3F4F6;
+            }
+            .brand-logo { font-size: 20px; font-weight: 800; color: #111; }
+            .brand-logo .viveha { color: #6366F1; }
             .powered-by { text-align: right; }
-            .powered-text { font-size: 10px; color: #9CA3AF; margin-bottom: 4px; }
-            .isaii-logo { font-size: 16px; font-weight: bold; color: #333; }
+            .powered-text { font-size: 9px; color: #9CA3AF; margin-bottom: 2px; }
+            .isaii-logo { font-size: 14px; font-weight: 700; color: #111; }
             
-            .invoice-meta { display: flex; justify-content: space-between; margin-bottom: 40px; }
-            .sender-details { max-width: 40%; }
-            .sender-name { font-size: 16px; font-weight: 700; color: #111; margin-bottom: 6px; }
-            .sender-address { font-size: 11px; color: #6B7280; line-height: 1.5; }
+            /* Meta Section */
+            .meta-section { 
+              display: flex; 
+              justify-content: space-between; 
+              margin-bottom: 30px; 
+            }
+            .sender-details { max-width: 45%; }
+            .sender-name { font-size: 14px; font-weight: 700; color: #111; margin-bottom: 6px; }
+            .sender-address { font-size: 10px; color: #6B7280; line-height: 1.6; }
             
-            .invoice-details-grid { display: grid; grid-template-columns: auto auto; gap: 20px 40px; }
-            .detail-group { }
-            .detail-label { font-size: 10px; font-weight: 600; color: #3B82F6; margin-bottom: 4px; }
-            .detail-value { font-size: 12px; font-weight: 600; color: #111; }
-            .total-amount-box { margin-top: 10px; }
-            .total-amount { font-size: 24px; font-weight: 700; color: #3B82F6; }
+            .invoice-details { text-align: right; }
+            .detail-label { font-size: 11px; font-weight: 600; color: #3B82F6; margin-bottom: 8px; }
+            .detail-row { font-size: 10px; margin-bottom: 4px; }
+            .detail-row .label { color: #6B7280; }
+            .detail-row .value { font-weight: 600; color: #111; margin-left: 8px; }
             
-            table { width: 100%; border-collapse: collapse; margin-bottom: 30px; border-radius: 8px; overflow: hidden; }
-            th { background-color: #3B82F6; color: white; padding: 12px; font-size: 10px; text-transform: uppercase; text-align: left; font-weight: 600; }
-            .text-right { text-align: right; }
-            .text-center { text-align: center; }
+            /* Table */
+            table { 
+              width: 100%; 
+              border-collapse: collapse; 
+              margin-bottom: 20px;
+              border-radius: 8px;
+              overflow: hidden;
+            }
+            thead tr { background-color: ${tableHeaderColor}; }
+            th { 
+              color: white; 
+              padding: 10px 8px; 
+              font-size: 9px; 
+              text-transform: uppercase; 
+              text-align: left; 
+              font-weight: 600;
+              letter-spacing: 0.3px;
+            }
+            th.center { text-align: center; }
+            th.right { text-align: right; }
+            td { padding: 10px 8px; font-size: 10px; }
             
-            .summary-section { display: flex; justify-content: space-between; align-items: flex-start; margin-bottom: 40px; }
-            .amount-words { max-width: 50%; }
-            .words-label { font-size: 10px; font-weight: 600; color: #374151; margin-bottom: 4px; }
-            .words-value { font-size: 12px; color: #3B82F6; font-weight: 500; }
+            /* Summary */
+            .summary-section { 
+              display: flex; 
+              justify-content: space-between; 
+              margin-bottom: 30px;
+              padding-bottom: 20px;
+            }
+            .summary-left { max-width: 50%; }
+            .supply-label { font-size: 10px; color: #1F2937; font-weight: 600; margin-bottom: 4px; }
+            .supply-value { font-size: 10px; color: #6B7280; margin-bottom: 10px; }
+            .words-label { font-size: 10px; font-weight: 600; color: #111; margin-top: 15px; margin-bottom: 4px; }
+            .words-value { font-size: 11px; color: #3B82F6; font-weight: 500; }
             
-            .calculations { width: 250px; }
-            .calc-row { display: flex; justify-content: space-between; margin-bottom: 10px; }
-            .calc-label { font-size: 11px; color: #6B7280; }
-            .calc-value { font-size: 11px; font-weight: 600; color: #111; }
-            .calc-total { margin-top: 10px; padding-top: 10px; border-top: 1px solid #E5E7EB; }
-            .calc-total .calc-label { font-size: 13px; font-weight: 700; color: #111; }
-            .calc-total .calc-value { font-size: 16px; font-weight: 700; color: #3B82F6; }
+            .summary-right { text-align: right; min-width: 250px; }
+            .sum-row { 
+              display: flex; 
+              justify-content: space-between; 
+              margin-bottom: 8px;
+              padding: 4px 0;
+            }
+            .sum-label { font-size: 10px; color: #6B7280; }
+            .sum-value { font-size: 10px; font-weight: 600; color: #111; }
+            .total-row { 
+              margin-top: 10px; 
+              padding-top: 10px; 
+              border-top: 1px solid #E5E7EB; 
+            }
+            .total-row .sum-label { font-size: 12px; font-weight: 700; color: #111; }
+            .total-row .sum-value { font-size: 15px; font-weight: 700; color: #3B82F6; }
             
-            .footer { display: flex; gap: 40px; border-top: 1px dashed #E5E7EB; padding-top: 30px; }
+            /* Footer */
+            .footer { 
+              display: flex; 
+              gap: 30px; 
+              border-top: 1px dashed #E5E7EB; 
+              padding-top: 20px; 
+            }
             .footer-col { flex: 1; }
-            .footer-title { font-size: 11px; font-weight: 700; color: #111; margin-bottom: 10px; }
-            .terms-list { font-size: 9px; color: #6B7280; line-height: 1.6; margin: 0; padding-left: 15px; }
-            .terms-list li { margin-bottom: 4px; }
+            .footer-title { 
+              font-size: 11px; 
+              font-weight: 700; 
+              color: #111; 
+              margin-bottom: 8px; 
+            }
+            .footer-text { 
+              font-size: 9px; 
+              color: #6B7280; 
+              line-height: 1.5; 
+              margin-bottom: 8px; 
+            }
+            .footer-bold { font-weight: 700; }
             
-            .bank-details { background-color: #F9FAFB; padding: 15px; border-radius: 8px; }
-            .bank-row { display: flex; justify-content: space-between; margin-bottom: 6px; }
-            .bank-label { font-size: 9px; color: #6B7280; }
-            .bank-value { font-size: 9px; font-weight: 600; color: #111; }
-            
-            .qr-section { margin-top: 15px; display: flex; align-items: center; gap: 10px; }
-            .qr-code { width: 60px; height: 60px; background-color: #eee; }
-            .upi-text { font-size: 9px; color: #6B7280; }
+            .bank-details { 
+              background-color: #F9FAFB; 
+              padding: 12px; 
+              border-radius: 6px; 
+            }
+            .bank-row { 
+              display: flex; 
+              justify-content: space-between; 
+              margin-bottom: 4px; 
+              font-size: 9px;
+            }
+            .bank-label { color: #6B7280; }
+            .bank-value { font-weight: 600; color: #111; }
+            .upi-row { margin-top: 8px; padding-top: 8px; border-top: 1px solid #E5E7EB; }
+            .upi-label { font-size: 9px; color: #6B7280; }
+            .upi-value { font-size: 9px; font-weight: 600; color: #111; }
           </style>
         </head>
         <body>
-          <div class="header">
-            <div class="brand-logo">
-              <span style="color: #6366f1;">viveha</span>.ai
-            </div>
-            <div class="powered-by">
-              <div class="powered-text">Powered by</div>
-              <div class="isaii-logo">isaii.ai</div>
-              <div class="powered-text">8606892145</div>
-            </div>
-          </div>
-
-          <div class="invoice-meta">
-            <div class="sender-details">
-              <div class="sender-name">${shopName}</div>
-              <div class="sender-address">
-                ${shopLocation}<br>
-                GST: 29ABCDE1234F1Z5<br>
-                PAN: ABCDE1234F
+          <div class="invoice-container">
+            
+            <!-- Header -->
+            <div class="header">
+              <div class="brand-logo">
+                <span class="viveha">viveha</span>.ai
+              </div>
+              <div class="powered-by">
+                <div class="powered-text">Powered by</div>
+                <div class="isaii-logo">isaii.ai</div>
+                <div class="powered-text">8606892145</div>
               </div>
             </div>
             
-            <div class="invoice-details-grid">
-              <div class="detail-group">
+            <!-- Meta Section -->
+            <div class="meta-section">
+              <div class="sender-details">
+                <div class="sender-name">${shopName}</div>
+                <div class="sender-address">
+                  ${shopLocation}<br>
+                  GST: 29ABCDE1234F1Z5<br>
+                  PAN: ABCDE1234F
+                </div>
+              </div>
+              
+              <div class="invoice-details">
                 <div class="detail-label">Service Details:</div>
-                <div style="margin-bottom: 4px;"><span style="color: #6B7280; font-size: 10px;">Invoice #:</span> <span class="detail-value">${invoice.number}</span></div>
-                <div style="margin-bottom: 4px;"><span style="color: #6B7280; font-size: 10px;">Invoice Date:</span> <span class="detail-value">${invoice.invoiceDate}</span></div>
-                <div><span style="color: #6B7280; font-size: 10px;">Due Date:</span> <span class="detail-value">${invoice.dueDate}</span></div>
-              </div>
-              
-            </div>
-          </div>
-
-          <table>
-            <thead>
-              <tr>
-                <th style="width: 40%">Item/Service Description</th>
-                <th class="text-center">Qty.</th>
-                <th class="text-center">GST</th>
-                <th class="text-right">Taxable Amount</th>
-                <th class="text-center">SGST</th>
-                <th class="text-center">CGST</th>
-                <th class="text-right">Amount</th>
-              </tr>
-            </thead>
-            <tbody>
-              ${itemsRows}
-            </tbody>
-          </table>
-
-          <div class="summary-section">
-            <div class="amount-words">
-              <div class="words-label">Invoice Total In Words:</div>
-              <div class="words-value">${amountInWords}</div>
-            </div>
-            
-            <div class="calculations">
-              <div class="calc-row">
-                <span class="calc-label">Sub Total</span>
-                <span class="calc-value">₹${subTotal}</span>
-              </div>
-              <div class="calc-row">
-                <span class="calc-label">Taxable Amount</span>
-                <span class="calc-value">₹${taxableAmount}</span>
-              </div>
-              ${parseFloat(tax) > 0 ? `
-              <div class="calc-row">
-                <span class="calc-label">SGST</span>
-                <span class="calc-value">₹${sgst}</span>
-              </div>
-              <div class="calc-row">
-                <span class="calc-label">CGST</span>
-                <span class="calc-value">₹${cgst}</span>
-              </div>
-              ` : ''}
-              ${invoice.customCharges && invoice.customCharges.length > 0 ? invoice.customCharges.map(charge => `
-              <div class="calc-row">
-                <span class="calc-label">${charge.heading}</span>
-                <span class="calc-value">₹${charge.amount.toFixed(2)}</span>
-              </div>
-              `).join('') : ''}
-              ${invoice.additionalFees && invoice.additionalFees.length > 0 ? invoice.additionalFees.map(fee => `
-              <div class="calc-row">
-                <span class="calc-label">${fee.name}</span>
-                <span class="calc-value">₹${fee.amount.toFixed(2)}</span>
-              </div>
-              `).join('') : ''}
-              <div class="calc-row calc-total">
-                <span class="calc-label">Total Due</span>
-                <span class="calc-value">₹${totalAmount}</span>
-              </div>
-            </div>
-          </div>
-
-          <div class="footer">
-            <div class="footer-col">
-              <div class="footer-title">Terms and Conditions</div>
-              <ol class="terms-list">
-                 <li>Please pay within 15 days from the date of invoice, overdue interest @ 14% will be charged on delayed payments.</li>
-                 <li>Please quote invoice number when remitting funds.</li>
-              </ol>
-              
-              <div class="footer-title" style="margin-top: 15px;">Additional Notes</div>
-              <p style="font-size: 9px; color: #6B7280; line-height: 1.5;">
-                It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout.
-              </p>
-              
-              <div style="font-size: 9px; font-weight: bold; margin-top: 10px;">
-                For any enquiries, email us on funkar@gmail.com or call us on +91 9876543210
+                <div class="detail-row">
+                  <span class="label">Invoice #:</span>
+                  <span class="value">${invoice.number}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="label">Invoice Date:</span>
+                  <span class="value">${invoice.invoiceDate}</span>
+                </div>
+                <div class="detail-row">
+                  <span class="label">Due Date:</span>
+                  <span class="value">${invoice.dueDate}</span>
+                </div>
               </div>
             </div>
             
-            <div class="footer-col">
-              <div class="footer-title">Bank & Payment Details</div>
-              <div class="bank-details">
-                <div class="bank-row">
-                  <span class="bank-label">Account Holder Name:</span>
-                  <span class="bank-value">Student Labs</span>
-                </div>
-                <div class="bank-row">
-                  <span class="bank-label">Account Number:</span>
-                  <span class="bank-value">45244751787</span>
-                </div>
-                <div class="bank-row">
-                  <span class="bank-label">IFSC:</span>
-                  <span class="bank-value">HDFC0475757</span>
-                </div>
-                <div class="bank-row">
-                  <span class="bank-label">Account Type:</span>
-                  <span class="bank-value">Savings</span>
-                </div>
-                <div class="bank-row">
-                  <span class="bank-label">Bank:</span>
-                  <span class="bank-value">HDFC Bank</span>
-                </div>
+            <!-- Table -->
+            <table>
+              <thead>
+                <tr>
+                  <th style="width: 35%;">Item/Service Description</th>
+                  <th class="center" style="width: 8%;">Qty.</th>
+                  <th class="center" style="width: 8%;">GST</th>
+                  <th class="right" style="width: 14%;">Taxable<br>Amount</th>
+                  <th class="center" style="width: 10%;">SGST</th>
+                  <th class="center" style="width: 10%;">CGST</th>
+                  <th class="right" style="width: 15%;">Amount</th>
+                </tr>
+              </thead>
+              <tbody>
+                ${itemsRows}
+              </tbody>
+            </table>
+            
+            <!-- Summary -->
+            <div class="summary-section">
+              <div class="summary-left">
+                <div class="supply-label">Country of supply: <span style="font-weight: 400; color: #6B7280;">India</span></div>
+                <div class="supply-label">Place of supply: <span style="font-weight: 400; color: #6B7280;">${shopCity}</span></div>
                 
-                <div class="qr-section">
-                  <span class="bank-label">UPI:</span>
-                   <div style="display: flex; align-items: center; gap: 10px;">
-                      <span class="bank-value">footerlabs@okhdfc</span>
-                      <!-- QRCode Placeholder in HTML -->
-                      <div style="width: 40px; height: 40px; background: #000;"></div>
-                   </div>
+                <div class="words-label">Invoice Total In Words:</div>
+                <div class="words-value">${amountInWords}</div>
+              </div>
+              
+              <div class="summary-right">
+                <div class="sum-row">
+                  <span class="sum-label">Sub Total</span>
+                  <span class="sum-value">₹${subTotal}</span>
+                </div>
+                <div class="sum-row">
+                  <span class="sum-label">Taxable Amount</span>
+                  <span class="sum-value">₹${taxableAmount}</span>
+                </div>
+                ${parseFloat(tax) > 0 ? `
+                <div class="sum-row">
+                  <span class="sum-label">SGST</span>
+                  <span class="sum-value">₹${sgst}</span>
+                </div>
+                <div class="sum-row">
+                  <span class="sum-label">CGST</span>
+                  <span class="sum-value">₹${cgst}</span>
+                </div>
+                ` : ''}
+                ${invoice.customCharges && invoice.customCharges.length > 0 ? invoice.customCharges.map(charge => `
+                <div class="sum-row">
+                  <span class="sum-label">${charge.heading}</span>
+                  <span class="sum-value">₹${charge.amount.toFixed(2)}</span>
+                </div>
+                `).join('') : ''}
+                ${invoice.additionalFees && invoice.additionalFees.length > 0 ? invoice.additionalFees.map(fee => `
+                <div class="sum-row">
+                  <span class="sum-label">${fee.name}</span>
+                  <span class="sum-value">₹${fee.amount.toFixed(2)}</span>
+                </div>
+                `).join('') : ''}
+                <div class="sum-row total-row">
+                  <span class="sum-label">Total Due</span>
+                  <span class="sum-value">₹${totalAmount}</span>
                 </div>
               </div>
             </div>
+            
+            <!-- Footer -->
+            <div class="footer">
+              <div class="footer-col">
+                <div class="footer-title">Terms and Conditions</div>
+                <div class="footer-text">1. Please pay within 15 days from the date of invoice, overdue interest @ 14% will be charged on delayed payments.</div>
+                <div class="footer-text">2. Please quote invoice number when remitting funds.</div>
+                
+                <div class="footer-title" style="margin-top: 12px;">Additional Notes</div>
+                <div class="footer-text">It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here.</div>
+                
+                <div class="footer-text footer-bold" style="margin-top: 8px;">
+                  For any enquiries, email us on funkar@gmail.com or call us on +91 9876543210
+                </div>
+              </div>
+              
+              <div class="footer-col">
+                <div class="footer-title">Bank & Payment Details</div>
+                <div class="bank-details">
+                  <div class="bank-row">
+                    <span class="bank-label">Account Holder Name:</span>
+                    <span class="bank-value">Student Labs</span>
+                  </div>
+                  <div class="bank-row">
+                    <span class="bank-label">Account Number:</span>
+                    <span class="bank-value">45244751787</span>
+                  </div>
+                  <div class="bank-row">
+                    <span class="bank-label">IFSC:</span>
+                    <span class="bank-value">HDFC0475757</span>
+                  </div>
+                  <div class="bank-row">
+                    <span class="bank-label">Account Type:</span>
+                    <span class="bank-value">Savings</span>
+                  </div>
+                  <div class="bank-row">
+                    <span class="bank-label">Bank:</span>
+                    <span class="bank-value">HDFC Bank</span>
+                  </div>
+                  
+                  <div class="upi-row">
+                    <div class="upi-label">UPI:</div>
+                    <div class="upi-value">footerlabs@okhdfc</div>
+                    <div class="upi-label" style="margin-top: 4px;">UPI - Scan & Pay</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            
           </div>
         </body>
       </html>
@@ -426,8 +532,32 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
 
   const handlePrint = async (): Promise<void> => {
     try {
-      if (!invoice) return;
-      const html = generateInvoiceHtml(invoice);
+      if (!invoice || !invoiceRef.current) return;
+      
+      // Capture the invoice view as an image
+      const uri = await captureRef(invoiceRef, {
+        format: 'png',
+        quality: 1,
+      });
+      
+      // Create HTML with the captured image for printing
+      const html = `
+        <!DOCTYPE html>
+        <html>
+          <head>
+            <meta name="viewport" content="width=device-width, initial-scale=1.0">
+            <style>
+              * { margin: 0; padding: 0; }
+              body { display: flex; justify-content: center; align-items: center; }
+              img { max-width: 100%; height: auto; }
+            </style>
+          </head>
+          <body>
+            <img src="${uri}" alt="Invoice" />
+          </body>
+        </html>
+      `;
+      
       await Print.printAsync({ html });
     } catch (error) {
       console.error('Print error:', error);
@@ -435,12 +565,87 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     }
   };
 
+  const handleDownload = async (): Promise<void> => {
+    try {
+      if (!invoice || !invoiceRef.current) return;
+      
+      // Request media library permissions (only for saving photos)
+      const { status } = await MediaLibrary.requestPermissionsAsync(false);
+      if (status !== 'granted') {
+        Alert.alert('Permission Required', 'Please grant photo library access to save the invoice.')
+        return;
+      }
+      
+      // Capture the invoice view as an image
+      const uri = await captureRef(invoiceRef, {
+        format: 'png',
+        quality: 1,
+      });
+      
+      // Create a filename for the image
+      const fileName = `Invoice_${invoice.number}_${new Date().getTime()}.png`;
+      const downloadPath = FileSystem.documentDirectory + fileName;
+      
+      // Copy the image to the document directory
+      await FileSystem.copyAsync({
+        from: uri,
+        to: downloadPath
+      });
+      
+      // Save to phone's gallery/photos
+      const asset = await MediaLibrary.createAssetAsync(downloadPath);
+      await MediaLibrary.createAlbumAsync('Viveha Invoices', asset, false).catch(() => {
+        // Album might already exist, try adding to it
+        return MediaLibrary.getAlbumAsync('Viveha Invoices').then(album => {
+          if (album) {
+            return MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+          }
+        });
+      });
+      
+      // Show success message
+      Toast.show({
+        type: 'success',
+        text1: 'Invoice Downloaded',
+        text2: 'Saved to Photos and Documents',
+        position: 'bottom',
+      });
+      
+      // For better user experience, also offer to share
+      if (await Sharing.isAvailableAsync()) {
+        setTimeout(() => {
+          Alert.alert(
+            'Download Complete',
+            'Invoice saved to your Photos. Would you like to share it?',
+            [
+              { text: 'Later', style: 'cancel' },
+              { 
+                text: 'Share', 
+                onPress: async () => {
+                  await Sharing.shareAsync(downloadPath, { mimeType: 'image/png' });
+                }
+              }
+            ]
+          );
+        }, 1000);
+      }
+    } catch (error) {
+      console.error('Download error:', error);
+      Alert.alert('Error', 'Failed to download invoice. Please check permissions.');
+    }
+  };
+
   const handleShare = async (): Promise<void> => {
     try {
-      if (!invoice) return;
-      const html = generateInvoiceHtml(invoice);
-      const { uri } = await Print.printToFileAsync({ html });
-      await Sharing.shareAsync(uri, { UTI: '.pdf', mimeType: 'application/pdf' });
+      if (!invoice || !invoiceRef.current) return;
+      
+      // Capture the invoice view as an image
+      const uri = await captureRef(invoiceRef, {
+        format: 'png',
+        quality: 1,
+      });
+      
+      await Sharing.shareAsync(uri, { mimeType: 'image/png' });
     } catch (error) {
       console.error('Share error:', error);
       Alert.alert('Error', 'Failed to share invoice.');
@@ -514,7 +719,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
         )}
 
         {/* Invoice Paper */}
-        <View style={styles.invoicePaper}>
+        <View ref={invoiceRef} collapsable={false} style={styles.invoicePaper}>
 
           {/* Brand Header */}
           {showBrandLogo && (
@@ -704,7 +909,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
           <Text style={styles.btnText}>Save & Print</Text>
         </TouchableOpacity>
 
-        <TouchableOpacity style={styles.iconBtn} onPress={handleShare}>
+        <TouchableOpacity style={styles.iconBtn} onPress={handleDownload}>
           <Ionicons name={"download-outline" as any} size={24} color="#333" />
         </TouchableOpacity>
         <TouchableOpacity style={styles.iconBtn} onPress={handleShare}>

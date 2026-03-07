@@ -161,7 +161,7 @@ const styles = StyleSheet.create({
     position: 'absolute',
     top: -30,
     left: '50%',
-    marginLeft: -30,
+    marginLeft: -20,
     zIndex: 10,
   },
   createButtonInner: {

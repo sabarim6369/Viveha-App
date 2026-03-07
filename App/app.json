@@ -39,7 +39,15 @@
     },
     "owner": "isaii",
     "plugins": [
-      "@react-native-community/datetimepicker"
+      "@react-native-community/datetimepicker",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Viveha to save invoices to your photos.",
+          "savePhotosPermission": "Allow Viveha to save invoices to your photos.",
+          "isAccessMediaLocationEnabled": true
+        }
+      ]
     ]
   }
 }
