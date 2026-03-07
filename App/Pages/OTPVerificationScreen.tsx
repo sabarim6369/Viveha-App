@@ -236,7 +236,8 @@ const styles = StyleSheet.create({
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    paddingBottom: 100,
+    paddingTop: 80,
+    paddingBottom: 200,
   },
   headerLogo: {
     flexDirection: 'row',
