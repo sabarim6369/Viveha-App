@@ -24,6 +24,9 @@ interface ShopDetails {
   location: string;
   city: string;
   state: string;
+  ownerName?: string;
+  profileImage?: string;
+  gstin?: string;
 }
 
 interface MenuItem {
@@ -41,7 +44,10 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
     shopName: 'My Shop',
     location: '',
     city: '',
-    state: ''
+    state: '',
+    ownerName: '',
+    profileImage: '',
+    gstin: ''
   });
 
   useEffect(() => {
@@ -193,17 +199,30 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
         <View style={styles.profileCard}>
           <View style={styles.profileLeft}>
             <View style={styles.businessLogo}>
-              <Image
-                source={require('../assets/logo2.png')}
-                style={styles.businessLogoImage}
-                resizeMode="contain"
-              />
+              {shopDetails.profileImage ? (
+                <Image
+                  source={{ uri: shopDetails.profileImage }}
+                  style={styles.profileImageStyle}
+                  resizeMode="cover"
+                />
+              ) : (
+                <Image
+                  source={require('../assets/logo2.png')}
+                  style={styles.businessLogoImage}
+                  resizeMode="contain"
+                />
+              )}
             </View>
             <View style={styles.profileInfo}>
               <Text style={styles.businessName}>
-                {shopDetails.shopName}{shopDetails.city ? `, ${shopDetails.city}` : ''}
+                {shopDetails.ownerName || shopDetails.shopName}
               </Text>
-              <Text style={styles.businessId}>{shopDetails.location || 'Location not set'}</Text>
+              <Text style={styles.businessId}>
+                {shopDetails.shopName}{shopDetails.city ? ` • ${shopDetails.city}` : ''}
+              </Text>
+              {shopDetails.location && (
+                <Text style={styles.businessLocation}>{shopDetails.location}</Text>
+              )}
             </View>
           </View>
           {/* Visiting card disabled for now */}
@@ -324,17 +343,27 @@ const styles = StyleSheet.create({
     width: 30,
     height: 30,
   },
+  profileImageStyle: {
+    width: 50,
+    height: 50,
+    borderRadius: 25,
+  },
   profileInfo: {
     flex: 1,
   },
   businessName: {
-    fontSize: 15,
+    fontSize: 16,
     fontWeight: '700',
     color: '#333',
-    marginBottom: 4,
+    marginBottom: 3,
   },
   businessId: {
     fontSize: 12,
+    color: '#666',
+    marginBottom: 2,
+  },
+  businessLocation: {
+    fontSize: 11,
     color: '#999',
   },
   qrButton: {

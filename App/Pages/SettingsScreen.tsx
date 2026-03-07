@@ -14,7 +14,7 @@ import {
   StatusBar,
   Dimensions,
 } from 'react-native';
-import { SafeAreaView, useSafeAreaInsets } from 'react-native-safe-area-context';
+import { SafeAreaView } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
@@ -38,7 +38,6 @@ interface TaxSettings {
 }
 
 export default function SettingsScreen({ navigation }: SettingsScreenProps): React.JSX.Element {
-  const insets = useSafeAreaInsets();
   const [loading, setLoading] = useState<boolean>(true);
   const [updating, setUpdating] = useState<boolean>(false);
   const [customerFields, setCustomerFields] = useState<CustomerFields>({
@@ -285,10 +284,10 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
   };
 
   return (
-    <SafeAreaView style={styles.container} edges={['top', 'left', 'right']}>
+    <SafeAreaView style={styles.container} edges={['top', 'left', 'right', 'bottom']}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       {/* Header */}
-      <View style={[styles.header, { paddingTop: Math.max(insets.top, 10) }]}>
+      <View style={styles.header}>
         <TouchableOpacity
           style={styles.backButton}
           onPress={() => navigation.goBack()}
@@ -306,10 +305,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
       >
         <ScrollView 
           style={styles.scrollView} 
-          contentContainerStyle={[
-            styles.scrollViewContent,
-            { paddingBottom: Math.max(insets.bottom, 20) + 20 }
-          ]}
+          contentContainerStyle={styles.scrollViewContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
           bounces={true}
@@ -481,82 +477,6 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
             </View>
           )}
         </View>
-
-        {/* Info Section */}
-        <View style={styles.infoSection}>
-          <View style={styles.infoCard}>
-            <Ionicons name={"information-circle" as any} size={24} color="#2196F3" />
-            <View style={styles.infoTextContainer}>
-              <Text style={styles.infoTitle}>How it works</Text>
-              <Text style={styles.infoText}>
-                When you enable a field, it will be shown when adding or editing customer information. 
-                Disabled fields will not be collected from customers.
-              </Text>
-            </View>
-          </View>
-        </View>
-
-        {/* Developer Section */}
-        <View style={styles.section}>
-          <View style={styles.sectionHeader}>
-            <Text style={styles.sectionTitle}>Developer Options</Text>
-            <Text style={styles.sectionDescription}>
-              Testing and debugging tools
-            </Text>
-          </View>
-          <View style={styles.card}>
-            <TouchableOpacity
-              style={styles.settingRow}
-              onPress={async () => {
-                Alert.alert(
-                  'Reset to First-Time User',
-                  'This will log you out and reset onboarding. The app will show onboarding screens as if you\'re opening it for the first time. Continue?',
-                  [
-                    { text: 'Cancel', style: 'cancel' },
-                    {
-                      text: 'Reset & Logout',
-                      style: 'destructive',
-                      onPress: async () => {
-                        try {
-                          // Clear onboarding flag
-                          await AsyncStorage.removeItem('hasSeenOnboarding');
-                          // Clear login tokens to simulate first-time user
-                          await AsyncStorage.removeItem('@viveha_token');
-                          await AsyncStorage.removeItem('@viveha_client_id');
-                          
-                          Toast.show({
-                            type: 'success',
-                            text1: 'Reset Complete',
-                            text2: 'Restarting app...',
-                          });
-                          
-                          // Navigate to logo screen (first-time user experience)
-                          setTimeout(() => {
-                            navigation.reset({
-                              index: 0,
-                              routes: [{ name: 'Logo' }],
-                            });
-                          }, 500);
-                        } catch (error) {
-                          console.error('Error resetting onboarding:', error);
-                          Alert.alert('Error', 'Failed to reset onboarding');
-                        }
-                      },
-                    },
-                  ]
-                );
-              }}
-            >
-              <View style={styles.settingLeft}>
-                <Text style={styles.settingLabel}>Test First-Time Experience</Text>
-                <Text style={styles.settingDescription}>
-                  Reset onboarding and logout to see first-time user flow
-                </Text>
-              </View>
-              <Ionicons name={"refresh" as any} size={24} color="#FF9800" />
-            </TouchableOpacity>
-          </View>
-        </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -573,6 +493,7 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
+    paddingTop: 10,
     paddingBottom: 15,
     backgroundColor: '#fff',
     borderBottomWidth: 1,
@@ -602,9 +523,10 @@ const styles = StyleSheet.create({
   },
   scrollViewContent: {
     flexGrow: 1,
+    paddingBottom: 20,
   },
   section: {
-    marginTop: 20,
+    marginTop: 0,
   },
   sectionHeader: {
     backgroundColor: '#fff',

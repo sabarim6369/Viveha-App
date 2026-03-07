@@ -156,6 +156,8 @@ interface ShopDetails {
   ownerName?: string;
   phoneNumber?: string;
   invoiceCount?: number;
+  profileImage?: string;
+  gstin?: string;
 }
 
 export interface SaveResult<T> {
@@ -2654,7 +2656,9 @@ export const fetchClientProfile = async (): Promise<ShopDetails | null> => {
         state: data.client.state || '',
         ownerName: data.client.ownerName || '',
         phoneNumber: data.client.phoneNumber || '',
-        invoiceCount: data.client.invoiceCount || 0
+        invoiceCount: data.client.invoiceCount || 0,
+        profileImage: data.client.profileUrl || '',
+        gstin: data.client.gstin || ''
       };
       await AsyncStorage.setItem('@viveha_shop_details', JSON.stringify(shopDetails));
       console.log('✅ Client profile fetched and saved:', shopDetails.location);

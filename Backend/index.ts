@@ -15,6 +15,7 @@ import dashboardRoutes from './src/apis/dashboard/route.js';
 import adminRoutes from './src/apis/admin/route.js';
 import syncRoutes from './src/apis/sync/route.js';
 import reminderRoutes from './src/apis/reminder/route.js';
+import uploadRoutes from './src/apis/upload/route.js';
 
 // Load environment variables
 dotenv.config();
@@ -34,6 +35,9 @@ app.use(
 );
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+
+// Serve static files from uploads directory
+app.use('/uploads', express.static('uploads'));
 
 // ============================================================================
 // ROUTES
@@ -67,6 +71,9 @@ app.use('/api/reminders', reminderRoutes);
 
 // Admin Routes (maintenance)
 app.use('/api/admin', adminRoutes);
+
+// Upload Routes
+app.use('/api/upload', uploadRoutes);
 
 // Health check endpoint
 app.get('/api/health', (req: Request, res: Response) => {

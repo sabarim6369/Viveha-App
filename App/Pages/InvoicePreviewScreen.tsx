@@ -801,7 +801,12 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
             <Ionicons name={"arrow-back" as any} size={24} color="#000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Invoice Preview</Text>
-          <View style={{ width: 24 }} />
+          <TouchableOpacity 
+            style={styles.editButton}
+            onPress={() => navigation.navigate('InvoiceCustomization')}
+          >
+            <Ionicons name={"create-outline" as any} size={24} color="#3B82F6" />
+          </TouchableOpacity>
         </View>
         <View style={styles.centerEmpty}>
           <Text>No invoice data found</Text>
@@ -841,7 +846,10 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
           <Ionicons name={"arrow-back" as any} size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Invoice Preview</Text>
-        <TouchableOpacity style={styles.editButton}>
+        <TouchableOpacity 
+          style={styles.editButton}
+          onPress={() => navigation.navigate('InvoiceCustomization')}
+        >
           <Ionicons name={"create-outline" as any} size={24} color="#3B82F6" />
         </TouchableOpacity>
       </View>

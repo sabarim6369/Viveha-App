@@ -1,10 +1,10 @@
 import React, { useState, useRef } from 'react';
-import { 
-  View, 
-  Text, 
-  TextInput, 
-  TouchableOpacity, 
-  StyleSheet, 
+import {
+  View,
+  Text,
+  TextInput,
+  TouchableOpacity,
+  StyleSheet,
   Image,
   SafeAreaView,
   StatusBar,
@@ -50,11 +50,56 @@ export default function ConfirmationCodeScreen({ navigation, route }: Confirmati
     }
   };
 
+  const uploadProfileImage = async (imageUri: string): Promise<string | null> => {
+    try {
+      const formData = new FormData();
+      
+      // Extract filename from URI
+      const filename = imageUri.split('/').pop() || 'profile.jpg';
+      const fileType = filename.split('.').pop() || 'jpg';
+      
+      // Create file object for upload
+      const file = {
+        uri: imageUri,
+        name: filename,
+        type: `image/${fileType}`,
+      } as any;
+      
+      formData.append('profileImage', file);
+      
+      const uploadResponse = await axios.post(`${API_URL}/upload/profile-picture`, formData, {
+        headers: {
+          'Content-Type': 'multipart/form-data',
+        },
+        timeout: 30000,
+      });
+      
+      if (uploadResponse.data.success) {
+        return uploadResponse.data.profileUrl;
+      }
+      return null;
+    } catch (error: any) {
+      console.error('Image upload error:', error);
+      return null;
+    }
+  };
+
   const handleNext = async (): Promise<void> => {
     const confirmationCode = code.join('');
     if (confirmationCode.length === 4) {
       setLoading(true);
       try {
+        // Upload profile image if exists
+        let profileUrl = route.params?.profileUrl || '';
+        
+        // Check if we have a local profileImage that needs to be uploaded
+        if (route.params?.profileImage && !route.params?.profileUrl) {
+          const uploadedUrl = await uploadProfileImage(route.params.profileImage);
+          if (uploadedUrl) {
+            profileUrl = uploadedUrl;
+          }
+        }
+        
         // Register the user with OTP (backend will verify and register in one step)
         const registerResponse = await axios.post(`${API_URL}/auth/register`, {
           phoneNumber: phoneNumber,
@@ -66,7 +111,7 @@ export default function ConfirmationCodeScreen({ navigation, route }: Confirmati
           city: route.params?.city || '',
           state: route.params?.state || '',
           gstin: route.params?.gstin || '',
-          profileUrl: route.params?.profileUrl || ''
+          profileUrl: profileUrl
         }, {
           timeout: 30000
         });
@@ -80,7 +125,7 @@ export default function ConfirmationCodeScreen({ navigation, route }: Confirmati
           if (registerResponse.data.deviceSessionId) {
             await AsyncStorage.setItem('@viveha_device_session_id', registerResponse.data.deviceSessionId);
           }
-          
+
           alert('Registration successful!');
           navigation.navigate('Success', {
             ...route.params,
@@ -114,7 +159,7 @@ export default function ConfirmationCodeScreen({ navigation, route }: Confirmati
   return (
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
-      
+
       <KeyboardAvoidingView
         style={styles.keyboardView}
         behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
@@ -125,68 +170,68 @@ export default function ConfirmationCodeScreen({ navigation, route }: Confirmati
           keyboardShouldPersistTaps="handled"
         >
           {/* Back Button */}
-      <TouchableOpacity 
-        style={styles.backButton}
-        onPress={() => navigation.goBack()}
-      >
-        <Ionicons name={"arrow-back" as any} size={24} color="#666" />
-      </TouchableOpacity>
+          <TouchableOpacity
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name={"arrow-back" as any} size={24} color="#666" />
+          </TouchableOpacity>
 
-      {/* Main Content */}
-      <View style={styles.content}>
-        <Text style={styles.title}>Enter the confirmation code</Text>
-        <Text style={styles.subtitle}>
-          To confirm your account, enter the 4-digit code that we sent via SMS to {phoneNumber}
-        </Text>
+          {/* Main Content */}
+          <View style={styles.content}>
+            <Text style={styles.title}>Enter the confirmation code</Text>
+            <Text style={styles.subtitle}>
+              To confirm your account, enter the 4-digit code that we sent via SMS to {phoneNumber}
+            </Text>
 
-        <View style={styles.codeContainer}>
-          {code.map((digit, index) => (
-            <View key={index} style={styles.inputBox}>
-              <TextInput
-                ref={(ref) => { if (ref) inputRefs.current[index] = ref; return undefined; }}
-                style={styles.input}
-                value={digit}
-                onChangeText={(text) => handleCodeChange(text, index)}
-                onKeyPress={(e) => handleKeyPress(e, index)}
-                keyboardType="number-pad"
-                maxLength={1}
-                textAlign="center"
-              />
+            <View style={styles.codeContainer}>
+              {code.map((digit, index) => (
+                <View key={index} style={styles.inputBox}>
+                  <TextInput
+                    ref={(ref) => { if (ref) inputRefs.current[index] = ref; return undefined; }}
+                    style={styles.input}
+                    value={digit}
+                    onChangeText={(text) => handleCodeChange(text, index)}
+                    onKeyPress={(e) => handleKeyPress(e, index)}
+                    keyboardType="number-pad"
+                    maxLength={1}
+                    textAlign="center"
+                  />
+                </View>
+              ))}
             </View>
-          ))}
-        </View>
 
-        <TouchableOpacity 
-          style={[styles.nextButton, (code.join('').length < 4 || loading) && styles.buttonDisabled]}
-          onPress={handleNext}
-          activeOpacity={0.8}
-          disabled={code.join('').length < 4 || loading}
-        >
-          {loading ? (
-            <ActivityIndicator color="#fff" />
-          ) : (
-            <Text style={styles.nextButtonText}>Next</Text>
-          )}
-        </TouchableOpacity>
+            <TouchableOpacity
+              style={[styles.nextButton, (code.join('').length < 4 || loading) && styles.buttonDisabled]}
+              onPress={handleNext}
+              activeOpacity={0.8}
+              disabled={code.join('').length < 4 || loading}
+            >
+              {loading ? (
+                <ActivityIndicator color="#fff" />
+              ) : (
+                <Text style={styles.nextButtonText}>Next</Text>
+              )}
+            </TouchableOpacity>
 
-        <TouchableOpacity 
-          style={styles.resendButton}
-          onPress={handleResendCode}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.resendButtonText}>I didn't recieve the code</Text>
-        </TouchableOpacity>
-      </View>
+            <TouchableOpacity
+              style={styles.resendButton}
+              onPress={handleResendCode}
+              activeOpacity={0.7}
+            >
+              <Text style={styles.resendButtonText}>I didn't recieve the code</Text>
+            </TouchableOpacity>
+          </View>
 
-      {/* Footer Branding */}
-      <View style={styles.footer}>
-        <Image 
-          source={require('../assets/logo2.png')} 
-          style={styles.footerLogo}
-          resizeMode="contain"
-        />
-        <Text style={styles.footerText}>viveha.ai</Text>
-      </View>
+          {/* Footer Branding */}
+          <View style={styles.footer}>
+            <Image
+              source={require('../assets/logo2.png')}
+              style={styles.footerLogo}
+              resizeMode="contain"
+            />
+            <Text style={styles.footerText}>viveha.ai</Text>
+          </View>
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
