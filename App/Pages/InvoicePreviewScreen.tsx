@@ -20,6 +20,7 @@ import { captureRef } from 'react-native-view-shot';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import { useNetworkStatus } from '../utils/NetworkManager';
+import { Asset } from 'expo-asset';
 
 interface InvoicePreviewScreenProps {
   navigation: any;
@@ -161,7 +162,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     return words.trim() + ' Rupees Only';
   };
 
-  const generateInvoiceHtml = (invoice: Invoice): string => {
+  const generateInvoiceHtml = (invoice: Invoice, logoBase64?: string, qrCodeBase64?: string): string => {
     // Calculate values from items if not provided in invoice
     let calculatedSubTotal = 0;
     let calculatedTax = 0;
@@ -228,20 +229,22 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
           <meta charset="UTF-8">
           <meta name="viewport" content="width=device-width, initial-scale=1.0">
           <style>
+            @page {
+              size: A4;
+              margin: 15mm;
+            }
             * { margin: 0; padding: 0; box-sizing: border-box; }
             body { 
               font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'Roboto', sans-serif; 
               color: #111; 
-              background-color: #FAFAFA; 
-              padding: 20px;
+              background-color: white; 
+              padding: 0;
             }
             .invoice-container {
-              max-width: 800px;
+              max-width: 100%;
               margin: 0 auto;
               background-color: white;
-              border-radius: 12px;
-              padding: 30px;
-              box-shadow: 0 2px 8px rgba(0,0,0,0.05);
+              padding: 0;
             }
             
             /* Header */
@@ -249,45 +252,57 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
               display: flex; 
               justify-content: space-between; 
               align-items: flex-start; 
-              margin-bottom: 30px;
-              padding-bottom: 20px;
+              margin-bottom: 20px;
+              padding-bottom: 15px;
               border-bottom: 1px solid #F3F4F6;
             }
-            .brand-logo { font-size: 20px; font-weight: 800; color: #111; }
+            .brand-logo { 
+              font-size: 18px; 
+              font-weight: 800; 
+              color: #111; 
+              display: flex;
+              align-items: center;
+              gap: 8px;
+            }
+            .logo-icon {
+              width: 32px;
+              height: 32px;
+              border-radius: 6px;
+              display: inline-block;
+              vertical-align: middle;
+            }
             .brand-logo .viveha { color: #6366F1; }
             .powered-by { text-align: right; }
-            .powered-text { font-size: 9px; color: #9CA3AF; margin-bottom: 2px; }
-            .isaii-logo { font-size: 14px; font-weight: 700; color: #111; }
+            .powered-text { font-size: 8px; color: #9CA3AF; margin-bottom: 2px; }
+            .isaii-logo { font-size: 12px; font-weight: 700; color: #111; }
             
             /* Meta Section */
             .meta-section { 
               display: flex; 
               justify-content: space-between; 
-              margin-bottom: 30px; 
+              margin-bottom: 20px; 
             }
             .sender-details { max-width: 45%; }
-            .sender-name { font-size: 14px; font-weight: 700; color: #111; margin-bottom: 6px; }
-            .sender-address { font-size: 10px; color: #6B7280; line-height: 1.6; }
+            .sender-name { font-size: 13px; font-weight: 700; color: #111; margin-bottom: 5px; }
+            .sender-address { font-size: 9px; color: #6B7280; line-height: 1.5; }
             
             .invoice-details { text-align: right; }
-            .detail-label { font-size: 11px; font-weight: 600; color: #3B82F6; margin-bottom: 8px; }
-            .detail-row { font-size: 10px; margin-bottom: 4px; }
+            .detail-label { font-size: 10px; font-weight: 600; color: #3B82F6; margin-bottom: 6px; }
+            .detail-row { font-size: 9px; margin-bottom: 3px; }
             .detail-row .label { color: #6B7280; }
-            .detail-row .value { font-weight: 600; color: #111; margin-left: 8px; }
+            .detail-row .value { font-weight: 600; color: #111; margin-left: 6px; }
             
             /* Table */
             table { 
               width: 100%; 
               border-collapse: collapse; 
-              margin-bottom: 20px;
-              border-radius: 8px;
-              overflow: hidden;
+              margin-bottom: 15px;
             }
             thead tr { background-color: ${tableHeaderColor}; }
             th { 
               color: white; 
-              padding: 10px 8px; 
-              font-size: 9px; 
+              padding: 8px 6px; 
+              font-size: 8px; 
               text-transform: uppercase; 
               text-align: left; 
               font-weight: 600;
@@ -295,76 +310,100 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
             }
             th.center { text-align: center; }
             th.right { text-align: right; }
-            td { padding: 10px 8px; font-size: 10px; }
+            td { padding: 8px 6px; font-size: 9px; border-bottom: 1px solid #E5E7EB; }
             
             /* Summary */
             .summary-section { 
               display: flex; 
               justify-content: space-between; 
-              margin-bottom: 30px;
-              padding-bottom: 20px;
+              margin-bottom: 20px;
+              padding-bottom: 15px;
             }
             .summary-left { max-width: 50%; }
-            .supply-label { font-size: 10px; color: #1F2937; font-weight: 600; margin-bottom: 4px; }
-            .supply-value { font-size: 10px; color: #6B7280; margin-bottom: 10px; }
-            .words-label { font-size: 10px; font-weight: 600; color: #111; margin-top: 15px; margin-bottom: 4px; }
-            .words-value { font-size: 11px; color: #3B82F6; font-weight: 500; }
+            .supply-label { font-size: 9px; color: #1F2937; font-weight: 600; margin-bottom: 3px; }
+            .supply-value { font-size: 9px; color: #6B7280; margin-bottom: 8px; }
+            .words-label { font-size: 9px; font-weight: 600; color: #111; margin-top: 10px; margin-bottom: 3px; }
+            .words-value { font-size: 10px; color: #3B82F6; font-weight: 500; }
             
-            .summary-right { text-align: right; min-width: 250px; }
+            .summary-right { text-align: right; min-width: 200px; }
             .sum-row { 
               display: flex; 
               justify-content: space-between; 
-              margin-bottom: 8px;
-              padding: 4px 0;
+              margin-bottom: 6px;
+              padding: 3px 0;
             }
-            .sum-label { font-size: 10px; color: #6B7280; }
-            .sum-value { font-size: 10px; font-weight: 600; color: #111; }
+            .sum-label { font-size: 9px; color: #6B7280; }
+            .sum-value { font-size: 9px; font-weight: 600; color: #111; }
             .total-row { 
-              margin-top: 10px; 
-              padding-top: 10px; 
+              margin-top: 8px; 
+              padding-top: 8px; 
               border-top: 1px solid #E5E7EB; 
             }
-            .total-row .sum-label { font-size: 12px; font-weight: 700; color: #111; }
-            .total-row .sum-value { font-size: 15px; font-weight: 700; color: #3B82F6; }
+            .total-row .sum-label { font-size: 11px; font-weight: 700; color: #111; }
+            .total-row .sum-value { font-size: 13px; font-weight: 700; color: #3B82F6; }
             
             /* Footer */
             .footer { 
               display: flex; 
-              gap: 30px; 
+              gap: 20px; 
               border-top: 1px dashed #E5E7EB; 
-              padding-top: 20px; 
+              padding-top: 15px; 
             }
             .footer-col { flex: 1; }
             .footer-title { 
-              font-size: 11px; 
+              font-size: 10px; 
               font-weight: 700; 
               color: #111; 
-              margin-bottom: 8px; 
+              margin-bottom: 6px; 
             }
             .footer-text { 
-              font-size: 9px; 
+              font-size: 8px; 
               color: #6B7280; 
-              line-height: 1.5; 
-              margin-bottom: 8px; 
+              line-height: 1.4; 
+              margin-bottom: 6px; 
             }
             .footer-bold { font-weight: 700; }
             
             .bank-details { 
               background-color: #F9FAFB; 
               padding: 12px; 
+            
+            .bank-details { 
+              background-color: #F9FAFB; 
+              padding: 10px; 
               border-radius: 6px; 
             }
             .bank-row { 
               display: flex; 
               justify-content: space-between; 
-              margin-bottom: 4px; 
-              font-size: 9px;
+              margin-bottom: 3px; 
+              font-size: 8px;
             }
             .bank-label { color: #6B7280; }
             .bank-value { font-weight: 600; color: #111; }
-            .upi-row { margin-top: 8px; padding-top: 8px; border-top: 1px solid #E5E7EB; }
-            .upi-label { font-size: 9px; color: #6B7280; }
-            .upi-value { font-size: 9px; font-weight: 600; color: #111; }
+            .upi-row { margin-top: 6px; padding-top: 6px; border-top: 1px solid #E5E7EB; }
+            .upi-label { font-size: 8px; color: #6B7280; }
+            .upi-value { font-size: 8px; font-weight: 600; color: #111; }
+            .qr-code-box {
+              width: 60px;
+              height: 60px;
+              background-color: #000;
+              margin-top: 6px;
+              display: flex;
+              align-items: center;
+              justify-content: center;
+              border-radius: 4px;
+            }
+            .qr-placeholder {
+              color: #fff;
+              font-size: 8px;
+              text-align: center;
+            }
+            .qr-code-img {
+              width: 80px;
+              height: 80px;
+              margin-top: 6px;
+            }
           </style>
         </head>
         <body>
@@ -373,7 +412,8 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
             <!-- Header -->
             <div class="header">
               <div class="brand-logo">
-                <span class="viveha">viveha</span>.ai
+                ${logoBase64 ? `<img src="${logoBase64}" alt="Logo" class="logo-icon" />` : '<span class="logo-icon"></span>'}
+                <span><span class="viveha">viveha</span>.ai</span>
               </div>
               <div class="powered-by">
                 <div class="powered-text">Powered by</div>
@@ -519,6 +559,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
                     <div class="upi-label">UPI:</div>
                     <div class="upi-value">footerlabs@okhdfc</div>
                     <div class="upi-label" style="margin-top: 4px;">UPI - Scan & Pay</div>
+                    ${qrCodeBase64 ? `<img src="${qrCodeBase64}" alt="QR Code" class="qr-code-img" />` : '<div class="qr-code-box"><div class="qr-placeholder">QR<br>CODE</div></div>'}
                   </div>
                 </div>
               </div>
@@ -532,36 +573,101 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
 
   const handlePrint = async (): Promise<void> => {
     try {
-      if (!invoice || !invoiceRef.current) return;
+      if (!invoice) return;
       
-      // Capture the invoice view as an image
-      const uri = await captureRef(invoiceRef, {
-        format: 'png',
-        quality: 1,
-      });
+      // Load logo as base64
+      let logoBase64 = '';
+      try {
+        const logoAsset = Asset.fromModule(require('../assets/logo1.png'));
+        await logoAsset.downloadAsync();
+        const logoUri = logoAsset.localUri || logoAsset.uri;
+        const logoData = await FileSystem.readAsStringAsync(logoUri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        logoBase64 = `data:image/png;base64,${logoData}`;
+      } catch (error) {
+        console.error('Error loading logo:', error);
+      }
       
-      // Create HTML with the captured image for printing
-      const html = `
-        <!DOCTYPE html>
-        <html>
-          <head>
-            <meta name="viewport" content="width=device-width, initial-scale=1.0">
-            <style>
-              * { margin: 0; padding: 0; }
-              body { display: flex; justify-content: center; align-items: center; }
-              img { max-width: 100%; height: auto; }
-            </style>
-          </head>
-          <body>
-            <img src="${uri}" alt="Invoice" />
-          </body>
-        </html>
-      `;
+      // Generate UPI QR code using online API and convert to base64
+      let qrCodeBase64 = '';
+      try {
+        const totalAmount = invoice.total || invoice.grandTotal || 0;
+        const upiString = `upi://pay?pa=footerlabs@okhdfc&pn=${encodeURIComponent(shopDetails?.shopName || 'Viveha')}&am=${totalAmount}&cu=INR`;
+        
+        // Use QR Server API to generate QR code image
+        const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiString)}`;
+        
+        // Download QR code image to temp file and convert to base64
+        const qrDownload = await FileSystem.downloadAsync(
+          qrApiUrl,
+          FileSystem.documentDirectory + 'temp_qr.png'
+        );
+        
+        if (qrDownload.status === 200) {
+          const qrBase64 = await FileSystem.readAsStringAsync(qrDownload.uri, {
+            encoding: FileSystem.EncodingType.Base64,
+          });
+          qrCodeBase64 = `data:image/png;base64,${qrBase64}`;
+        }
+      } catch (error) {
+        console.error('Error generating QR code:', error);
+      }
       
-      await Print.printAsync({ html });
+      // Generate HTML from the invoice data (same design as preview)
+      const html = generateInvoiceHtml(invoice, logoBase64, qrCodeBase64);
+      
+      // Show options: Print or Preview as PDF
+      Alert.alert(
+        'Save & Print',
+        'Choose an option:',
+        [
+          {
+            text: 'Preview PDF',
+            onPress: async () => {
+              try {
+                // Generate PDF for preview
+                const { uri: pdfUri } = await Print.printToFileAsync({ html });
+                
+                // Show success and offer to view
+                Toast.show({
+                  type: 'success',
+                  text1: 'PDF Generated',
+                  text2: 'Opening preview...',
+                  position: 'bottom',
+                });
+                
+                // Share the PDF so user can view it
+                await Sharing.shareAsync(pdfUri, { 
+                  mimeType: 'application/pdf',
+                  UTI: 'com.adobe.pdf'
+                });
+              } catch (error) {
+                console.error('PDF generation error:', error);
+                Alert.alert('Error', 'Failed to generate PDF preview.');
+              }
+            }
+          },
+          {
+            text: 'Print',
+            onPress: async () => {
+              try {
+                await Print.printAsync({ html });
+              } catch (error) {
+                console.error('Print error:', error);
+                Alert.alert('Error', 'Failed to print invoice.');
+              }
+            }
+          },
+          {
+            text: 'Cancel',
+            style: 'cancel'
+          }
+        ]
+      );
     } catch (error) {
       console.error('Print error:', error);
-      Alert.alert('Error', 'Failed to print invoice.');
+      Alert.alert('Error', 'Failed to prepare invoice.');
     }
   };
 
