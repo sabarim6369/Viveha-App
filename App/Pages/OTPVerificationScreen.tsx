@@ -18,6 +18,7 @@ import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import API_URL from '../api';
+import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
 
@@ -73,14 +74,34 @@ export default function OTPVerificationScreen({ navigation }: OTPVerificationScr
       });
 
       if (response.data.success) {
-        alert(response.data.message || 'OTP sent successfully!');
+        Toast.show({
+          type: 'success',
+          text1: 'OTP Sent',
+          text2: response.data.message || 'Please check your phone',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
         navigation.navigate('VerificationCode', { phoneNumber });
       } else {
-        setError(response.data.message || 'Failed to send OTP');
+        Toast.show({
+          type: 'error',
+          text1: 'Failed to Send OTP',
+          text2: response.data.message || 'Please try again',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
       }
     } catch (error: any) {
       console.error('Send OTP Error:', error);
-      setError(error.response?.data?.message || 'Failed to send OTP. Please check your connection.');
+      const errorMessage = error.response?.data?.message || 'Failed to send OTP. Please check your connection.';
+      
+      Toast.show({
+        type: 'error',
+        text1: 'Connection Error',
+        text2: errorMessage,
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
     } finally {
       setLoading(false);
     }

@@ -17,6 +17,7 @@ import {
 import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import API_URL from '../api';
+import Toast from 'react-native-toast-message';
 
 const { width } = Dimensions.get('window');
 
@@ -42,17 +43,51 @@ export default function MobileNumberScreen({ navigation, route }: MobileNumberSc
         });
 
         if (response.data.success) {
-          alert(response.data.message || 'OTP sent successfully!');
+          Toast.show({
+            type: 'success',
+            text1: 'OTP Sent',
+            text2: response.data.message || 'Please check your phone',
+            position: 'bottom',
+            visibilityTime: 2000,
+          });
           navigation.navigate('ConfirmationCode', {
             ...route.params,
             phoneNumber: phoneNumber
           });
         } else {
-          alert(response.data.message || 'Failed to send OTP');
+          Toast.show({
+            type: 'error',
+            text1: 'Failed to Send OTP',
+            text2: response.data.message || 'Please try again',
+            position: 'bottom',
+            visibilityTime: 3000,
+          });
         }
       } catch (error: any) {
         console.error('Send OTP Error:', error);
-        alert(error.response?.data?.message || 'Failed to send OTP. Please check your connection.');
+        const errorMsg = error.response?.data?.message || '';
+        
+        // Check for specific error cases
+        if (errorMsg.includes('already registered') || errorMsg.includes('already exists')) {
+          Toast.show({
+            type: 'info',
+            text1: 'User Already Registered',
+            text2: 'Please login instead',
+            position: 'bottom',
+            visibilityTime: 3000,
+          });
+          setTimeout(() => {
+            navigation.navigate('OTPVerification');
+          }, 1500);
+        } else {
+          Toast.show({
+            type: 'error',
+            text1: 'Failed to Send OTP',
+            text2: errorMsg || 'Please check your connection',
+            position: 'bottom',
+            visibilityTime: 3000,
+          });
+        }
       } finally {
         setLoading(false);
       }

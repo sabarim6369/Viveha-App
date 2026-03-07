@@ -20,6 +20,12 @@ import API_URL from '../api';
 
 interface InvoiceCustomizationScreenProps {
   navigation: any;
+  route?: {
+    params?: {
+      isRegistration?: boolean;
+      [key: string]: any;
+    };
+  };
 }
 
 interface InvoiceSettings {
@@ -37,7 +43,8 @@ const COLOR_OPTIONS = [
   { color: '#F43F5E' },
 ];
 
-export default function InvoiceCustomizationScreen({ navigation }: InvoiceCustomizationScreenProps): React.JSX.Element {
+export default function InvoiceCustomizationScreen({ navigation, route }: InvoiceCustomizationScreenProps): React.JSX.Element {
+  const isRegistration = route?.params?.isRegistration || false;
   const [settings, setSettings] = useState<InvoiceSettings>({
     layoutStyle: 'Modern',
     showBrandLogo: true,
@@ -119,7 +126,12 @@ export default function InvoiceCustomizationScreen({ navigation }: InvoiceCustom
         Alert.alert('Success', 'Invoice customization saved!');
       }
       
-      navigation.goBack();
+      // Navigate to Success page if in registration flow, otherwise go back
+      if (isRegistration) {
+        navigation.navigate('Success', { ...route?.params, isRegistration: true });
+      } else {
+        navigation.goBack();
+      }
     } catch (error) {
       console.error('Error saving settings:', error);
       Alert.alert('Error', 'Failed to save settings. Please try again.');
@@ -144,6 +156,27 @@ export default function InvoiceCustomizationScreen({ navigation }: InvoiceCustom
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
       
+      {/* Registration Header with Skip */}
+      {isRegistration && (
+        <View style={styles.registrationHeader}>
+          <TouchableOpacity 
+            style={styles.backButton}
+            onPress={() => navigation.goBack()}
+          >
+            <Ionicons name="arrow-back" size={24} color="#999" />
+          </TouchableOpacity>
+          
+          <TouchableOpacity 
+            style={styles.skipButton}
+            onPress={() => {
+              navigation.navigate('Success', { ...route?.params, isRegistration: true });
+            }}
+          >
+            <Text style={styles.skipText}>Skip</Text>
+          </TouchableOpacity>
+        </View>
+      )}
+      
       <ScrollView 
         style={styles.scrollView}
         showsVerticalScrollIndicator={false}
@@ -151,8 +184,12 @@ export default function InvoiceCustomizationScreen({ navigation }: InvoiceCustom
       >
         {/* Header */}
         <View style={styles.headerSection}>
-          <Text style={styles.headerTitle}>Invoice Customization</Text>
-          <Text style={styles.headerSubtitle}>Real-Time Preview</Text>
+          <Text style={styles.headerTitle}>
+            {isRegistration ? 'Customize Your Invoices' : 'Invoice Customization'}
+          </Text>
+          <Text style={styles.headerSubtitle}>
+            {isRegistration ? 'Choose how your invoices will look' : 'Real-Time Preview'}
+          </Text>
         </View>
 
         {/* Invoice Preview Card */}
@@ -376,7 +413,7 @@ export default function InvoiceCustomizationScreen({ navigation }: InvoiceCustom
             <ActivityIndicator size="small" color="#fff" />
           ) : (
             <>
-              <Text style={styles.nextButtonText}>Next</Text>
+              <Text style={styles.nextButtonText}>{isRegistration ? 'Continue' : 'Next'}</Text>
               <Ionicons name="arrow-forward" size={20} color="#fff" />
             </>
           )}
@@ -398,6 +435,25 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     alignItems: 'center',
     backgroundColor: '#FAFAFA',
+  },
+  registrationHeader: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingHorizontal: 20,
+    paddingTop: 50,
+    paddingBottom: 10,
+    backgroundColor: '#FAFAFA',
+  },
+  backButton: {
+    padding: 4,
+  },
+  skipButton: {
+    padding: 4,
+  },
+  skipText: {
+    fontSize: 15,
+    color: '#666',
   },
   scrollView: {
     flex: 1,

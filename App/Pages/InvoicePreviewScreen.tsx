@@ -527,7 +527,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
                 <div class="footer-text">It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here.</div>
                 
                 <div class="footer-text footer-bold" style="margin-top: 8px;">
-                  For any enquiries, email us on funkar@gmail.com or call us on +91 9876543210
+                  For any enquiries, email us on isaii.dev3@gmail.com or call us on +91 9876543210
                 </div>
               </div>
               
@@ -1023,7 +1023,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
               <Text style={[styles.footerTitle, { marginTop: 10 }]}>Additional Notes</Text>
               <Text style={styles.legalText}>It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here.</Text>
 
-              <Text style={[styles.legalText, { marginTop: 10, fontWeight: 'bold' }]}>For any enquiries, email us on funkar@gmail.com or call us on +91 9876543210</Text>
+              <Text style={[styles.legalText, { marginTop: 10, fontWeight: 'bold' }]}>For any enquiries, email us on isaii.dev3@gmail.com or call us on +91 9876543210</Text>
             </View>
 
             <View style={styles.bankCol}>

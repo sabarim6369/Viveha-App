@@ -19,6 +19,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_URL from '../api';
+import Toast from 'react-native-toast-message';
 
 interface ConfirmationCodeScreenProps {
   navigation: any;
@@ -126,21 +127,43 @@ export default function ConfirmationCodeScreen({ navigation, route }: Confirmati
             await AsyncStorage.setItem('@viveha_device_session_id', registerResponse.data.deviceSessionId);
           }
 
-          alert('Registration successful!');
-          navigation.navigate('Success', {
+          Toast.show({
+            type: 'success',
+            text1: 'Registration Successful!',
+            text2: 'Welcome to Viveha',
+            position: 'bottom',
+            visibilityTime: 2000,
+          });
+          
+          navigation.navigate('InvoiceCustomization', {
             ...route.params,
             confirmationCode,
             clientId: registerResponse.data.clientId,
             isRegistration: true
           });
         } else {
-          alert(registerResponse.data.message || 'Registration failed');
+          Toast.show({
+            type: 'error',
+            text1: 'Registration Failed',
+            text2: registerResponse.data.message || 'Please try again',
+            position: 'bottom',
+            visibilityTime: 3000,
+          });
           setCode(['', '', '', '']);
           inputRefs.current[0]?.focus();
         }
       } catch (error: any) {
         console.error('Registration Error:', error);
-        alert(error.response?.data?.message || 'Registration failed. Please try again.');
+        const errorMessage = error.response?.data?.message || 'Registration failed. Please try again.';
+        
+        Toast.show({
+          type: 'error',
+          text1: 'Registration Error',
+          text2: errorMessage,
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+        
         setCode(['', '', '', '']);
         inputRefs.current[0]?.focus();
       } finally {

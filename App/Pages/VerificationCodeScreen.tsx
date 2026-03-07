@@ -21,6 +21,7 @@ import { Ionicons } from '@expo/vector-icons';
 import axios from 'axios';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import API_URL from '../api';
+import Toast from 'react-native-toast-message';
 import { clearAllUserData, fetchAllUserData } from '../utils/NetworkManager';
 
 const { width } = Dimensions.get('window');
@@ -97,8 +98,6 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
             // Fetch user-specific data from backend
             await fetchAllUserData();
 
-            alert('Login successful!');
-
             // Navigate to Success with all data
             navigation.navigate('Success', {
               token: loginResponse.data.token,
@@ -110,10 +109,22 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
               isRegistration: false // Existing user login
             });
           } else {
-            alert('Failed to fetch user details');
+            Toast.show({
+              type: 'error',
+              text1: 'Login Failed',
+              text2: 'Failed to fetch user details',
+              position: 'bottom',
+              visibilityTime: 3000,
+            });
           }
         } else {
-          alert(loginResponse.data.message || 'Login failed');
+          Toast.show({
+            type: 'error',
+            text1: 'Login Failed',
+            text2: loginResponse.data.message || 'Please check your OTP',
+            position: 'bottom',
+            visibilityTime: 3000,
+          });
           setCode(['', '', '', '']);
           inputRefs.current[0]?.focus();
         }
@@ -123,16 +134,36 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
         if (error.response?.status === 401) {
           const errorMsg = error.response?.data?.message || '';
           if (errorMsg.includes('Client not found') || errorMsg.includes('not found')) {
-            alert('User not registered. Redirecting to registration...');
+            Toast.show({
+              type: 'info',
+              text1: 'User Not Registered',
+              text2: 'Redirecting to registration...',
+              position: 'bottom',
+              visibilityTime: 3000,
+            });
             // Redirect to registration flow with phone number
-            navigation.navigate('ShopDetails');
+            setTimeout(() => {
+              navigation.navigate('ShopDetails');
+            }, 1500);
           } else {
-            alert(errorMsg || 'Login failed. Please check your OTP and try again.');
+            Toast.show({
+              type: 'error',
+              text1: 'Invalid OTP',
+              text2: errorMsg || 'Please check your OTP and try again',
+              position: 'bottom',
+              visibilityTime: 3000,
+            });
             setCode(['', '', '', '']);
             inputRefs.current[0]?.focus();
           }
         } else {
-          alert(error.response?.data?.message || 'Login failed. Please try again.');
+          Toast.show({
+            type: 'error',
+            text1: 'Login Error',
+            text2: error.response?.data?.message || 'Please try again',
+            position: 'bottom',
+            visibilityTime: 3000,
+          });
           setCode(['', '', '', '']);
           inputRefs.current[0]?.focus();
         }
