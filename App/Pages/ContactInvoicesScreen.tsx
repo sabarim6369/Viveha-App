@@ -238,7 +238,7 @@ export default function ContactInvoicesScreen({ navigation, route }: ContactInvo
       case 'paid':
         return invoices.filter(inv => inv.amount <= 0 || inv.status === 'paid');
       case 'pending':
-        return invoices.filter(inv => inv.amount > 0 && inv.paidAmount > 0 && inv.status !== 'paid');
+        return invoices.filter(inv => inv.amount > 0 && inv.status !== 'paid');
       case 'unpaid':
         return invoices.filter(inv => inv.paidAmount === 0);
       case 'all':

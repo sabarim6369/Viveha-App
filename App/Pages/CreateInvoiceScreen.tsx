@@ -1895,43 +1895,52 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         onRequestClose={() => setAddFeeModalVisible(false)}
       >
         <View style={styles.modalOverlay}>
-          <View style={styles.modalContent}>
+          <View style={styles.addFeeModalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add Additional Fee</Text>
-              <TouchableOpacity onPress={() => setAddFeeModalVisible(false)}>
-                <Ionicons name={"close" as any} size={24} color="#333" />
+              <TouchableOpacity 
+                onPress={() => setAddFeeModalVisible(false)}
+                style={styles.closeButton}
+              >
+                <Ionicons name={"close" as any} size={24} color="#666" />
               </TouchableOpacity>
             </View>
 
-            <View style={styles.modalBody}>
+            <View style={styles.addFeeModalBody}>
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Fee Name</Text>
-                <TextInput
-                  style={styles.clientNameInput}
-                  placeholder="e.g., Delivery Fee, Labour Charge"
-                  placeholderTextColor="#999"
-                  value={feeName}
-                  onChangeText={setFeeName}
-                  autoFocus
-                />
+                <Text style={styles.feeInputLabel}>Fee Name</Text>
+                <View style={styles.feeInputContainer}>
+                  <Ionicons name={"pricetag-outline" as any} size={20} color="#E46269" />
+                  <TextInput
+                    style={styles.feeInput}
+                    placeholder="e.g., Delivery Fee, Labour Charge"
+                    placeholderTextColor="#999"
+                    value={feeName}
+                    onChangeText={setFeeName}
+                    autoFocus
+                  />
+                </View>
               </View>
 
               <View style={styles.inputGroup}>
-                <Text style={styles.inputLabel}>Amount (Rs.)</Text>
-                <TextInput
-                  style={styles.clientNameInput}
-                  placeholder="Enter amount"
-                  placeholderTextColor="#999"
-                  value={feeAmount}
-                  onChangeText={setFeeAmount}
-                  keyboardType="numeric"
-                />
+                <Text style={styles.feeInputLabel}>Amount (Rs.)</Text>
+                <View style={styles.feeInputContainer}>
+                  <Ionicons name={"cash-outline" as any} size={20} color="#E46269" />
+                  <TextInput
+                    style={styles.feeInput}
+                    placeholder="Enter amount"
+                    placeholderTextColor="#999"
+                    value={feeAmount}
+                    onChangeText={setFeeAmount}
+                    keyboardType="numeric"
+                  />
+                </View>
               </View>
 
               <TouchableOpacity
                 style={[
-                  styles.saveClientButton,
-                  (!feeName || !feeAmount) && styles.saveClientButtonDisabled
+                  styles.addFeeButton,
+                  (!feeName || !feeAmount) && styles.addFeeButtonDisabled
                 ]}
                 disabled={!feeName || !feeAmount}
                 onPress={() => {
@@ -1943,6 +1952,8 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                     };
                     setAdditionalFees([...additionalFees, newFee]);
                     setAddFeeModalVisible(false);
+                    setFeeName('');
+                    setFeeAmount('');
                     Toast.show({
                       type: 'success',
                       text1: 'Fee Added',
@@ -1952,7 +1963,8 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                   }
                 }}
               >
-                <Text style={styles.saveClientButtonText}>Add Fee</Text>
+                <Ionicons name={"checkmark-circle-outline" as any} size={20} color="#fff" />
+                <Text style={styles.addFeeButtonText}>Add Fee</Text>
               </TouchableOpacity>
             </View>
           </View>
@@ -2304,18 +2316,33 @@ const styles = StyleSheet.create({
     height: '80%',
     width: '100%',
   },
+  addFeeModalContent: {
+    backgroundColor: '#fff',
+    borderTopLeftRadius: 25,
+    borderTopRightRadius: 25,
+    paddingBottom: 20,
+    maxHeight: '65%',
+  },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
     padding: 20,
     borderBottomWidth: 1,
-    borderBottomColor: '#eee',
+    borderBottomColor: '#f0f0f0',
   },
   modalTitle: {
-    fontSize: 20,
+    fontSize: 22,
     fontWeight: '700',
     color: '#333',
+  },
+  closeButton: {
+    width: 36,
+    height: 36,
+    borderRadius: 18,
+    backgroundColor: '#f5f5f5',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   modalScrollView: {
     padding: 20,
@@ -2406,8 +2433,59 @@ const styles = StyleSheet.create({
   modalBody: {
     flex: 1,
   },
+  addFeeModalBody: {
+    padding: 20,
+  },
   inputGroup: {
     marginBottom: 20,
+  },
+  feeInputLabel: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 10,
+  },
+  feeInputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F9F9F9',
+    borderRadius: 12,
+    paddingHorizontal: 15,
+    paddingVertical: 14,
+    borderWidth: 2,
+    borderColor: '#E46269',
+    gap: 10,
+  },
+  feeInput: {
+    flex: 1,
+    fontSize: 16,
+    color: '#333',
+    padding: 0,
+  },
+  addFeeButton: {
+    flexDirection: 'row',
+    backgroundColor: '#E46269',
+    borderRadius: 12,
+    paddingVertical: 16,
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginTop: 10,
+    gap: 8,
+    shadowColor: '#E46269',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 5,
+  },
+  addFeeButtonDisabled: {
+    backgroundColor: '#D3D3D3',
+    shadowOpacity: 0,
+    elevation: 0,
+  },
+  addFeeButtonText: {
+    color: '#fff',
+    fontSize: 16,
+    fontWeight: '700',
   },
   labelRow: {
     flexDirection: 'row',

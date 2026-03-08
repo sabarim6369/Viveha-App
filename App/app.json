@@ -48,7 +48,8 @@
           "isAccessMediaLocationEnabled": true,
           "writeOnly": true
         }
-      ]
+      ],
+      "expo-asset"
     ]
   }
 }

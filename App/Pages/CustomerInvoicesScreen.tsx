@@ -617,9 +617,6 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
                     <View style={styles.invoiceInfo}>
                       <Text style={styles.invoiceNumber}>{invoice.invoiceNumber}</Text>
                       <Text style={styles.invoiceDate}>{invoice.date} • {invoice.time}</Text>
-                      <View style={styles.overdueTag}>
-                        <Text style={styles.overdueTagText}>OVERDUE</Text>
-                      </View>
                     </View>
                   </View>
                   <View style={styles.invoiceRight}>

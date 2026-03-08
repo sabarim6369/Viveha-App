@@ -19,6 +19,8 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
+import * as FileSystem from 'expo-file-system';
+import * as MediaLibrary from 'expo-media-library';
 import {
     getCustomerProfile,
     useNetworkStatus,
@@ -331,15 +333,45 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
             const html = generateProfileHtml();
             const { uri } = await Print.printToFileAsync({ html });
             
-            if (await Sharing.isAvailableAsync()) {
-                await Sharing.shareAsync(uri, { 
-                    UTI: '.pdf', 
-                    mimeType: 'application/pdf',
-                    dialogTitle: 'Save Customer Profile'
+            // Request permission to save to media library
+            const { status } = await MediaLibrary.requestPermissionsAsync();
+            
+            if (status === 'granted') {
+                // Save to device
+                const asset = await MediaLibrary.createAssetAsync(uri);
+                await MediaLibrary.createAlbumAsync('Viveha', asset, false)
+                    .catch(() => {
+                        // Album might already exist, that's fine
+                    });
+                
+                Toast.show({ 
+                    type: 'success', 
+                    text1: 'Downloaded!', 
+                    text2: 'PDF saved to your device', 
+                    position: 'bottom',
+                    visibilityTime: 3000
                 });
-                Toast.show({ type: 'success', text1: 'Success', text2: 'PDF ready to save', position: 'bottom' });
             } else {
-                Alert.alert('Download Complete', `PDF saved at: ${uri}`);
+                // Fallback to share if permission denied
+                Alert.alert(
+                    'Permission Required',
+                    'Storage permission is needed to download the PDF. You can share it instead.',
+                    [
+                        { text: 'Cancel', style: 'cancel' },
+                        {
+                            text: 'Share Instead',
+                            onPress: async () => {
+                                if (await Sharing.isAvailableAsync()) {
+                                    await Sharing.shareAsync(uri, { 
+                                        UTI: '.pdf', 
+                                        mimeType: 'application/pdf',
+                                        dialogTitle: 'Save Customer Profile'
+                                    });
+                                }
+                            }
+                        }
+                    ]
+                );
             }
         } catch (error) {
             console.error('Download error:', error);

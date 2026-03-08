@@ -169,7 +169,7 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
     { id: 3, title: 'My Contacts', icon: 'people-outline', color: '#666', screen: 'MyContacts' },
     { id: 13, title: 'Customize Invoice', icon: 'color-palette-outline', color: '#FF6B35', screen: 'InvoiceCustomization' },
     { id: 12, title: 'Settings', icon: 'settings-outline', color: '#666', screen: 'Settings' },
-    { id: 4, title: 'Notification', icon: 'notifications-outline', color: '#666' },
+    { id: 4, title: 'Notification', icon: 'notifications-outline', color: '#666', screen: 'Notifications' },
     // { id: 5, title: 'Payment Methods', icon: 'card-outline', color: '#666', screen: 'PaymentMethod' },
     // { id: 10, title: 'Tax and Discount', icon: 'pricetag-outline', color: '#666', screen: 'TaxAndDiscount' },
     { id: 6, title: 'Export Center', icon: 'download-outline', color: '#666', screen: 'ExportCenter' },
