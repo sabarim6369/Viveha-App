@@ -629,12 +629,19 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     try {
       if (!invoice) return;
       
-      // Request media library permissions (only for saving photos)
-      const { status } = await MediaLibrary.requestPermissionsAsync(false);
+      // Request media library permissions with write access
+      const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
-        Alert.alert('Permission Required', 'Please grant photo library access to save the invoice.')
+        Alert.alert('Permission Required', 'Please grant storage access to save the invoice.');
         return;
       }
+      
+      Toast.show({
+        type: 'info',
+        text1: 'Creating PDF',
+        text2: 'Please wait...',
+        position: 'bottom',
+      });
       
       // Load logo as base64
       let logoBase64 = '';
@@ -679,59 +686,63 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
       const html = generateInvoiceHtml(invoice, logoBase64, qrCodeBase64);
       const { uri: pdfUri } = await Print.printToFileAsync({ html });
       
-      // Create a filename for the PDF
+      // Create a filename for the PDF with proper extension
       const fileName = `Invoice_${invoice.number}_${new Date().getTime()}.pdf`;
-      const downloadPath = FileSystem.documentDirectory + fileName;
+      const downloadPath = `${FileSystem.documentDirectory}${fileName}`;
       
-      // Copy the PDF to the document directory
+      // Ensure the file has .pdf extension and copy to document directory
       await FileSystem.copyAsync({
         from: pdfUri,
         to: downloadPath
       });
       
-      // Save to phone's gallery/photos
-      const asset = await MediaLibrary.createAssetAsync(downloadPath);
-      await MediaLibrary.createAlbumAsync('Viveha Invoices', asset, false).catch(() => {
-        // Album might already exist, try adding to it
-        return MediaLibrary.getAlbumAsync('Viveha Invoices').then(album => {
+      // Verify file exists and has content
+      const fileInfo = await FileSystem.getInfoAsync(downloadPath);
+      console.log('PDF file info:', fileInfo);
+      
+      // Save to phone's gallery/photos with proper PDF extension
+      try {
+        const asset = await MediaLibrary.createAssetAsync(downloadPath);
+        
+        // Try to create album or add to existing album
+        try {
+          await MediaLibrary.createAlbumAsync('Viveha Invoices', asset, false);
+        } catch (albumError) {
+          // Album might already exist, try adding to it
+          const album = await MediaLibrary.getAlbumAsync('Viveha Invoices');
           if (album) {
-            return MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+            await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
           }
-        });
-      });
+        }
+      } catch (mediaError) {
+        console.error('Media library error:', mediaError);
+        // If saving to media library fails, at least we have the file in cache
+      }
       
       // Show success message
       Toast.show({
         type: 'success',
         text1: 'Invoice Downloaded',
-        text2: 'PDF saved to Photos and Documents',
+        text2: 'PDF saved successfully',
         position: 'bottom',
+        visibilityTime: 3000,
       });
-      
-      // For better user experience, also offer to share
-      if (await Sharing.isAvailableAsync()) {
-        setTimeout(() => {
-          Alert.alert(
-            'Download Complete',
-            'Invoice PDF saved to your Photos. Would you like to share it?',
-            [
-              { text: 'Later', style: 'cancel' },
-              { 
-                text: 'Share', 
-                onPress: async () => {
-                  await Sharing.shareAsync(downloadPath, { 
-                    mimeType: 'application/pdf',
-                    UTI: 'com.adobe.pdf'
-                  });
-                }
-              }
-            ]
-          );
-        }, 1000);
-      }
     } catch (error) {
       console.error('Download error:', error);
-      Alert.alert('Error', 'Failed to download invoice. Please check permissions.');
+      
+      // Provide more specific error message
+      let errorMessage = 'Failed to download invoice.';
+      if (error instanceof Error) {
+        if (error.message.includes('permission')) {
+          errorMessage = 'Storage permission is required to save the invoice.';
+        } else if (error.message.includes('network')) {
+          errorMessage = 'Network error. Please check your connection.';
+        } else {
+          errorMessage = `Failed to download invoice: ${error.message}`;
+        }
+      }
+      
+      Alert.alert('Download Error', errorMessage);
     }
   };
 

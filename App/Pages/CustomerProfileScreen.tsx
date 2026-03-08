@@ -19,7 +19,7 @@ import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import * as Print from 'expo-print';
 import * as Sharing from 'expo-sharing';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as MediaLibrary from 'expo-media-library';
 import {
     getCustomerProfile,
@@ -369,16 +369,33 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
             const html = generateProfileHtml();
             const { uri } = await Print.printToFileAsync({ html });
             
+            // Create proper PDF file with extension
+            const fileName = `CustomerProfile_${new Date().getTime()}.pdf`;
+            const pdfPath = `${FileSystem.documentDirectory}${fileName}`;
+            await FileSystem.copyAsync({ from: uri, to: pdfPath });
+            
             // Request permission to save to media library
             const { status } = await MediaLibrary.requestPermissionsAsync();
             
-            if (status === 'granted') {
-                // Save to device
-                const asset = await MediaLibrary.createAssetAsync(uri);
-                await MediaLibrary.createAlbumAsync('Viveha', asset, false)
-                    .catch(() => {
-                        // Album might already exist, that's fine
-                    });
+            if (status !== 'granted') {
+                Alert.alert('Permission Required', 'Storage permission is needed to download the PDF.');
+                return;
+            }
+            
+            try {
+                // Save to device with proper PDF file
+                const asset = await MediaLibrary.createAssetAsync(pdfPath);
+                
+                // Try to create album or add to existing album
+                try {
+                    await MediaLibrary.createAlbumAsync('Viveha', asset, false);
+                } catch (albumError) {
+                    // Album might already exist, try adding to it
+                    const album = await MediaLibrary.getAlbumAsync('Viveha');
+                    if (album) {
+                        await MediaLibrary.addAssetsToAlbumAsync([asset], album, false);
+                    }
+                }
                 
                 Toast.show({ 
                     type: 'success', 
@@ -387,31 +404,30 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
                     position: 'bottom',
                     visibilityTime: 3000
                 });
-            } else {
-                // Fallback to share if permission denied
+            } catch (mediaError) {
+                console.error('Media library error:', mediaError);
                 Alert.alert(
-                    'Permission Required',
-                    'Storage permission is needed to download the PDF. You can share it instead.',
-                    [
-                        { text: 'Cancel', style: 'cancel' },
-                        {
-                            text: 'Share Instead',
-                            onPress: async () => {
-                                if (await Sharing.isAvailableAsync()) {
-                                    await Sharing.shareAsync(uri, { 
-                                        UTI: '.pdf', 
-                                        mimeType: 'application/pdf',
-                                        dialogTitle: 'Save Customer Profile'
-                                    });
-                                }
-                            }
-                        }
-                    ]
+                    'Download Failed',
+                    'Could not save PDF to gallery. Please try again or use the share button instead.',
+                    [{ text: 'OK' }]
                 );
             }
         } catch (error) {
             console.error('Download error:', error);
-            Alert.alert('Download Error', 'Failed to download customer profile.');
+            
+            // Provide more specific error message
+            let errorMessage = 'Failed to download customer profile.';
+            if (error instanceof Error) {
+                if (error.message.includes('permission')) {
+                    errorMessage = 'Storage permission is required to save the PDF.';
+                } else if (error.message.includes('network')) {
+                    errorMessage = 'Network error. Please check your connection.';
+                } else {
+                    errorMessage = `Download failed: ${error.message}`;
+                }
+            }
+            
+            Alert.alert('Download Error', errorMessage);
         }
     };
 

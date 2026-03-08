@@ -10,6 +10,7 @@ import {
   Alert,
   FlatList,
   ActivityIndicator,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useSafeAreaInsets } from 'react-native-safe-area-context';
 import { Ionicons } from '@expo/vector-icons';
@@ -596,7 +597,10 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
         transparent={true}
         onRequestClose={() => setModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior='padding'
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
@@ -610,6 +614,7 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
             <ScrollView
               showsVerticalScrollIndicator={false}
               keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ flexGrow: 1 }}
             >
               <View style={styles.form}>
                 <View style={styles.inputGroup}>
@@ -704,7 +709,7 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
               </View>
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Group Management Modal */}
@@ -714,7 +719,10 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
         transparent={true}
         onRequestClose={() => setGroupModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior='padding'
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>
@@ -725,7 +733,11 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
               </TouchableOpacity>
             </View>
 
-            <ScrollView style={styles.groupModalScroll}>
+            <ScrollView 
+              style={styles.groupModalScroll}
+              keyboardShouldPersistTaps="handled"
+              contentContainerStyle={{ flexGrow: 1 }}
+            >
               {/* Group Form */}
               <View style={styles.form}>
                 <Text style={styles.sectionTitle}>
@@ -813,7 +825,7 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
               <View style={styles.bottomSpacing} />
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Group Selector Modal */}

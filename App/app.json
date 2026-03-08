@@ -27,7 +27,8 @@
       "package": "com.isaiiai.vivehaaiapp",
       "permissions": [
         "READ_CONTACTS"
-      ]
+      ],
+      "allowBackup": false
     },
     "web": {
       "favicon": "./assets/favicon.png"

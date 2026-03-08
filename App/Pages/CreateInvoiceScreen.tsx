@@ -11,6 +11,7 @@ import {
   Modal,
   TextInput,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -158,6 +159,30 @@ interface PendingRecord {
   invoiceDate?: string;
   dueDate?: string;
 }
+
+// Helper function to generate invoice numbers
+// Offline invoices use 'OFF-' prefix to prevent duplicate numbers during sync conflicts
+// When online and invoice syncs successfully, backend may assign the final invoice number
+const generateInvoiceNumber = async (isOffline: boolean): Promise<string> => {
+  try {
+    const shopDetailsStr = await AsyncStorage.getItem('@viveha_shop_details');
+    if (shopDetailsStr) {
+      const details = JSON.parse(shopDetailsStr);
+      const nextInvoiceNo = (details.invoiceCount || 0) + 1;
+      const formattedNumber = String(nextInvoiceNo).padStart(6, '0');
+      
+      // If offline or not internet reachable, add 'OFF-' prefix
+      if (isOffline) {
+        return `OFF-${formattedNumber}`;
+      }
+      return `#${formattedNumber}`;
+    }
+    return isOffline ? 'OFF-000001' : '#000001';
+  } catch (error) {
+    console.error('Error generating invoice number:', error);
+    return isOffline ? 'OFF-000001' : '#000001';
+  }
+};
 
 export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenProps): React.JSX.Element {
   const { isConnected, isInternetReachable } = useNetworkStatus();
@@ -373,10 +398,11 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
           email: '',
         });
 
-        const nextInvoiceNo = (details.invoiceCount || 0) + 1;
+        // Generate invoice number with offline prefix if not connected
+        const invoiceNumber = await generateInvoiceNumber(!isConnected || !isInternetReachable);
         setInvoiceDetails(prev => ({
           ...prev,
-          number: `#${String(nextInvoiceNo).padStart(6, '0')}`
+          number: invoiceNumber
         }));
       }
 
@@ -979,10 +1005,18 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         const result = await createInvoiceViaBackend(invoiceData);
 
         if (result.success) {
+          // Use backend's invoice number if available (in case backend assigns a different one)
+          const backendInvoiceNumber = result.invoice?.invoiceNumber || result.invoice?.number || invoiceNumber;
+          
+          // If backend assigned a different invoice number, log it
+          if (backendInvoiceNumber !== invoiceNumber) {
+            console.log(`📝 Backend assigned different invoice number: ${invoiceNumber} → ${backendInvoiceNumber}`);
+          }
+
           // Save pending payment record with complete invoice data
           const pending: PendingRecord = {
             id: result.invoice._id,
-            invoiceNumber: invoiceNumber,
+            invoiceNumber: backendInvoiceNumber, // Use backend's invoice number
             clientName: clientInfo.name,
             clientPhone: clientInfo.phone,
             amount: total,
@@ -1029,15 +1063,18 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
           // Clear draft after successful creation
           await saveLocalData(STORAGE_KEYS.DRAFTS, []);
 
-          // Increment local counter
+          // Increment local counter and generate new invoice number
           const shopDetailsStr = await AsyncStorage.getItem('@viveha_shop_details');
           if (shopDetailsStr) {
             const details = JSON.parse(shopDetailsStr);
             details.invoiceCount = (details.invoiceCount || 0) + 1;
             await AsyncStorage.setItem('@viveha_shop_details', JSON.stringify(details));
+            
+            // Generate new invoice number based on connection status
+            const newInvoiceNumber = await generateInvoiceNumber(!isConnected || !isInternetReachable);
             setInvoiceDetails(prev => ({
               ...prev,
-              number: `#${String(details.invoiceCount + 1).padStart(6, '0')}`
+              number: newInvoiceNumber
             }));
           }
 
@@ -1090,15 +1127,18 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         // Clear draft after successful save
         await saveLocalData(STORAGE_KEYS.DRAFTS, []);
 
-        // Increment local counter
+        // Increment local counter and generate new invoice number
         const shopDetailsStr = await AsyncStorage.getItem('@viveha_shop_details');
         if (shopDetailsStr) {
           const details = JSON.parse(shopDetailsStr);
           details.invoiceCount = (details.invoiceCount || 0) + 1;
           await AsyncStorage.setItem('@viveha_shop_details', JSON.stringify(details));
+          
+          // Generate new invoice number with offline prefix if not connected
+          const newInvoiceNumber = await generateInvoiceNumber(!isConnected || !isInternetReachable);
           setInvoiceDetails(prev => ({
             ...prev,
-            number: `#${String(details.invoiceCount + 1).padStart(6, '0')}`
+            number: newInvoiceNumber
           }));
         }
 
@@ -1258,7 +1298,14 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
             <View style={styles.invoiceDetailsRow}>
               <View style={styles.invoiceDetailItem}>
                 <Text style={styles.detailLabel}>Number</Text>
-                <Text style={styles.detailValue}>{invoiceDetails.number}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+                  <Text style={styles.detailValue}>{invoiceDetails.number}</Text>
+                  {invoiceDetails.number.startsWith('OFF-') && (
+                    <View style={styles.offlineBadge}>
+                      <Text style={styles.offlineBadgeText}>Offline</Text>
+                    </View>
+                  )}
+                </View>
               </View>
               <View style={styles.invoiceDetailItem}>
                 <Text style={styles.detailLabel}>Invoice Date</Text>
@@ -1499,7 +1546,10 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         transparent={true}
         onRequestClose={() => setSelectClientModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior='padding'
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Client</Text>
@@ -1688,7 +1738,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
               )}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Item Selection Modal */}
@@ -1698,7 +1748,10 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         transparent={true}
         onRequestClose={() => setSelectItemModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior='padding'
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Item</Text>
@@ -1789,7 +1842,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
               )}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Phone Contacts Modal */}
@@ -1799,7 +1852,10 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         transparent={true}
         onRequestClose={() => setContactsModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior='padding'
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select from Contacts</Text>
@@ -1855,7 +1911,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
               )}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Due Date Picker */}
@@ -1894,7 +1950,10 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         transparent={true}
         onRequestClose={() => setAddFeeModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior='padding'
+          style={styles.modalOverlay}
+        >
           <View style={styles.addFeeModalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add Additional Fee</Text>
@@ -1968,7 +2027,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
               </TouchableOpacity>
             </View>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Footer */}
@@ -2044,6 +2103,18 @@ const styles = StyleSheet.create({
     fontSize: 14,
     fontWeight: '600',
     color: '#333',
+  },
+  offlineBadge: {
+    backgroundColor: '#FFA500',
+    paddingHorizontal: 6,
+    paddingVertical: 2,
+    borderRadius: 4,
+  },
+  offlineBadgeText: {
+    fontSize: 9,
+    fontWeight: '600',
+    color: '#fff',
+    letterSpacing: 0.5,
   },
   editButton: {
     padding: 5,

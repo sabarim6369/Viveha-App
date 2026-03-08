@@ -15,6 +15,7 @@ import {
   ActivityIndicator,
   Linking,
   Platform,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -1146,7 +1147,10 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
         visible={partialPaymentModalVisible}
         onRequestClose={() => setPartialPaymentModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior='padding'
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Partial Payment</Text>
@@ -1195,7 +1199,7 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
               </View>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Payment Success Modal */}
@@ -1220,7 +1224,10 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
         visible={reminderModalVisible}
         onRequestClose={() => setReminderModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior='padding'
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Set Reminder</Text>
@@ -1289,7 +1296,7 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
             )}
             </ScrollView>
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       <Footer

@@ -10,6 +10,7 @@ import {
   Modal,
   TextInput,
   ActivityIndicator,
+  KeyboardAvoidingView,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import Toast from 'react-native-toast-message';
@@ -828,7 +829,10 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
         visible={partialPaymentModalVisible}
         onRequestClose={() => setPartialPaymentModalVisible(false)}
       >
-        <View style={styles.modalOverlay}>
+        <KeyboardAvoidingView 
+          behavior='padding'
+          style={styles.modalOverlay}
+        >
           <View style={styles.modalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Partial Payment</Text>
@@ -877,7 +881,7 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
               </View>
             )}
           </View>
-        </View>
+        </KeyboardAvoidingView>
       </Modal>
 
       {/* Payment Success Modal */}
