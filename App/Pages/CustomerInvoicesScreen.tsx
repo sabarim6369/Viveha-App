@@ -620,7 +620,10 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
                     </View>
                   </View>
                   <View style={styles.invoiceRight}>
-                    <Text style={[styles.invoiceAmount, styles.overdueAmount]}>Rs.{invoice.amount.toFixed(2)}</Text>
+                    <View style={styles.amountContainer}>
+                      <Text style={[styles.invoiceAmount, styles.overdueAmount]}>Rs.{invoice.amount.toFixed(2)}</Text>
+                      <Text style={styles.totalAmountText}>of Rs.{invoice.totalAmount.toFixed(2)}</Text>
+                    </View>
                     {invoice.paidAmount > 0 && (
                       <Text style={styles.paidAmountText}>Paid: Rs.{invoice.paidAmount.toFixed(2)}</Text>
                     )}
@@ -697,7 +700,10 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
                     </View>
                   </View>
                   <View style={styles.invoiceRight}>
-                    <Text style={styles.invoiceAmount}>Rs.{invoice.amount.toFixed(2)}</Text>
+                    <View style={styles.amountContainer}>
+                      <Text style={styles.invoiceAmount}>Rs.{invoice.amount.toFixed(2)}</Text>
+                      <Text style={styles.totalAmountText}>of Rs.{invoice.totalAmount.toFixed(2)}</Text>
+                    </View>
                     {invoice.paidAmount > 0 && (
                       <Text style={styles.paidAmountText}>Paid: Rs.{invoice.paidAmount.toFixed(2)}</Text>
                     )}
@@ -1102,10 +1108,19 @@ const styles = StyleSheet.create({
   invoiceRight: {
     alignItems: 'flex-end',
   },
+  amountContainer: {
+    alignItems: 'flex-end',
+  },
   invoiceAmount: {
     fontSize: 18,
     fontWeight: '700',
     color: '#4A90E2',
+    marginBottom: 2,
+  },
+  totalAmountText: {
+    fontSize: 11,
+    color: '#999',
+    fontWeight: '500',
     marginBottom: 4,
   },
   paidAmountText: {

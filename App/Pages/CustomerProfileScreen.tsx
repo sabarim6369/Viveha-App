@@ -104,12 +104,38 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
     const loadCustomerProfile = async (): Promise<void> => {
         try {
             setIsLoading(true);
-            if (!isConnected || !isInternetReachable) {
-                Toast.show({ type: 'info', text1: 'Offline Mode', text2: 'Customer profile requires internet', position: 'bottom' });
-                Alert.alert('Offline Mode', 'Please connect to the internet to view this page.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
+            let data: ProfileData | null = null;
+            let loadedFromCache = false;
+            
+            // Try to fetch from API if online
+            if (isConnected && isInternetReachable) {
+                try {
+                    data = await getCustomerProfile(customerId);
+                    // Cache the data for offline use
+                    await AsyncStorage.setItem(`@viveha_customer_profile_${customerId}`, JSON.stringify(data));
+                } catch (apiError) {
+                    console.log('API fetch failed, trying cache...', apiError);
+                    // Fall through to try cache
+                }
+            }
+            
+            // If API fetch failed or we're offline, try cache
+            if (!data) {
+                const cachedData = await AsyncStorage.getItem(`@viveha_customer_profile_${customerId}`);
+                if (cachedData) {
+                    data = JSON.parse(cachedData);
+                    loadedFromCache = true;
+                }
+            }
+            
+            // If we still don't have data, show error
+            if (!data) {
+                Toast.show({ type: 'error', text1: 'No data available', text2: 'Please check your connection', position: 'bottom' });
+                Alert.alert('Error', 'Failed to load customer profile. Please check your connection and try again.', [{ text: 'OK', onPress: () => navigation.goBack() }]);
                 return;
             }
-            const data = await getCustomerProfile(customerId);
+            
+            // Set the profile data
             setProfileData(data);
             
             // If specificInvoiceId is provided, filter data to show only that invoice
@@ -136,7 +162,17 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
             } else {
                 setFilteredData(data);
             }
+            
+            // Show appropriate feedback
+            if (loadedFromCache) {
+                if (!isConnected || !isInternetReachable) {
+                    Toast.show({ type: 'info', text1: 'Offline Mode', text2: 'Showing cached data', position: 'bottom' });
+                } else {
+                    Toast.show({ type: 'info', text1: 'Using cached data', text2: 'Could not reach server', position: 'bottom' });
+                }
+            }
         } catch (e: any) {
+            console.error('Error loading customer profile:', e);
             Alert.alert('Error', 'Failed to load customer profile');
         } finally {
             setIsLoading(false);
@@ -452,14 +488,15 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
                             <TouchableOpacity onPress={() => navigation.goBack()} style={s.iconBtn}>
                                 <Ionicons name="close" size={15} color="#fff" />
                             </TouchableOpacity>
-                            <View style={s.iconRowRight}>
+                            {/* Edit and three-dot icons - not needed for now */}
+                            {/* <View style={s.iconRowRight}>
                                 <TouchableOpacity style={s.iconBtn}>
                                     <Ionicons name="create-outline" size={15} color="#fff" />
                                 </TouchableOpacity>
                                 <TouchableOpacity style={s.iconBtn}>
                                     <Ionicons name="ellipsis-vertical" size={15} color="#fff" />
                                 </TouchableOpacity>
-                            </View>
+                            </View> */}
                         </View>
 
                         {/* Customer name & invoice no. */}
