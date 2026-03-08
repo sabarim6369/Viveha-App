@@ -18,12 +18,14 @@ export default function NameScreen({ navigation }: NameScreenProps): React.JSX.E
 
   return (
     <View style={styles.container}>
-      <Image 
-        source={require('../assets/logo2.png')} 
-        style={styles.icon}
-        resizeMode="contain"
-      />
-      <Text style={styles.brandText}>viveha.ai</Text>
+      <View style={styles.brandContainer}>
+        <Image 
+          source={require('../assets/logo2.png')} 
+          style={styles.icon}
+          resizeMode="contain"
+        />
+        <Text style={styles.brandText}>viveha.ai</Text>
+      </View>
     </View>
   );
 }
@@ -35,10 +37,15 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
   },
+  brandContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+  },
   icon: {
     width: 40,
     height: 40,
-    marginBottom: 8,
+    marginRight: 10,
   },
   brandText: {
     fontSize: 24,

@@ -477,6 +477,70 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
             </View>
           )}
         </View>
+
+        {/* Clear Data Section - Commented for now */}
+        {/* <View style={styles.section}>
+          <View style={styles.sectionHeader}>
+            <Text style={styles.sectionTitle}>App Data</Text>
+            <Text style={styles.sectionDescription}>
+              Reset app to initial state (for testing/debugging)
+            </Text>
+          </View>
+
+          <View style={styles.card}>
+            <TouchableOpacity
+              style={styles.clearDataButton}
+              onPress={() => {
+                Alert.alert(
+                  'Clear All Data?',
+                  'This will log you out and reset the app to initial state. You will need to login again.',
+                  [
+                    { text: 'Cancel', style: 'cancel' },
+                    {
+                      text: 'Clear Data',
+                      style: 'destructive',
+                      onPress: async () => {
+                        try {
+                          // Clear all app data
+                          await AsyncStorage.clear();
+                          Toast.show({
+                            type: 'success',
+                            text1: 'Data Cleared',
+                            text2: 'App has been reset',
+                            position: 'bottom',
+                          });
+                          // Navigate to first onboarding screen
+                          navigation.reset({
+                            index: 0,
+                            routes: [{ name: 'Logo' }],
+                          });
+                        } catch (error: any) {
+                          Toast.show({
+                            type: 'error',
+                            text1: 'Error',
+                            text2: error.message || 'Failed to clear data',
+                            position: 'bottom',
+                          });
+                        }
+                      },
+                    },
+                  ]
+                );
+              }}
+            >
+              <View style={styles.clearDataLeft}>
+                <Ionicons name="refresh-outline" size={24} color="#F44336" />
+                <View style={styles.clearDataTextContainer}>
+                  <Text style={styles.clearDataLabel}>Clear All Data</Text>
+                  <Text style={styles.clearDataDescription}>
+                    Reset app and return to onboarding
+                  </Text>
+                </View>
+              </View>
+              <Ionicons name="chevron-forward" size={20} color="#999" />
+            </TouchableOpacity>
+          </View>
+        </View> */}
         </ScrollView>
       </KeyboardAvoidingView>
     </SafeAreaView>
@@ -668,4 +732,31 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#fff',
   },
+  // clearDataButton: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   justifyContent: 'space-between',
+  //   paddingHorizontal: 20,
+  //   paddingVertical: 16,
+  // },
+  // clearDataLeft: {
+  //   flexDirection: 'row',
+  //   alignItems: 'center',
+  //   flex: 1,
+  // },
+  // clearDataTextContainer: {
+  //   marginLeft: 12,
+  //   flex: 1,
+  // },
+  // clearDataLabel: {
+  //   fontSize: 16,
+  //   fontWeight: '500',
+  //   color: '#F44336',
+  //   marginBottom: 4,
+  // },
+  // clearDataDescription: {
+  //   fontSize: 13,
+  //   color: '#999',
+  //   lineHeight: 18,
+  // },
 });

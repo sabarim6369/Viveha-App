@@ -378,13 +378,9 @@ export const createclientCustomer = async (
                 await existingCustomer.save();
             }
 
-            // Validate only fields that are truly required
-            if (customerFieldSettings.emailId && !existingCustomer.emailId) {
-                throw new Error('Email ID is required');
-            }
-            if (customerFieldSettings.gstNo && !existingCustomer.gstNo) {
-                throw new Error('GST number is required');
-            }
+            // Note: Existing customers are not validated against current field settings
+            // because they were created when those fields may not have been required.
+            // Only new customers are validated against current settings.
 
             return { success: true, clientCustomer: existingCustomer, isNew: false };
         }

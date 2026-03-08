@@ -617,13 +617,13 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
                             </TouchableOpacity>
 
                             {/* Download icon */}
-                            <TouchableOpacity
+                            {/* <TouchableOpacity
                                 style={s.sqBtn}
                                 onPress={handleDownload}
                                 activeOpacity={0.8}
                             >
                                 <Ionicons name="download-outline" size={20} color="#555" />
-                            </TouchableOpacity>
+                            </TouchableOpacity> */}
 
                             {/* Share icon */}
                             <TouchableOpacity
