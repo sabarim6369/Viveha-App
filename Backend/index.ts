@@ -23,8 +23,7 @@ dotenv.config();
 
 // Initialize express app
 const app = express();
-const PORT = process.env.PORT || 10000;
-
+const PORT = Number(process.env.PORT) || 10000;
 // ============================================================================
 // MIDDLEWARE
 // ============================================================================
@@ -109,83 +108,95 @@ app.use((err: any, req: Request, res: Response, next: NextFunction) => {
 // ============================================================================
 // START SERVER
 // ============================================================================
+// const startServer = async () => {
+//     try {
+//         // Connect to MongoDB
+//         await connectDB();
+
+//         // Start reminder cron jobs
+//         startReminderCronJobs();
+
+//         // Start Express server
+//         app.listen(PORT, () => {
+//             console.log(`
+// ╔════════════════════════════════════════════════════════════╗
+// ║   🚀 Server started successfully!                          ║
+// ║   📡 Port: ${PORT}                                          ║
+// ║   🗄️  Database: MongoDB                                     ║
+// ║   ⏰ Time: ${new Date().toISOString()}                     ║
+// ╚════════════════════════════════════════════════════════════╝
+
+// 🔗 API Endpoints:
+//    └─ http://localhost:${PORT}/api
+
+// Available Routes:
+   
+//   Authentication & OTP:
+//   ├─ POST   /api/otp/send              - Send OTP
+//    ├─ POST   /api/auth/register         - Register Client
+//    ├─ POST   /api/auth/login            - Login Client
+//    ├─ POST   /api/auth/logout           - Logout Client
+//    └─ GET    /api/auth/client/:id       - Get Client Details
+   
+//    Item Groups:
+//    ├─ POST   /api/business/item-groups                    - Create Item Group
+//    ├─ GET    /api/business/item-groups/:clientId          - Get Item Groups
+//    ├─ PUT    /api/business/item-groups/:clientId/:groupId - Update Item Group
+//    └─ DELETE /api/business/item-groups/:clientId/:groupId - Delete Item Group
+   
+//    Items (with stock):
+//    ├─ POST   /api/business/items                      - Create Item
+//    ├─ GET    /api/business/items/:clientId            - Get Items
+//    ├─ PUT    /api/business/items/:clientId/:itemId    - Update Item
+//    └─ DELETE /api/business/items/:clientId/:itemId    - Delete Item
+   
+//   Client Customers (with name and phone):
+//    ├─ POST   /api/business/client-customers                              - Create clientCustomer
+//    ├─ GET    /api/business/client-customers/:clientId                    - Get clientCustomers
+//    ├─ GET    /api/business/client-customers/:clientId/:phone             - Get by Phone
+//    ├─ PUT    /api/business/client-customers/:clientId/:clientCustomerId  - Update clientCustomer
+//    └─ DELETE /api/business/client-customers/:clientId/:clientCustomerId  - Delete clientCustomer
+   
+//    Cart:
+//    ├─ POST   /api/business/carts           - Create Cart
+//    ├─ POST   /api/business/carts/add-item  - Add to Cart
+//    ├─ POST   /api/business/carts/remove-item - Remove from Cart
+//    ├─ GET    /api/business/carts/:cartId   - Get Cart
+//    └─ POST   /api/business/carts/clear     - Clear Cart
+   
+//     Invoices (with client clientCustomer & item details):
+//    ├─ POST   /api/business/invoices/generate         - Generate Invoice
+//    ├─ GET    /api/business/invoices/:clientId        - Get Invoices
+//    ├─ POST   /api/business/invoices/pay              - Record Payment
+//     ├─ GET    /api/business/invoices/:invoiceId/payments?clientId= - Get Payments
+//     ├─ GET    /api/business/purchase-history/:clientId   - Get Purchase History
+//     ├─ GET    /api/business/pending-invoices/:clientId   - Get Pending Invoices
+//     ├─ GET    /api/business/pending-invoices/:clientId/:clientCustomerId - Pending by clientCustomer
+//     └─ GET    /api/business/paid-invoices/:clientId/:clientCustomerId - Paid by clientCustomer
+   
+//     System:
+//    └─ GET    /api/health                - Health Check
+//     ├─ POST   /api/readytosync           - Ready-to-sync check
+//     └─ POST   /api/sync                  - Offline data sync
+
+// System is ready to handle requests!
+//       `);
+//         });
+//     } catch (error: any) {
+//         console.error('❌ Failed to start server:', error.message);
+//         process.exit(1);
+//     }
+// };
 const startServer = async () => {
     try {
-        // Connect to MongoDB
-        await connectDB();
-
-        // Start reminder cron jobs
-        startReminderCronJobs();
-
-        // Start Express server
-        app.listen(PORT, () => {
-            console.log(`
-╔════════════════════════════════════════════════════════════╗
-║   🚀 Server started successfully!                          ║
-║   📡 Port: ${PORT}                                          ║
-║   🗄️  Database: MongoDB                                     ║
-║   ⏰ Time: ${new Date().toISOString()}                     ║
-╚════════════════════════════════════════════════════════════╝
-
-🔗 API Endpoints:
-   └─ http://localhost:${PORT}/api
-
-Available Routes:
-   
-  Authentication & OTP:
-  ├─ POST   /api/otp/send              - Send OTP
-   ├─ POST   /api/auth/register         - Register Client
-   ├─ POST   /api/auth/login            - Login Client
-   ├─ POST   /api/auth/logout           - Logout Client
-   └─ GET    /api/auth/client/:id       - Get Client Details
-   
-   Item Groups:
-   ├─ POST   /api/business/item-groups                    - Create Item Group
-   ├─ GET    /api/business/item-groups/:clientId          - Get Item Groups
-   ├─ PUT    /api/business/item-groups/:clientId/:groupId - Update Item Group
-   └─ DELETE /api/business/item-groups/:clientId/:groupId - Delete Item Group
-   
-   Items (with stock):
-   ├─ POST   /api/business/items                      - Create Item
-   ├─ GET    /api/business/items/:clientId            - Get Items
-   ├─ PUT    /api/business/items/:clientId/:itemId    - Update Item
-   └─ DELETE /api/business/items/:clientId/:itemId    - Delete Item
-   
-  Client Customers (with name and phone):
-   ├─ POST   /api/business/client-customers                              - Create clientCustomer
-   ├─ GET    /api/business/client-customers/:clientId                    - Get clientCustomers
-   ├─ GET    /api/business/client-customers/:clientId/:phone             - Get by Phone
-   ├─ PUT    /api/business/client-customers/:clientId/:clientCustomerId  - Update clientCustomer
-   └─ DELETE /api/business/client-customers/:clientId/:clientCustomerId  - Delete clientCustomer
-   
-   Cart:
-   ├─ POST   /api/business/carts           - Create Cart
-   ├─ POST   /api/business/carts/add-item  - Add to Cart
-   ├─ POST   /api/business/carts/remove-item - Remove from Cart
-   ├─ GET    /api/business/carts/:cartId   - Get Cart
-   └─ POST   /api/business/carts/clear     - Clear Cart
-   
-    Invoices (with client clientCustomer & item details):
-   ├─ POST   /api/business/invoices/generate         - Generate Invoice
-   ├─ GET    /api/business/invoices/:clientId        - Get Invoices
-   ├─ POST   /api/business/invoices/pay              - Record Payment
-    ├─ GET    /api/business/invoices/:invoiceId/payments?clientId= - Get Payments
-    ├─ GET    /api/business/purchase-history/:clientId   - Get Purchase History
-    ├─ GET    /api/business/pending-invoices/:clientId   - Get Pending Invoices
-    ├─ GET    /api/business/pending-invoices/:clientId/:clientCustomerId - Pending by clientCustomer
-    └─ GET    /api/business/paid-invoices/:clientId/:clientCustomerId - Paid by clientCustomer
-   
-    System:
-   └─ GET    /api/health                - Health Check
-    ├─ POST   /api/readytosync           - Ready-to-sync check
-    └─ POST   /api/sync                  - Offline data sync
-
-System is ready to handle requests!
-      `);
+        app.listen(PORT, "0.0.0.0", () => {
+            console.log(`Server running on port ${PORT}`);
         });
-    } catch (error: any) {
-        console.error('❌ Failed to start server:', error.message);
-        process.exit(1);
+
+        await connectDB();
+        startReminderCronJobs();
+    } catch (error) {
+        console.error("Startup error:", error);
     }
 };
 
