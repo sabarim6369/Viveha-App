@@ -133,6 +133,7 @@ export default function TaxAndDiscountScreen({ navigation }: TaxAndDiscountScree
                                     onChangeText={setTaxPercentage}
                                     keyboardType="numeric"
                                     placeholder="0.00"
+                                    placeholderTextColor="#999"
                                 />
                                 <Text style={styles.inputSuffix}>%</Text>
                             </View>

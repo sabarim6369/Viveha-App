@@ -287,6 +287,7 @@ export default function VisitingCardScreen({ navigation }: VisitingCardScreenPro
                         <TextInput
                             style={styles.input}
                             placeholder="email@example.com"
+                            placeholderTextColor="#999"
                             value={newEmail}
                             onChangeText={setNewEmail}
                             keyboardType="email-address"

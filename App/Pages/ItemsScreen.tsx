@@ -622,6 +622,7 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
                   <TextInput
                     style={styles.input}
                     placeholder="Enter item name"
+                    placeholderTextColor="#999"
                     value={formData.name}
                     onChangeText={(text: string) => setFormData({ ...formData, name: text })}
                   />
@@ -665,6 +666,7 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
                       <TextInput
                         style={styles.priceInput}
                         placeholder="0.00"
+                        placeholderTextColor="#999"
                         value={formData.actualPrice}
                         onChangeText={(text: string) => setFormData({ ...formData, actualPrice: text.replace(/[^0-9.]/g, '') })}
                         keyboardType="decimal-pad"
@@ -679,6 +681,7 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
                       <TextInput
                         style={styles.priceInput}
                         placeholder="0.00"
+                        placeholderTextColor="#999"
                         value={formData.salePrice}
                         onChangeText={(text: string) => setFormData({ ...formData, salePrice: text.replace(/[^0-9.]/g, '') })}
                         keyboardType="decimal-pad"
@@ -692,6 +695,7 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
                   <TextInput
                     style={styles.input}
                     placeholder="Enter stock quantity"
+                    placeholderTextColor="#999"
                     value={formData.stock}
                     onChangeText={(text: string) => setFormData({ ...formData, stock: text.replace(/[^0-9]/g, '') })}
                     keyboardType="number-pad"
@@ -749,6 +753,7 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
                   <TextInput
                     style={styles.input}
                     placeholder="e.g., Engine Parts"
+                    placeholderTextColor="#999"
                     value={groupFormData.name}
                     onChangeText={(text: string) => setGroupFormData({ ...groupFormData, name: text })}
                   />
@@ -759,6 +764,7 @@ export default function ItemsScreen({ navigation }: ItemsScreenProps): React.JSX
                   <TextInput
                     style={[styles.input, styles.textArea]}
                     placeholder="e.g., All engine-related spare parts and components"
+                    placeholderTextColor="#999"
                     value={groupFormData.description}
                     onChangeText={(text: string) => setGroupFormData({ ...groupFormData, description: text })}
                     multiline

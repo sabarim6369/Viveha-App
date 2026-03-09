@@ -250,6 +250,7 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
                   <TextInput
                     style={styles.searchInput}
                     placeholder="Search state..."
+                    placeholderTextColor="#999"
                     value={searchQuery}
                     onChangeText={setSearchQuery}
                     autoFocus

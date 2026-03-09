@@ -941,11 +941,21 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
                     
                     <TouchableOpacity
                       style={styles.phoneIconButton}
-                      onPress={() => {
+                      onPress={async () => {
                         // Open phone dialer with customer's phone number
                         const phoneNumber = customer.clientPhone;
                         if (phoneNumber) {
-                          Linking.openURL(`tel:${phoneNumber}`);
+                          try {
+                            await Linking.openURL(`tel:${phoneNumber}`);
+                          } catch (error) {
+                            console.error('Error making phone call:', error);
+                            Toast.show({
+                              type: 'error',
+                              text1: 'Unable to make call',
+                              text2: 'Please check if you have a phone app installed',
+                              position: 'bottom',
+                            });
+                          }
                         } else {
                           Toast.show({
                             type: 'error',
@@ -1048,11 +1058,21 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
                     
                     <TouchableOpacity
                       style={styles.phoneIconButton}
-                      onPress={() => {
+                      onPress={async () => {
                         // Open phone dialer with customer's phone number
                         const phoneNumber = customer.clientPhone;
                         if (phoneNumber) {
-                          Linking.openURL(`tel:${phoneNumber}`);
+                          try {
+                            await Linking.openURL(`tel:${phoneNumber}`);
+                          } catch (error) {
+                            console.error('Error making phone call:', error);
+                            Toast.show({
+                              type: 'error',
+                              text1: 'Unable to make call',
+                              text2: 'Please check if you have a phone app installed',
+                              position: 'bottom',
+                            });
+                          }
                         } else {
                           Toast.show({
                             type: 'error',
@@ -1177,6 +1197,7 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
                     <TextInput
                       style={styles.amountInput}
                       placeholder="0.00"
+                      placeholderTextColor="#999"
                       keyboardType="decimal-pad"
                       value={partialAmount}
                       onChangeText={setPartialAmount}
@@ -1278,6 +1299,7 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
                   <TextInput
                     style={styles.messageInput}
                     placeholder="Add a note for this reminder..."
+                    placeholderTextColor="#999"
                     value={reminderMessage}
                     onChangeText={setReminderMessage}
                     multiline

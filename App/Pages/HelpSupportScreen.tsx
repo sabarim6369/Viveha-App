@@ -25,15 +25,10 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
         const url = `tel:${phoneNumber}`;
         
         try {
-            const canOpen = await Linking.canOpenURL(url);
-            if (canOpen) {
-                await Linking.openURL(url);
-            } else {
-                Alert.alert('Error', 'Unable to make phone call');
-            }
+            await Linking.openURL(url);
         } catch (error) {
             console.error('Error making phone call:', error);
-            Alert.alert('Error', 'Failed to make phone call');
+            Alert.alert('Error', 'Unable to make phone call. Please check if you have a phone app installed.');
         }
     };
 
@@ -43,15 +38,10 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
         const url = `mailto:${email}?subject=${encodeURIComponent(subject)}`;
         
         try {
-            const canOpen = await Linking.canOpenURL(url);
-            if (canOpen) {
-                await Linking.openURL(url);
-            } else {
-                Alert.alert('Error', 'Unable to open email client');
-            }
+            await Linking.openURL(url);
         } catch (error) {
             console.error('Error opening email:', error);
-            Alert.alert('Error', 'Failed to open email client');
+            Alert.alert('Error', 'Unable to open email client. Please check if you have an email app installed.');
         }
     };
 
@@ -61,15 +51,10 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
         const url = `whatsapp://send?phone=${phoneNumber}&text=${encodeURIComponent(message)}`;
         
         try {
-            const canOpen = await Linking.canOpenURL(url);
-            if (canOpen) {
-                await Linking.openURL(url);
-            } else {
-                Alert.alert('Error', 'WhatsApp is not installed on your device');
-            }
+            await Linking.openURL(url);
         } catch (error) {
             console.error('Error opening WhatsApp:', error);
-            Alert.alert('Error', 'Failed to open WhatsApp');
+            Alert.alert('Error', 'Unable to open WhatsApp. Please check if WhatsApp is installed on your device.');
         }
     };
 

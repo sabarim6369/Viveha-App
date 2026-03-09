@@ -859,6 +859,7 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
                     <TextInput
                       style={styles.amountInput}
                       placeholder="0.00"
+                      placeholderTextColor="#999"
                       keyboardType="decimal-pad"
                       value={partialAmount}
                       onChangeText={setPartialAmount}

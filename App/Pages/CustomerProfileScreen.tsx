@@ -203,9 +203,13 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
         return `*${customer.name}*\nInvoice No: ${fi?.invoiceNumber ?? 'N/A'}\n\n${payments.map((p, i) => `Bill ${i + 1} - ${formatBillDate(p.paidAt)}  ${fmt(p.amount)}`).join('\n')}\n\n*TOTAL:* ${fmt(totalBalance)}\n\nFriendly reminder from ${shopName}: balance of ${fmt(totalBalance)} remaining. Thanks!`;
     };
     const openURL = async (url: string) => {
-        const ok = await Linking.canOpenURL(url).catch(() => false);
-        if (ok) { await Linking.openURL(url); setShareModalVisible(false); }
-        else Alert.alert('Error', 'App not installed');
+        try {
+            await Linking.openURL(url);
+            setShareModalVisible(false);
+        } catch (error) {
+            console.error('Error opening URL:', error);
+            Alert.alert('Error', 'Unable to open the app. Please check if it is installed.');
+        }
     };
     
     const handleShareWhatsApp = async () => {

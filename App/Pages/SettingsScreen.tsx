@@ -445,6 +445,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
                           }}
                           keyboardType="decimal-pad"
                           placeholder="0.00"
+                          placeholderTextColor="#999"
                           maxLength={5}
                           editable={!updating}
                         />

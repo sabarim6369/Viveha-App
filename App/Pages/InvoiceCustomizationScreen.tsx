@@ -383,18 +383,25 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
           {COLOR_OPTIONS.map((item) => (
             <TouchableOpacity 
               key={item.color}
-              style={[
-                styles.colorDot, 
-                { backgroundColor: item.color },
-                settings.headerColor === item.color && styles.colorDotActive
-              ]}
+              style={styles.colorDotWrapper}
               onPress={() => updateSetting('headerColor', item.color)}
               activeOpacity={0.7}
-            />
+            >
+              <View
+                style={[
+                  styles.colorDot, 
+                  { backgroundColor: item.color },
+                  settings.headerColor === item.color && styles.colorDotActive
+                ]}
+              >
+                {settings.headerColor === item.color && (
+                  <View style={styles.checkmarkContainer}>
+                    <Ionicons name="checkmark" size={24} color="#fff" />
+                  </View>
+                )}
+              </View>
+            </TouchableOpacity>
           ))}
-          <TouchableOpacity style={styles.editColorBtn}>
-            <Ionicons name="create-outline" size={20} color="#666" />
-          </TouchableOpacity>
         </View>
 
         {/* Bottom Spacing */}
@@ -730,6 +737,9 @@ const styles = StyleSheet.create({
     gap: 16,
     paddingVertical: 20,
   },
+  colorDotWrapper: {
+    padding: 2,
+  },
   colorDot: {
     width: 48,
     height: 48,
@@ -739,22 +749,25 @@ const styles = StyleSheet.create({
     shadowOpacity: 0.15,
     shadowRadius: 4,
     elevation: 3,
+    alignItems: 'center',
+    justifyContent: 'center',
+    borderWidth: 2,
+    borderColor: 'transparent',
   },
   colorDotActive: {
     borderWidth: 3,
-    borderColor: '#fff',
-    shadowOpacity: 0.25,
-    elevation: 6,
+    borderColor: '#333',
+    shadowOpacity: 0.3,
+    elevation: 8,
+    transform: [{ scale: 1.1 }],
   },
-  editColorBtn: {
-    width: 48,
-    height: 48,
-    borderRadius: 8,
-    backgroundColor: '#F5F5F5',
+  checkmarkContainer: {
+    width: '100%',
+    height: '100%',
     alignItems: 'center',
     justifyContent: 'center',
-    borderWidth: 1,
-    borderColor: '#E0E0E0',
+    backgroundColor: 'rgba(0,0,0,0.2)',
+    borderRadius: 24,
   },
   bottomSpacing: {
     height: 20,
