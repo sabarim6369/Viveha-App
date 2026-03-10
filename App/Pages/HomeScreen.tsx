@@ -12,6 +12,7 @@ import {
 import { useFocusEffect } from '@react-navigation/native';
 import { LinearGradient } from 'expo-linear-gradient';
 import { Ionicons } from '@expo/vector-icons';
+import { useFonts, Syne_600SemiBold, Syne_700Bold } from '@expo-google-fonts/syne';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import Footer from '../Components/Footer';
@@ -63,6 +64,11 @@ interface Invoice {
 }
 
 export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.Element {
+  const [fontsLoaded] = useFonts({
+    Syne_600SemiBold,
+    Syne_700Bold,
+  });
+
   // Network status monitoring
   const { isConnected, isInternetReachable } = useNetworkStatus();
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
@@ -295,38 +301,35 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
           colors={['#E46269', '#E46269']}
           style={styles.headerCard}
         >
-          <View style={styles.headerTop}>
-            <View style={styles.headerLeft}>
-              <Image
-                source={require('../assets/logo2.png')}
-                style={styles.logo}
-                resizeMode="contain"
-              />
-              <View>
-                <Text style={styles.greeting}>{getGreeting()}</Text>
-                <Text style={styles.businessName}>{shopName.toUpperCase()}</Text>
-              </View>
-            </View>
-            <TouchableOpacity 
-              style={styles.notificationButton}
-              onPress={() => navigation.navigate('Notifications')}
-            >
-              <Ionicons name="notifications-outline" size={24} color="#fff" />
-            </TouchableOpacity>
-          </View>
+       <View style={styles.headerTop}>
+  <View style={styles.headerLeft}>
+    
+    <View style={styles.logoContainer}>
+      <Image
+        source={require('../assets/Home3.png')}
+        style={styles.logo}
+        resizeMode="contain"
+      />
+    </View>
+
+    <View>
+      <Text style={styles.greeting}>{getGreeting()}</Text>
+      <Text style={styles.businessName}>{shopName.toUpperCase()}</Text>
+    </View>
+
+  </View>
+
+  <TouchableOpacity
+    style={styles.notificationButton}
+    onPress={() => navigation.navigate('Notifications')}
+  >
+    <Ionicons name="notifications-outline" size={24} color="#fff" />
+  </TouchableOpacity>
+</View>
 
           <View style={styles.balanceSection}>
-            <View style={styles.balanceHeader}>
-              <Text style={styles.balanceLabel}>Total Balance</Text>
-              <TouchableOpacity onPress={toggleBalanceVisibility}>
-                <Ionicons
-                  name={isBalanceVisible ? "eye-outline" : "eye-off-outline"}
-                  size={20}
-                  color="#fff"
-                />
-              </TouchableOpacity>
-            </View>
-            <Text style={styles.balanceAmount}>
+          
+            {/* <Text style={styles.balanceAmount}>
               {isBalanceLoading ? (
                 'Loading...'
               ) : isBalanceVisible ? (
@@ -334,7 +337,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
               ) : (
                 'Rs. ****'
               )}
-            </Text>
+            </Text> */}
           </View>
 
           {/* Quick Links */}
@@ -349,7 +352,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
                   activeOpacity={0.7}
                 >
                   <View style={styles.quickLinkIcon}>
-                    <Ionicons name={link.icon as any} size={24} color="#E46269" />
+                    <Ionicons name={link.icon as any} size={24} color="#FFFFFF" />
                   </View>
                   <Text style={styles.quickLinkText}>{link.title}</Text>
                 </TouchableOpacity>
@@ -366,22 +369,24 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
           style={styles.inviteCard}
         >
           <View style={styles.inviteContent}>
-            <Text style={styles.inviteTitle}>Invite a friend and</Text>
-            <Text style={styles.inviteTitle}>both earn Offers</Text>
+            <Text style={[styles.inviteTitle, fontsLoaded && styles.inviteTitleSyne]}>Invite a friend and</Text>
+            <Text style={[styles.inviteTitle, fontsLoaded && styles.inviteTitleSyne]}>both earn Offers</Text>
             <TouchableOpacity 
               style={styles.inviteButton}
               // onPress={() => navigation.navigate('InviteFriends')}
               onPress={() => {}}
             >
-              <Text style={styles.inviteButtonText}>Invite Friends</Text>
+              <Text style={[styles.inviteButtonText, fontsLoaded && styles.inviteButtonTextSyne]}>Invite Friends</Text>
               <Ionicons name="arrow-forward" size={16} color="#fff" />
             </TouchableOpacity>
           </View>
-          <Image
-            source={require('../assets/logo2.png')}
-            style={styles.inviteLogo}
-            resizeMode="contain"
-          />
+          <View style={styles.inviteLogoSlot}>
+            <Image
+              source={require('../assets/Home3.png')}
+              style={styles.inviteLogo}
+              resizeMode="contain"
+            />
+          </View>
         </LinearGradient>
 
         {/* Transactions */}
@@ -465,19 +470,17 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 8,
   },
   headerLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 5,
   },
-  logo: {
-    width: 50,
-    height: 50,
-    borderRadius: 10,
-    backgroundColor: '#fff',
-  },
+ logo: {
+  width: 80,
+  height: 80,
+},
   greeting: {
     fontSize: 14,
     color: '#fff',
@@ -497,7 +500,7 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
   },
   balanceSection: {
-    marginBottom: 20,
+    marginBottom: 8,
   },
   balanceHeader: {
     flexDirection: 'row',
@@ -516,7 +519,7 @@ const styles = StyleSheet.create({
     color: '#fff',
   },
   quickLinksCard: {
-    backgroundColor: 'rgba(255,255,255,0.2)',
+    backgroundColor: '#AC434866',
     borderRadius: 20,
     padding: 20,
   },
@@ -538,7 +541,7 @@ const styles = StyleSheet.create({
     width: 56,
     height: 56,
     borderRadius: 16,
-    backgroundColor: '#fff',
+    backgroundColor: '#EB9A9E',
     alignItems: 'center',
     justifyContent: 'center',
   },
@@ -560,10 +563,19 @@ const styles = StyleSheet.create({
   inviteContent: {
     flex: 1,
   },
+  logoContainer: {
+  width: 50,
+  height: 50,
+  justifyContent: 'center',
+  alignItems: 'center',
+},
   inviteTitle: {
     fontSize: 16,
     fontWeight: '600',
     color: '#fff',
+  },
+  inviteTitleSyne: {
+    fontFamily: 'Syne_700Bold',
   },
   inviteButton: {
     flexDirection: 'row',
@@ -577,11 +589,19 @@ const styles = StyleSheet.create({
     color: '#fff',
     textDecorationLine: 'underline',
   },
+  inviteButtonTextSyne: {
+    fontFamily: 'Syne_600SemiBold',
+  },
+  inviteLogoSlot: {
+    width: 72,
+    height: 72,
+    alignItems: 'center',
+    justifyContent: 'center',
+    overflow: 'visible',
+  },
   inviteLogo: {
-    width: 70,
-    height: 70,
-    borderRadius: 20,
-    backgroundColor: 'rgba(255,255,255,0.3)',
+    width: 130,
+    height: 130,
   },
   transactionsSection: {
     paddingHorizontal: 20,

@@ -26,19 +26,20 @@
       "edgeToEdgeEnabled": true,
       "package": "com.isaiiai.vivehaaiapp",
       "permissions": [
-        "READ_CONTACTS"
+        "READ_CONTACTS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO"
       ],
       "allowBackup": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
-    "extra": {
-      "eas": {
-        "projectId": "d0ce4ead-b03e-45ea-8c26-241042e64bb4"
-      }
-    },
-    "owner": "isaii",
     "plugins": [
       "@react-native-community/datetimepicker",
       [
@@ -50,7 +51,14 @@
           "writeOnly": true
         }
       ],
-      "expo-asset"
-    ]
+      "expo-asset",
+      "expo-font"
+    ],
+    "extra": {
+      "eas": {
+        "projectId": "0f59173e-ad79-45d0-8f50-6dc5ee705f25"
+      }
+    },
+    "owner": "sabari2255"
   }
 }

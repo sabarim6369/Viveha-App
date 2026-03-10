@@ -99,9 +99,10 @@ import CreateCustomerScreen from './Pages/CreateCustomerScreen';
 import HelpSupportScreen from './Pages/HelpSupportScreen';
 import RateUsScreen from './Pages/RateUsScreen';
 import InvoiceCustomizationScreen from './Pages/InvoiceCustomizationScreen';
-// import PaymentMethodScreen from './Pages/PaymentMethodScreen';
+import PaymentMethodScreen from './Pages/PaymentMethodScreen';
 import ExportCenterScreen from './Pages/ExportCenterScreen';
 import NotificationsScreen from './Pages/NotificationsScreen';
+import EditProfileScreen from './Pages/EditProfileScreen';
 
 const Stack = createNativeStackNavigator();
 
@@ -190,7 +191,7 @@ export default function App() {
           <Stack.Screen name="Insights" component={InsightsScreen} />
           <Stack.Screen name="TaxAndDiscount" component={TaxAndDiscountScreen} />
           <Stack.Screen name="MyContacts" component={ContactsScreen} />
-          {/* <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} /> */}
+          <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
           <Stack.Screen name="ExportCenter" component={ExportCenterScreen} />
           <Stack.Screen name="CreateCustomer" component={CreateCustomerScreen} />
           <Stack.Screen name="InviteFriends" component={InviteFriendsScreen} />
@@ -198,6 +199,7 @@ export default function App() {
           <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
           <Stack.Screen name="RateUs" component={RateUsScreen} />
           <Stack.Screen name="Notifications" component={NotificationsScreen} />
+          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
         </Stack.Navigator>
       </NavigationContainer>
       <Toast config={CustomToastConfig} position="bottom" bottomOffset={100} />

@@ -310,6 +310,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
           keyboardShouldPersistTaps="handled"
           bounces={true}
         >
+        <View style={styles.settingsPanel}>
         {/* Customer Fields Section */}
         <View style={styles.section}>
           <View style={styles.sectionHeader}>
@@ -383,6 +384,8 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
             </View>
           )}
         </View>
+
+        <View style={styles.sectionBreak} />
 
         {/* Tax Settings Section */}
         <View style={styles.section}>
@@ -478,6 +481,7 @@ export default function SettingsScreen({ navigation }: SettingsScreenProps): Rea
             </View>
           )}
         </View>
+        </View>
 
         {/* Clear Data Section - Commented for now */}
         {/* <View style={styles.section}>
@@ -560,14 +564,6 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 10,
     paddingBottom: 15,
-    backgroundColor: '#fff',
-    borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 2 },
-    shadowOpacity: 0.05,
-    shadowRadius: 3,
-    elevation: 3,
   },
   backButton: {
     padding: 5,
@@ -589,12 +585,22 @@ const styles = StyleSheet.create({
   scrollViewContent: {
     flexGrow: 1,
     paddingBottom: 20,
+    paddingHorizontal: 16,
+  },
+  settingsPanel: {
+    backgroundColor: '#fff',
+    borderRadius: 16,
+    overflow: 'hidden',
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
   },
   section: {
     marginTop: 0,
   },
   sectionHeader: {
-    backgroundColor: '#fff',
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 16,
@@ -613,7 +619,6 @@ const styles = StyleSheet.create({
     lineHeight: 20,
   },
   loadingContainer: {
-    backgroundColor: '#fff',
     paddingVertical: 60,
     alignItems: 'center',
     justifyContent: 'center',
@@ -624,7 +629,11 @@ const styles = StyleSheet.create({
     color: '#666',
   },
   card: {
-    backgroundColor: '#fff',
+    backgroundColor: 'transparent',
+  },
+  sectionBreak: {
+    height: 12,
+    backgroundColor: '#F8F8F8',
   },
   settingRow: {
     flexDirection: 'row',

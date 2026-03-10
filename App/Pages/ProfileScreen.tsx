@@ -1,11 +1,11 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import {
   View,
   Text,
   StyleSheet,
   ScrollView,
   TouchableOpacity,
- Image,
+  Image,
   SafeAreaView,
   Alert,
 } from 'react-native';
@@ -13,6 +13,7 @@ import { Ionicons } from '@expo/vector-icons';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Footer from '../Components/Footer';
 import { clearAllUserData } from '../utils/NetworkManager';
+import { useFocusEffect } from '@react-navigation/native';
 
 // Type definitions
 interface ProfileScreenProps {
@@ -40,19 +41,27 @@ interface MenuItem {
 }
 
 export default function ProfileScreen({ navigation }: ProfileScreenProps): React.JSX.Element {
+  const defaultMenuIconColor = '#666';
+
   const [shopDetails, setShopDetails] = useState<ShopDetails>({
     shopName: 'My Shop',
     location: '',
     city: '',
     state: '',
-    ownerName: '',
     profileImage: '',
     gstin: ''
   });
+  const [isMenuVisible, setIsMenuVisible] = useState<boolean>(false);
 
   useEffect(() => {
     loadShopDetails();
   }, []);
+
+  useFocusEffect(
+    useCallback(() => {
+      loadShopDetails();
+    }, [])
+  );
 
   const loadShopDetails = async (): Promise<void> => {
     try {
@@ -164,18 +173,18 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
   };
 
   const menuItems: MenuItem[] = [
-    { id: 1, title: 'History', icon: 'time-outline', color: '#666', screen: 'History' },
-    { id: 2, title: 'Insights', icon: 'bar-chart-outline', color: '#666', screen: 'Insights' },
-    { id: 3, title: 'My Contacts', icon: 'people-outline', color: '#666', screen: 'MyContacts' },
-    { id: 13, title: 'Customize Invoice', icon: 'color-palette-outline', color: '#FF6B35', screen: 'InvoiceCustomization' },
-    { id: 12, title: 'Settings', icon: 'settings-outline', color: '#666', screen: 'Settings' },
-    { id: 4, title: 'Notification', icon: 'notifications-outline', color: '#666', screen: 'Notifications' },
-    // { id: 5, title: 'Payment Methods', icon: 'card-outline', color: '#666', screen: 'PaymentMethod' },
-    // { id: 10, title: 'Tax and Discount', icon: 'pricetag-outline', color: '#666', screen: 'TaxAndDiscount' },
-    { id: 6, title: 'Export Center', icon: 'download-outline', color: '#666', screen: 'ExportCenter' },
-    { id: 11, title: 'Clear Storage', icon: 'trash-outline', color: '#FF9800', isClearStorage: true },
-    { id: 7, title: 'Help & Support', icon: 'help-circle-outline', color: '#666', screen: 'HelpSupport' },
-    { id: 8, title: 'Rate us', icon: 'star-outline', color: '#666', screen: 'RateUs' },
+    { id: 1, title: 'History', icon: 'time-outline', color: defaultMenuIconColor, screen: 'History' },
+    { id: 2, title: 'Insights', icon: 'bar-chart-outline', color: defaultMenuIconColor, screen: 'Insights' },
+    { id: 3, title: 'My Contacts', icon: 'people-outline', color: defaultMenuIconColor, screen: 'MyContacts' },
+    { id: 13, title: 'Customize Invoice', icon: 'color-palette-outline', color: defaultMenuIconColor, screen: 'InvoiceCustomization' },
+    { id: 12, title: 'Settings', icon: 'settings-outline', color: defaultMenuIconColor, screen: 'Settings' },
+    { id: 4, title: 'Notification', icon: 'notifications-outline', color: defaultMenuIconColor, screen: 'Notifications' },
+    { id: 5, title: 'Payment Method', icon: 'card-outline', color: defaultMenuIconColor, screen: 'PaymentMethod' },
+    // { id: 10, title: 'Tax and Discount', icon: 'pricetag-outline', color: defaultMenuIconColor, screen: 'TaxAndDiscount' },
+    { id: 6, title: 'Export Center', icon: 'download-outline', color: defaultMenuIconColor, screen: 'ExportCenter' },
+    { id: 11, title: 'Clear Storage', icon: 'trash-outline', color: defaultMenuIconColor, isClearStorage: true },
+    { id: 7, title: 'Help & Support', icon: 'help-circle-outline', color: defaultMenuIconColor, screen: 'HelpSupport' },
+    { id: 8, title: 'Rate us', icon: 'star-outline', color: defaultMenuIconColor, screen: 'RateUs' },
     { id: 9, title: 'Logout', icon: 'log-out-outline', color: '#F44336', isLogout: true },
   ];
 
@@ -184,15 +193,40 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
       {/* Header */}
       <View style={styles.header}>
         <Image
-          source={require('../assets/logo2.png')}
+          source={require('../assets/Home3.png')}
           style={styles.logo}
           resizeMode="contain"
         />
         <Text style={styles.headerTitle}>Account</Text>
-        <TouchableOpacity style={styles.menuButton}>
+        <TouchableOpacity
+          style={styles.menuButton}
+          onPress={() => setIsMenuVisible((prev) => !prev)}
+        >
           <Ionicons name="ellipsis-vertical" size={24} color="#333" />
         </TouchableOpacity>
       </View>
+
+      {/* Header dropdown menu */}
+      {isMenuVisible && (
+        <TouchableOpacity
+          style={styles.menuOverlay}
+          activeOpacity={1}
+          onPress={() => setIsMenuVisible(false)}
+        >
+          <View style={styles.menuDropdown}>
+            <TouchableOpacity
+              style={styles.menuDropdownItem}
+              onPress={() => {
+                setIsMenuVisible(false);
+                navigation.navigate('EditProfile');
+              }}
+            >
+              <Ionicons name="create-outline" size={18} color="#333" />
+              <Text style={styles.menuDropdownText}>Edit profile</Text>
+            </TouchableOpacity>
+          </View>
+        </TouchableOpacity>
+      )}
 
       <ScrollView style={styles.scrollView} showsVerticalScrollIndicator={false}>
         {/* Profile Card */}
@@ -215,10 +249,10 @@ export default function ProfileScreen({ navigation }: ProfileScreenProps): React
             </View>
             <View style={styles.profileInfo}>
               <Text style={styles.businessName}>
-                {shopDetails.ownerName || shopDetails.shopName}
+                {shopDetails.shopName}
               </Text>
               <Text style={styles.businessId}>
-                {shopDetails.shopName}{shopDetails.city ? ` • ${shopDetails.city}` : ''}
+                {[shopDetails.city, shopDetails.state].filter(Boolean).join(' • ') || 'Business account'}
               </Text>
               {shopDetails.location && (
                 <Text style={styles.businessLocation}>{shopDetails.location}</Text>
@@ -414,5 +448,40 @@ const styles = StyleSheet.create({
   },
   bottomSpacing: {
     height: 20,
+  },
+  menuOverlay: {
+    position: 'absolute',
+    top: 70,
+    right: 10,
+    left: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.05)',
+    zIndex: 20,
+  },
+  menuDropdown: {
+    position: 'absolute',
+    top: 0,
+    right: 20,
+    backgroundColor: '#fff',
+    borderRadius: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.1,
+    shadowRadius: 4,
+    elevation: 4,
+  },
+  menuDropdownItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    paddingVertical: 6,
+    paddingHorizontal: 4,
+    gap: 8,
+  },
+  menuDropdownText: {
+    fontSize: 14,
+    color: '#333',
+    fontWeight: '500',
   },
 });

@@ -29,6 +29,7 @@ interface ConfirmationCodeScreenProps {
 export default function ConfirmationCodeScreen({ navigation, route }: ConfirmationCodeScreenProps): React.JSX.Element {
   const [code, setCode] = useState<string[]>(['', '', '', '']);
   const [loading, setLoading] = useState<boolean>(false);
+  const [resending, setResending] = useState<boolean>(false);
   const inputRefs = useRef<(TextInput | null)[]>([]);
   const phoneNumber = route.params?.phoneNumber || '0000000000';
 
@@ -105,7 +106,7 @@ export default function ConfirmationCodeScreen({ navigation, route }: Confirmati
         const registerResponse = await axios.post(`${API_URL}/auth/register`, {
           phoneNumber: phoneNumber,
           otp: confirmationCode,
-          ownerName: route.params?.ownerName || 'User',
+          ownerName: route.params?.shopName || route.params?.businessName || 'My Business',
           businessName: route.params?.businessName || route.params?.shopName || 'My Business',
           shopName: route.params?.shopName || '',
           location: route.params?.location || '',
@@ -172,11 +173,51 @@ export default function ConfirmationCodeScreen({ navigation, route }: Confirmati
     }
   };
 
-  const handleResendCode = (): void => {
-    // Reset code
+  const handleResendCode = async (): Promise<void> => {
     setCode(['', '', '', '']);
     inputRefs.current[0]?.focus();
-    // In real app, trigger resend SMS
+
+    try {
+      setResending(true);
+
+      const response = await axios.post(`${API_URL}/otp/send`, {
+        phoneNumber,
+        purpose: 'register'
+      }, {
+        timeout: 30000
+      });
+
+      if (response.data.success) {
+        Toast.show({
+          type: 'success',
+          text1: 'Code sent again',
+          text2: response.data.message || 'Please check your phone',
+          position: 'bottom',
+          visibilityTime: 2500,
+        });
+        return;
+      }
+
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to resend code',
+        text2: response.data.message || 'Please try again',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    } catch (error: any) {
+      console.error('Resend OTP Error:', error);
+
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to resend code',
+        text2: error.response?.data?.message || 'Please check your connection',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+    } finally {
+      setResending(false);
+    }
   };
 
   return (
@@ -238,22 +279,27 @@ export default function ConfirmationCodeScreen({ navigation, route }: Confirmati
             </TouchableOpacity>
 
             <TouchableOpacity
-              style={styles.resendButton}
+              style={[styles.resendButton, resending && styles.buttonDisabled]}
               onPress={handleResendCode}
               activeOpacity={0.7}
+              disabled={resending}
             >
-              <Text style={styles.resendButtonText}>I didn't recieve the code</Text>
+              {resending ? (
+                <ActivityIndicator color="#333" />
+              ) : (
+                <Text style={styles.resendButtonText}>I didn't recieve the code</Text>
+              )}
             </TouchableOpacity>
           </View>
 
           {/* Footer Branding */}
           <View style={styles.footer}>
             <Image
-              source={require('../assets/logo2.png')}
+              source={require('../assets/loginpage.jpeg')}
               style={styles.footerLogo}
               resizeMode="contain"
             />
-            <Text style={styles.footerText}>viveha.ai</Text>
+            {/* <Text style={styles.footerText}>viveha.ai</Text> */}
           </View>
         </ScrollView>
       </KeyboardAvoidingView>
@@ -353,8 +399,8 @@ const styles = StyleSheet.create({
     gap: 6,
   },
   footerLogo: {
-    width: 20,
-    height: 20,
+    width: 60,
+    height:60,
   },
   footerText: {
     fontSize: 14,

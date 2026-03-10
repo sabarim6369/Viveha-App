@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   View,
   Text,
@@ -8,65 +8,100 @@ import {
   Image,
   SafeAreaView,
   StatusBar,
-  Dimensions,
   ScrollView,
   KeyboardAvoidingView,
   Platform,
-  Alert
+  Keyboard,
+  Alert,
+  ActivityIndicator
 } from 'react-native';
-import { Ionicons, MaterialIcons } from '@expo/vector-icons';
+import { Ionicons } from '@expo/vector-icons';
+import axios from 'axios';
 import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
+import Toast from 'react-native-toast-message';
+import API_URL from '../api';
 
-const { width } = Dimensions.get('window');
+export default function ShopDetailsScreen({ navigation }: any) {
 
-interface ShopDetailsScreenProps {
-  navigation: any;
-}
-
-export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps): React.JSX.Element {
-  const [shopName, setShopName] = useState<string>('');
-  const [location, setLocation] = useState<string>('');
-  const [city, setCity] = useState<string>('');
-  const [selectedState, setSelectedState] = useState<string>('');
-  const [ownerName, setOwnerName] = useState<string>('');
-  const [showStateDropdown, setShowStateDropdown] = useState<boolean>(false);
-  const [searchQuery, setSearchQuery] = useState<string>('');
+  const [shopName, setShopName] = useState('');
+  const [location, setLocation] = useState('');
+  const [city, setCity] = useState('');
+  const [selectedState, setSelectedState] = useState('');
   const [profileImage, setProfileImage] = useState<string | null>(null);
-  const [gstinUin, setGstinUin] = useState<string>('');
+  const [phoneNumber, setPhoneNumber] = useState('');
+  const [gstinUin, setGstinUin] = useState('');
+  const [showStateDropdown, setShowStateDropdown] = useState(false);
+  const [stateSearch, setStateSearch] = useState('');
+  const [loading, setLoading] = useState(false);
 
-  const indianStates: string[] = [
-    'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
-    'Goa', 'Gujarat', 'Haryana', 'Himachal Pradesh', 'Jharkhand', 'Karnataka',
-    'Kerala', 'Madhya Pradesh', 'Maharashtra', 'Manipur', 'Meghalaya', 'Mizoram',
-    'Nagaland', 'Odisha', 'Punjab', 'Rajasthan', 'Sikkim', 'Tamil Nadu',
-    'Telangana', 'Tripura', 'Uttar Pradesh', 'Uttarakhand', 'West Bengal'
+  const [keyboardVisible, setKeyboardVisible] = useState(false);
+
+  const indianStates = [
+    'Andhra Pradesh',
+    'Arunachal Pradesh',
+    'Assam',
+    'Bihar',
+    'Chhattisgarh',
+    'Goa',
+    'Gujarat',
+    'Haryana',
+    'Himachal Pradesh',
+    'Jharkhand',
+    'Karnataka',
+    'Kerala',
+    'Madhya Pradesh',
+    'Maharashtra',
+    'Manipur',
+    'Meghalaya',
+    'Mizoram',
+    'Nagaland',
+    'Odisha',
+    'Punjab',
+    'Rajasthan',
+    'Sikkim',
+    'Tamil Nadu',
+    'Telangana',
+    'Tripura',
+    'Uttar Pradesh',
+    'Uttarakhand',
+    'West Bengal'
   ];
 
-  // Filter states based on search query
-  const filteredStates = indianStates.filter(state =>
-    state.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredStates = indianStates.filter((stateName) =>
+    stateName.toLowerCase().includes(stateSearch.toLowerCase())
   );
 
-  const handleImagePick = async (): Promise<void> => {
+  useEffect(() => {
+    const show = Keyboard.addListener("keyboardDidShow", () => setKeyboardVisible(true));
+    const hide = Keyboard.addListener("keyboardDidHide", () => setKeyboardVisible(false));
+
+    return () => {
+      show.remove();
+      hide.remove();
+    };
+  }, []);
+
+  const handleImagePick = async () => {
     Alert.alert(
       'Add Profile Picture',
       'Choose an option',
       [
         {
-          text: 'Take Photo',
-          onPress: async (): Promise<void> => {
+          text: 'Camera',
+          onPress: async () => {
+
             const { status } = await ImagePicker.requestCameraPermissionsAsync();
+
             if (status !== 'granted') {
-              Alert.alert('Permission needed', 'Camera permission is required to take photos');
+              Alert.alert("Camera permission required");
               return;
             }
 
             const result = await ImagePicker.launchCameraAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
               allowsEditing: true,
               aspect: [1, 1],
-              quality: 0.8,
+              quality: 0.8
             });
 
             if (!result.canceled) {
@@ -75,19 +110,19 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
           }
         },
         {
-          text: 'Choose from Gallery',
-          onPress: async (): Promise<void> => {
+          text: 'Gallery',
+          onPress: async () => {
+
             const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+
             if (status !== 'granted') {
-              Alert.alert('Permission needed', 'Gallery permission is required to select photos');
+              Alert.alert("Gallery permission required");
               return;
             }
 
             const result = await ImagePicker.launchImageLibraryAsync({
-              mediaTypes: ImagePicker.MediaTypeOptions.Images,
-              allowsEditing: true,
-              aspect: [1, 1],
-              quality: 0.8,
+              allowsEditing: false,
+              quality: 0.8
             });
 
             if (!result.canceled) {
@@ -100,42 +135,94 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
     );
   };
 
-  const handleNext = async (): Promise<void> => {
-    if (shopName && location && ownerName && ownerName.length > 2) {
-      // Save shop details to AsyncStorage
-      try {
-        const shopDetails = {
-          shopName,
-          location,
-          city,
-          state: selectedState,
-          ownerName,
-          profileImage,
-          gstin: gstinUin
-        };
-        await AsyncStorage.setItem('@viveha_shop_details', JSON.stringify(shopDetails));
-      } catch (error) {
-        console.error('Error saving shop details:', error);
+  const handleNext = async () => {
+    if (!shopName || !location || phoneNumber.length < 10 || loading) return;
+
+    const shopDetails = {
+      shopName,
+      businessName: shopName,
+      location,
+      city,
+      state: selectedState,
+      profileImage,
+      phoneNumber,
+      gstin: gstinUin
+    };
+
+    setLoading(true);
+
+    try {
+      await AsyncStorage.setItem('@viveha_shop_details', JSON.stringify(shopDetails));
+
+      const response = await axios.post(`${API_URL}/otp/send`, {
+        phoneNumber,
+        purpose: 'register'
+      }, {
+        timeout: 30000
+      });
+
+      if (response.data.success) {
+        Toast.show({
+          type: 'success',
+          text1: 'OTP Sent',
+          text2: response.data.message || 'Please check your phone',
+          position: 'bottom',
+          visibilityTime: 2000,
+        });
+
+        navigation.navigate('ConfirmationCode', shopDetails);
+        return;
       }
 
-      navigation.navigate('MobileNumber', {
-        shopName,
-        location,
-        city,
-        state: selectedState,
-        ownerName,
-        businessName: shopName,
-        profileImage,
-        gstin: gstinUin
+      Toast.show({
+        type: 'error',
+        text1: 'Failed to Send OTP',
+        text2: response.data.message || 'Please try again',
+        position: 'bottom',
+        visibilityTime: 3000,
       });
+    } catch (error: any) {
+      console.error('Send OTP Error:', error);
+      const errorMsg = error.response?.data?.message || '';
+
+      if (errorMsg.includes('already registered') || errorMsg.includes('already exists')) {
+        Toast.show({
+          type: 'info',
+          text1: 'User Already Registered',
+          text2: 'Please login instead',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+
+        setTimeout(() => {
+          navigation.navigate('OTPVerification');
+        }, 1500);
+      } else {
+        Toast.show({
+          type: 'error',
+          text1: 'Failed to Send OTP',
+          text2: errorMsg || 'Please check your connection',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
+      }
+    } finally {
+      setLoading(false);
     }
   };
 
+  const formatPhoneNumber = (text: string): string => {
+    const cleaned = text.replace(/\D/g, '');
+    return cleaned.slice(0, 10);
+  };
+
   return (
+
     <SafeAreaView style={styles.container}>
+
       <StatusBar barStyle="dark-content" />
 
-      {/* Back Button */}
+      {/* BACK BUTTON */}
       <TouchableOpacity
         style={styles.backButton}
         onPress={() => navigation.goBack()}
@@ -144,476 +231,521 @@ export default function ShopDetailsScreen({ navigation }: ShopDetailsScreenProps
       </TouchableOpacity>
 
       <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={60}
       >
-        {/* Main Content */}
+
         <ScrollView
-          style={styles.scrollView}
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
+          contentContainerStyle={{ flexGrow: 1, paddingBottom: 20 }}
           keyboardShouldPersistTaps="handled"
+          showsVerticalScrollIndicator={false}
         >
+
           <View style={styles.content}>
+
             <Text style={styles.title}>Tell us about your shop</Text>
+
             <Text style={styles.subtitle}>
               To begin creating account, add shop details.
             </Text>
 
-            {/* Profile Picture Upload */}
-            <TouchableOpacity
-              style={styles.profileImageContainer}
-              onPress={handleImagePick}
-              activeOpacity={0.7}
-            >
-              {profileImage ? (
-                <Image
-                  source={{ uri: profileImage }}
-                  style={styles.profileImage}
-                />
-              ) : (
-                <View style={styles.profilePlaceholder}>
-                  <Ionicons name="person" size={60} color="#CCC" />
-                </View>
-              )}
-              <View style={styles.cameraIconContainer}>
-                <Ionicons name="camera" size={20} color="#fff" />
-              </View>
-            </TouchableOpacity>
+            {/* PROFILE IMAGE */}
+
+            {!keyboardVisible && (
+              
+              <TouchableOpacity
+                style={styles.profileImageContainer}
+                onPress={handleImagePick}
+              >
+
+                {profileImage ? (
+
+                  <Image
+                    source={{ uri: profileImage }}
+                    style={styles.profileImage}
+                  />
+
+                ) : (
+
+                  <View style={styles.profilePlaceholder}>
+                    <Image
+                      source={require('../assets/upload.jpeg')}
+                      style={styles.profilePlaceholderImage}
+                      resizeMode="cover"
+                    />
+                  </View>
+
+                )}
+
+                {/* <View style={styles.cameraIconContainer}>
+                  <Ionicons name="camera" size={18} color="#fff" />
+                </View> */}
+
+              </TouchableOpacity>
+            )}
+
+            {/* SHOP NAME */}
 
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Shop Name<Text style={styles.required}>*</Text></Text>
+              <Text style={styles.label}>Shop Name *</Text>
+
               <TextInput
                 style={styles.input}
-                placeholder="e.g. Viveha Automobiles"
-                placeholderTextColor="#CCC"
+                placeholder="Viveha Automobiles"
                 value={shopName}
                 onChangeText={setShopName}
               />
             </View>
 
+            {/* LOCATION */}
+
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Location<Text style={styles.required}>*</Text></Text>
+              <Text style={styles.label}>Location *</Text>
+
               <TextInput
-                style={styles.input}
-                placeholder="Street Address, Area, Building"
-                placeholderTextColor="#CCC"
+                style={styles.textArea}
+                placeholder="Street, Area, Building"
                 value={location}
                 onChangeText={setLocation}
+                multiline
               />
             </View>
 
-            <View style={styles.rowContainer}>
-              <View style={styles.halfInputContainer}>
+            {/* CITY AND STATE */}
+
+            <View style={styles.row}>
+  <View style={[styles.halfInput]}>
+                {/* <Text style={styles.label}>City</Text> */}
+
                 <TextInput
                   style={styles.input}
                   placeholder="City"
-                  placeholderTextColor="#CCC"
                   value={city}
                   onChangeText={setCity}
                 />
               </View>
 
-              <View style={styles.halfInputContainer}>
+              <View style={[styles.halfInput]}>
+                {/* <Text style={styles.label}>State</Text> */}
+
                 <TouchableOpacity
                   style={styles.dropdownButton}
+                  activeOpacity={0.8}
                   onPress={() => {
-                    setShowStateDropdown(!showStateDropdown);
-                    if (showStateDropdown) {
-                      setSearchQuery('');
+                    setShowStateDropdown((prev) => !prev);
+                    if (!showStateDropdown) {
+                      setStateSearch('');
                     }
                   }}
                 >
-                  <Text style={[styles.dropdownButtonText, !selectedState && styles.placeholder]}>
+                  <Text
+                    style={[
+                      styles.dropdownButtonText,
+                      !selectedState && styles.dropdownPlaceholder
+                    ]}
+                    numberOfLines={1}
+                  >
                     {selectedState || 'State'}
                   </Text>
-                  <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
-                    <Ionicons
-                      name="search"
-                      size={16}
-                      color="#999"
-                    />
-                    <MaterialIcons
-                      name="keyboard-arrow-down"
-                      size={20}
-                      color="#999"
-                    />
-                  </View>
+                  <Ionicons name="chevron-down" size={18} color="#666" />
                 </TouchableOpacity>
+
+                {showStateDropdown && (
+                  <View style={styles.dropdownList}>
+                    <View style={styles.searchContainer}>
+                      <Ionicons name="search" size={16} color="#999" style={styles.searchIcon} />
+                      <TextInput
+                        style={styles.searchInput}
+                        placeholder="Search state"
+                        placeholderTextColor="#999"
+                        value={stateSearch}
+                        onChangeText={setStateSearch}
+                        autoFocus
+                      />
+                      {stateSearch.length > 0 && (
+                        <TouchableOpacity onPress={() => setStateSearch('')}>
+                          <Ionicons name="close-circle" size={16} color="#999" />
+                        </TouchableOpacity>
+                      )}
+                    </View>
+
+                    <ScrollView
+                      nestedScrollEnabled
+                      style={styles.dropdownScroll}
+                      keyboardShouldPersistTaps="handled"
+                      showsVerticalScrollIndicator={false}
+                    >
+                      {filteredStates.length > 0 ? (
+                        filteredStates.map((stateName) => (
+                          <TouchableOpacity
+                            key={stateName}
+                            style={styles.dropdownItem}
+                            onPress={() => {
+                              setSelectedState(stateName);
+                              setShowStateDropdown(false);
+                              setStateSearch('');
+                            }}
+                          >
+                            <Text style={styles.dropdownItemText}>{stateName}</Text>
+                          </TouchableOpacity>
+                        ))
+                      ) : (
+                        <View style={styles.emptyState}>
+                          <Text style={styles.emptyStateText}>No states found</Text>
+                        </View>
+                      )}
+                    </ScrollView>
+                  </View>
+                )}
               </View>
             </View>
 
-            {showStateDropdown && (
-              <View style={styles.dropdownList}>
-                <View style={styles.searchContainer}>
-                  <Ionicons name="search" size={18} color="#999" style={styles.searchIcon} />
-                  <TextInput
-                    style={styles.searchInput}
-                    placeholder="Search state..."
-                    placeholderTextColor="#999"
-                    value={searchQuery}
-                    onChangeText={setSearchQuery}
-                    autoFocus
-                  />
-                  {searchQuery.length > 0 && (
-                    <TouchableOpacity onPress={() => setSearchQuery('')}>
-                      <Ionicons name="close-circle" size={18} color="#999" />
-                    </TouchableOpacity>
-                  )}
-                </View>
-                <ScrollView style={styles.dropdownScroll} nestedScrollEnabled>
-                  {filteredStates.length > 0 ? (
-                    filteredStates.map((state: string, index: number) => (
-                      <TouchableOpacity
-                        key={index}
-                        style={styles.dropdownItem}
-                        onPress={() => {
-                          setSelectedState(state);
-                          setShowStateDropdown(false);
-                          setSearchQuery('');
-                        }}
-                      >
-                        <Text style={styles.dropdownItemText}>{state}</Text>
-                      </TouchableOpacity>
-                    ))
-                  ) : (
-                    <View style={styles.noResultsContainer}>
-                      <Text style={styles.noResultsText}>No states found</Text>
-                    </View>
-                  )}
-                </ScrollView>
-              </View>
-            )}
-
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Owner Name<Text style={styles.required}>*</Text></Text>
+              <Text style={styles.label}>Mobile Number</Text>
+
               <TextInput
                 style={styles.input}
-                placeholder="Enter your name"
-                placeholderTextColor="#CCC"
-                value={ownerName}
-                onChangeText={setOwnerName}
+                placeholder="+91-"
+                placeholderTextColor="#999"
+                value={phoneNumber ? `+91-${phoneNumber}` : ''}
+                onChangeText={(text: string) => {
+                  const cleaned = text.replace('+91-', '');
+                  setPhoneNumber(formatPhoneNumber(cleaned));
+                }}
+                keyboardType="phone-pad"
               />
             </View>
 
+            {/* GST */}
+
             <View style={styles.inputContainer}>
-              <Text style={styles.label}>Additional Details <Text style={styles.optional}>(optional)</Text></Text>
+              <Text style={styles.label}>Additional Details (optional)</Text>
+
               <TextInput
                 style={styles.input}
                 placeholder="GSTIN / UIN"
-                placeholderTextColor="#CCC"
                 value={gstinUin}
                 onChangeText={setGstinUin}
               />
             </View>
 
+            {/* TERMS */}
+
             <TouchableOpacity
-              style={styles.termsContainer}
-              onPress={() => navigation.navigate('TermsAgreement', {})}
               activeOpacity={0.7}
+              onPress={() => navigation.navigate('TermsAgreement', {})}
             >
               <Text style={styles.termsText}>
-                By continuing, you agree to the{' '}
-                <Text style={styles.termsLink}>Terms of Service</Text>
-                {' '}and confirm that you have read our{' '}
-                <Text style={styles.termsLink}>Privacy Policy</Text>
+                By continuing, you agree to the <Text style={styles.termsLink}>Terms of Service</Text> and confirm that you have read our <Text style={styles.termsLink}>Privacy Policy</Text>
               </Text>
             </TouchableOpacity>
+
           </View>
+
         </ScrollView>
+
       </KeyboardAvoidingView>
 
-      <View style={styles.bottomSection}>
-        <TouchableOpacity
-          style={[styles.button, (!shopName || !location || !ownerName || ownerName.length <= 2) && styles.buttonDisabled]}
-          onPress={handleNext}
-          activeOpacity={0.8}
-          disabled={!shopName || !location || !ownerName || ownerName.length <= 2}
-        >
-          <Text style={styles.buttonText}>Next</Text>
-        </TouchableOpacity>
+      {/* NEXT BUTTON */}
 
-        {/* Login Link */}
-        <TouchableOpacity
-          style={styles.loginButton}
-          onPress={() => navigation.navigate('OTPVerification')}
-          activeOpacity={0.7}
-        >
-          <Text style={styles.loginButtonText}>
-            Already have an account? <Text style={styles.loginButtonTextBold}>Login</Text>
-          </Text>
-        </TouchableOpacity>
+   <View style={styles.bottomSection}>
 
-        {/* Footer Branding */}
-        <View style={styles.footer}>
-          <Image
-            source={require('../assets/logo2.png')}
-            style={styles.footerLogo}
-            resizeMode="contain"
-          />
-          <Text style={styles.footerText}>viveha.ai</Text>
-        </View>
-      </View>
+  <TouchableOpacity
+    style={[styles.button, (!shopName || !location || phoneNumber.length < 10 || loading) && styles.buttonDisabled]}
+    onPress={handleNext}
+    disabled={!shopName || !location || phoneNumber.length < 10 || loading}
+  >
+    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Next</Text>}
+  </TouchableOpacity>
+
+  <TouchableOpacity
+    style={styles.loginButton}
+    onPress={() => navigation.navigate('OTPVerification')}
+  >
+    <Text style={styles.loginButtonText}>
+      Already have an account? <Text style={styles.loginButtonTextBold}>Login</Text>
+    </Text>
+  </TouchableOpacity>
+
+  {/* Branding */}
+  <View style={styles.footerBranding}>
+    <Image
+      source={require('../assets/loginpage.jpeg')}
+      style={styles.footerLogo}
+      resizeMode="contain"
+    />
+  </View>
+
+</View>
+
     </SafeAreaView>
+
   );
 }
 
 const styles = StyleSheet.create({
+
   container: {
     flex: 1,
-    backgroundColor: '#fff',
+    backgroundColor: '#fff'
   },
-  keyboardView: {
-    flex: 1,
-  },
+
   backButton: {
-    paddingTop: 40,
-    paddingLeft: 20,
-    paddingBottom: 10,
+    paddingTop: 24,
+    paddingLeft: 20
   },
-  scrollView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
-  content: {
-    paddingHorizontal: 24,
-    paddingTop: 10,
-  },
+
+ content: {
+  paddingHorizontal: 24,
+  paddingTop: 8
+},
+
   title: {
-    fontSize: 26,
+    fontSize: 22,
     fontWeight: 'bold',
-    color: '#000',
-    marginBottom: 8,
+    marginBottom: 4
   },
+
   subtitle: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
-    marginBottom: 28,
+    marginBottom: 14
   },
+
   profileImageContainer: {
-    width: 120,
-    height: 120,
+    width: 84,
+    height: 84,
     alignSelf: 'center',
-    marginBottom: 30,
-    position: 'relative',
+    marginBottom: 14
   },
+
   profilePlaceholder: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    backgroundColor: '#FFE5E0',
+    width: 84,
+    height: 90,
+    borderRadius: 42,
+    backgroundColor: '#dfd9d8',
+    overflow: 'hidden',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFF',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    justifyContent: 'center'
   },
+
+  profilePlaceholderImage: {
+    width: '100%',
+    height: '100%'
+  },
+
   profileImage: {
-    width: 120,
-    height: 120,
-    borderRadius: 60,
-    borderWidth: 2,
-    borderColor: '#FFF',
-    shadowColor: '#000',
-    shadowOffset: {
-      width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+    width: 84,
+    height: 84,
+    borderRadius: 42
   },
+
   cameraIconContainer: {
     position: 'absolute',
     bottom: 0,
     right: 0,
-    width: 36,
-    height: 36,
-    borderRadius: 18,
+    width: 24,
+    height: 24,
+    borderRadius: 12,
     backgroundColor: '#FF6B35',
     alignItems: 'center',
-    justifyContent: 'center',
-    borderWidth: 2,
-    borderColor: '#FFF',
+    justifyContent: 'center'
   },
+
   inputContainer: {
-    marginBottom: 20,
+    marginBottom: 18
   },
-  label: {
-    fontSize: 14,
-    fontWeight: '500',
-    color: '#000',
-    marginBottom: 8,
+
+  row: {
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  gap: 12,
+  marginBottom: 14
+},
+
+  halfInput: {
+    flex: 1
   },
-  required: {
-    color: '#000',
-  },
-  optional: {
-    fontWeight: '400',
-    color: '#999',
-  },
+
+ label: {
+  fontSize: 13,
+  fontWeight: '600',
+  marginBottom: 5,
+  color: '#222'
+},
+
   input: {
-    backgroundColor: '#fff',
-    borderRadius: 25,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
-    fontSize: 15,
-    color: '#333',
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: '#ddd',
+    borderRadius: 25,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
+    fontSize: 14,
+    minHeight: 46
   },
-  rowContainer: {
-    flexDirection: 'row',
-    gap: 12,
-    marginBottom: 20,
+
+  textArea: {
+    borderWidth: 1,
+    borderColor: '#ddd',
+    borderRadius: 20,
+    paddingHorizontal: 18,
+    paddingVertical: 12,
+    fontSize: 14,
+    minHeight: 62,
+    textAlignVertical: 'top'
   },
-  halfInputContainer: {
-    flex: 1,
-  },
+
   dropdownButton: {
-    backgroundColor: '#fff',
+    minHeight: 46,
+    borderWidth: 1,
+    borderColor: '#ddd',
     borderRadius: 25,
-    paddingHorizontal: 20,
-    paddingVertical: 16,
+    paddingHorizontal: 18,
+    paddingVertical: 11,
     flexDirection: 'row',
-    justifyContent: 'space-between',
     alignItems: 'center',
-    borderWidth: 1,
-    borderColor: '#DDD',
+    justifyContent: 'space-between'
   },
+
   dropdownButtonText: {
-    fontSize: 15,
-    color: '#333',
+    flex: 1,
+    color: '#111',
+    marginRight: 8
   },
-  placeholder: {
-    color: '#CCC',
+
+  dropdownPlaceholder: {
+    color: '#999'
   },
+
   dropdownList: {
-    backgroundColor: '#fff',
-    borderRadius: 12,
-    marginTop: -12,
-    marginBottom: 20,
-    marginHorizontal: 24,
-    maxHeight: 250,
+    position: 'absolute',
+    top: 52,
+    left: 0,
+    right: 0,
     borderWidth: 1,
-    borderColor: '#DDD',
+    borderColor: '#ddd',
+    borderRadius: 16,
+    backgroundColor: '#fff',
+    maxHeight: 180,
+    overflow: 'hidden',
+    zIndex: 30,
+    elevation: 8,
     shadowColor: '#000',
+    shadowOpacity: 0.08,
+    shadowRadius: 10,
     shadowOffset: {
       width: 0,
-      height: 2,
-    },
-    shadowOpacity: 0.1,
-    shadowRadius: 4,
-    elevation: 3,
+      height: 4
+    }
   },
+
+  dropdownScroll: {
+    maxHeight: 180
+  },
+
   searchContainer: {
     flexDirection: 'row',
     alignItems: 'center',
-    paddingHorizontal: 12,
-    paddingVertical: 8,
     borderBottomWidth: 1,
-    borderBottomColor: '#E0E0E0',
-    backgroundColor: '#F5F5F5',
+    borderBottomColor: '#f1f1f1',
+    paddingHorizontal: 14,
+    paddingVertical: 8
   },
+
   searchIcon: {
-    marginRight: 8,
+    marginRight: 8
   },
+
   searchInput: {
     flex: 1,
     fontSize: 14,
-    color: '#333',
-    paddingVertical: 6,
+    color: '#111',
+    paddingVertical: 0
   },
-  dropdownScroll: {
-    maxHeight: 200,
-  },
-  noResultsContainer: {
-    padding: 20,
-    alignItems: 'center',
-  },
-  noResultsText: {
-    fontSize: 14,
-    color: '#999',
-  },
+
   dropdownItem: {
-    padding: 14,
+    paddingHorizontal: 16,
+    paddingVertical: 12,
     borderBottomWidth: 1,
-    borderBottomColor: '#f0f0f0',
+    borderBottomColor: '#f1f1f1'
   },
+
   dropdownItemText: {
     fontSize: 14,
-    color: '#333',
+    color: '#333'
   },
+
+  emptyState: {
+    paddingHorizontal: 16,
+    paddingVertical: 16
+  },
+
+  emptyStateText: {
+    fontSize: 14,
+    color: '#999',
+    textAlign: 'center'
+  },
+
+  termsText: {
+    fontSize: 10,
+    textAlign: 'center',
+    color: '#999',
+    marginTop: 4,
+    lineHeight: 14
+  },
+
+  termsLink: {
+    color: '#FF6B35',
+    fontWeight: '600'
+  },
+
   bottomSection: {
     paddingHorizontal: 24,
-    paddingBottom: 20,
+    paddingBottom: 14
   },
+
   button: {
     backgroundColor: '#FF6B35',
     borderRadius: 25,
-    paddingVertical: 16,
+    paddingVertical: 13,
     alignItems: 'center',
-    marginBottom: 16,
+    minHeight: 48,
+    justifyContent: 'center'
   },
+
   buttonDisabled: {
-    opacity: 0.5,
+    opacity: 0.5
   },
+
   buttonText: {
     color: '#fff',
-    fontSize: 16,
     fontWeight: '600',
+    fontSize: 16
   },
-  loginButton: {
-    alignItems: 'center',
-    paddingVertical: 12,
-    marginBottom: 8,
-  },
-  loginButtonText: {
-    fontSize: 14,
-    color: '#666',
-  },
-  loginButtonTextBold: {
-    fontWeight: '600',
-    color: '#FF6B35',
-  },
-  footer: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 6,
-    paddingVertical: 10,
-  },
-  footerLogo: {
-    width: 18,
-    height: 18,
-  },
-  footerText: {
-    fontSize: 13,
-    color: '#999',
-    fontWeight: '500',
-  },
-  termsContainer: {
-    marginTop: 8,
-    marginBottom: 20,
-  },
-  termsText: {
-    fontSize: 11,
-    color: '#999',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  termsLink: {
-    color: '#FF6B35',
-    fontWeight: '600',
-    textDecorationLine: 'underline',
-  },
+  footerBranding: {
+  alignItems: "center",
+  marginTop: 8,
+},
+
+footerLogo: {
+  width: 60,
+  height: 40,
+},
+loginButton: {
+  alignItems: "center",
+  marginTop: 10,
+},
+
+loginButtonText: {
+  fontSize: 13,
+  color: "#666",
+},
+
+loginButtonTextBold: {
+  fontWeight: "600",
+  color: "#FF6B35",
+},
+
 });

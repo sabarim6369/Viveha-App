@@ -36,6 +36,11 @@ interface InvoiceSettings {
   headerColor: string;
 }
 
+interface ShopDetails {
+  shopName?: string;
+  profileImage?: string;
+}
+
 const COLOR_OPTIONS = [
   { color: '#5B8DEF' },
   { color: '#FF8A50' },
@@ -54,6 +59,10 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
   });
   const [loading, setLoading] = useState<boolean>(true);
   const [saving, setSaving] = useState<boolean>(false);
+  const [shopDetails, setShopDetails] = useState<ShopDetails>({
+    shopName: route?.params?.shopName || '',
+    profileImage: route?.params?.profileImage || '',
+  });
 
   useEffect(() => {
     loadSettings();
@@ -61,6 +70,15 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
 
   const loadSettings = async (): Promise<void> => {
     try {
+      const savedShopDetails = await AsyncStorage.getItem('@viveha_shop_details');
+      if (savedShopDetails) {
+        const parsedShopDetails = JSON.parse(savedShopDetails);
+        setShopDetails({
+          shopName: parsedShopDetails.shopName || route?.params?.shopName || '',
+          profileImage: parsedShopDetails.profileImage || route?.params?.profileImage || '',
+        });
+      }
+
       // Load from AsyncStorage first
       const savedSettings = await AsyncStorage.getItem('@viveha_invoice_settings');
       if (savedSettings) {
@@ -155,18 +173,17 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
   return (
     <View style={styles.container}>
       <StatusBar barStyle="dark-content" backgroundColor="#fff" />
-      
-      {/* Registration Header with Skip */}
-      {isRegistration && (
-        <View style={styles.registrationHeader}>
-          <TouchableOpacity 
-            style={styles.backButton}
-            onPress={() => navigation.goBack()}
-          >
-            <Ionicons name="arrow-back" size={24} color="#999" />
-          </TouchableOpacity>
-          
-          <TouchableOpacity 
+
+      <View style={styles.registrationHeader}>
+        <TouchableOpacity
+          style={styles.backButton}
+          onPress={() => navigation.goBack()}
+        >
+          <Ionicons name="arrow-back" size={24} color="#999" />
+        </TouchableOpacity>
+
+        {isRegistration ? (
+          <TouchableOpacity
             style={styles.skipButton}
             onPress={() => {
               navigation.navigate('Success', { ...route?.params, isRegistration: true });
@@ -174,8 +191,10 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
           >
             <Text style={styles.skipText}>Skip</Text>
           </TouchableOpacity>
-        </View>
-      )}
+        ) : (
+          <View style={styles.skipPlaceholder} />
+        )}
+      </View>
       
       <ScrollView 
         style={styles.scrollView}
@@ -197,12 +216,20 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
           <View style={styles.previewHeader}>
             {settings.showBrandLogo && (
               <View style={styles.brandSection}>
-                <Image 
-                  source={require('../assets/logo2.png')} 
-                  style={styles.brandIcon}
-                  resizeMode="contain"
-                />
-                <Text style={styles.brandName}>viveha.ai</Text>
+                {shopDetails.profileImage ? (
+                  <Image
+                    source={{ uri: shopDetails.profileImage }}
+                    style={styles.brandIcon}
+                    resizeMode="cover"
+                  />
+                ) : (
+                  <Image 
+                    source={require('../assets/logo2.png')} 
+                    style={styles.brandIcon}
+                    resizeMode="contain"
+                  />
+                )}
+                <Text style={styles.brandName}>{shopDetails.shopName || 'viveha.ai'}</Text>
               </View>
             )}
             
@@ -216,7 +243,7 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
               </View>
               <View style={styles.clientAvatar}>
                 <Image 
-                  source={require('../assets/logo2.png')} 
+                  source={require('../assets/Home3.png')} 
                   style={styles.avatarImage}
                   resizeMode="contain"
                 />
@@ -307,22 +334,39 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
           <Text style={styles.sectionTitle}>Layout Style</Text>
           <View style={styles.layoutOptions}>
             {(['Classic', 'Modern', 'Compact'] as const).map((layout) => (
+              (() => {
+                const isLocked = layout !== 'Modern';
+                const isActive = settings.layoutStyle === layout;
+
+                return (
               <TouchableOpacity 
                 key={layout}
                 style={[
                   styles.layoutButton, 
-                  settings.layoutStyle === layout && styles.layoutButtonActive
+                  isActive && styles.layoutButtonActive,
+                  isLocked && styles.layoutButtonLocked
                 ]}
-                onPress={() => updateSetting('layoutStyle', layout)}
+                onPress={() => {
+                  if (!isLocked) {
+                    updateSetting('layoutStyle', layout);
+                  }
+                }}
                 activeOpacity={0.7}
+                disabled={isLocked}
               >
-                <Text style={[
-                  styles.layoutText, 
-                  settings.layoutStyle === layout && styles.layoutTextActive
-                ]}>
-                  {layout}
-                </Text>
+                <View style={styles.layoutButtonContent}>
+                  <Text style={[
+                    styles.layoutText, 
+                    isActive && styles.layoutTextActive,
+                    isLocked && styles.layoutTextLocked
+                  ]}>
+                    {layout}
+                  </Text>
+                  {isLocked && <Ionicons name="lock-closed" size={14} color="#999" />}
+                </View>
               </TouchableOpacity>
+                );
+              })()
             ))}
           </View>
         </View>
@@ -448,8 +492,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'space-between',
     paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 10,
+    paddingTop: 20,
+    paddingBottom: 6,
     backgroundColor: '#FAFAFA',
   },
   backButton: {
@@ -457,6 +501,9 @@ const styles = StyleSheet.create({
   },
   skipButton: {
     padding: 4,
+  },
+  skipPlaceholder: {
+    width: 40,
   },
   skipText: {
     fontSize: 15,
@@ -466,18 +513,18 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   scrollContent: {
-    paddingTop: 8,
+    paddingTop: 0,
     paddingBottom: 100,
   },
   headerSection: {
     paddingHorizontal: 24,
-    paddingTop: 8,
+    paddingTop: 0,
     paddingBottom: 12,
     backgroundColor: '#FAFAFA',
   },
   headerTitle: {
     fontSize: 24,
-    fontWeight: '800',
+    fontWeight: '600',
     color: '#000',
     marginBottom: 4,
     letterSpacing: -0.5,
@@ -517,6 +564,7 @@ const styles = StyleSheet.create({
   brandIcon: {
     width: 22,
     height: 22,
+    borderRadius: 6,
   },
   brandName: {
     fontSize: 13,
@@ -550,14 +598,14 @@ const styles = StyleSheet.create({
     width: 34,
     height: 34,
     borderRadius: 8,
-    backgroundColor: '#F0F0F0',
+    // backgroundColor: '#F0F0F0',
     alignItems: 'center',
     justifyContent: 'center',
-    overflow: 'hidden',
+    overflow: 'visible',
   },
   avatarImage: {
-    width: 28,
-    height: 28,
+    width: 44,
+    height: 44,
   },
   invoiceContent: {
     backgroundColor: '#FAFAFA',
@@ -693,9 +741,19 @@ const styles = StyleSheet.create({
     backgroundColor: '#F8F9FA',
     alignItems: 'center',
   },
+  layoutButtonContent: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 6,
+  },
   layoutButtonActive: {
     borderColor: '#5B8DEF',
     backgroundColor: '#EBF3FF',
+  },
+  layoutButtonLocked: {
+    backgroundColor: '#F3F4F6',
+    borderColor: '#E5E7EB',
   },
   layoutText: {
     fontSize: 13,
@@ -705,6 +763,9 @@ const styles = StyleSheet.create({
   layoutTextActive: {
     color: '#5B8DEF',
     fontWeight: '600',
+  },
+  layoutTextLocked: {
+    color: '#999',
   },
   toggleRow: {
     flexDirection: 'row',

@@ -187,10 +187,11 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
 
       <KeyboardAvoidingView
         style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'padding'}
-        keyboardVerticalOffset={Platform.OS === 'ios' ? 0 : 20}
+        behavior={Platform.OS === 'ios' ? 'padding' : undefined}
+        keyboardVerticalOffset={0}
       >
         <ScrollView
+          style={styles.scroll}
           contentContainerStyle={styles.scrollContent}
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
@@ -199,11 +200,11 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
           <View style={styles.topSection}>
             <View style={styles.headerLogo}>
               <Image
-                source={require('../assets/logo2.png')}
+                source={require('../assets/loginpage.jpeg')}
                 style={styles.logo}
                 resizeMode="contain"
               />
-              <Text style={styles.brandText}>viveha.ai</Text>
+             
             </View>
           </View>
 
@@ -211,17 +212,15 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
           <View style={styles.bottomSection}>
             {/* Overlapping Logo */}
             <View style={styles.overlappingLogoContainer}>
-              <View style={styles.overlappingLogo}>
-                <Image
-                  source={require('../assets/logo2.png')}
-                  style={styles.overlappingLogoImage}
-                  resizeMode="contain"
-                />
-              </View>
+              <Image
+  source={require('../assets/logo2.png')}
+  style={styles.overlappingLogoImage}
+  resizeMode="contain"
+/>
             </View>
 
             <LinearGradient
-              colors={['#8B9FE8', '#E88E99']}
+              colors={['#7E93E6', '#E76E6A']}
               start={{ x: 0, y: 0 }}
               end={{ x: 0, y: 1 }}
               style={styles.gradientCard}
@@ -263,10 +262,15 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
                   )}
                 </TouchableOpacity>
 
-                <Text style={styles.termsText}>
-                  By continuing, you agree to the Terms of Service and confirm{'\n'}
-                  that you have read our Privacy Policy
-                </Text>
+                <TouchableOpacity
+                  onPress={() => navigation.navigate('TermsAgreement', {})}
+                  activeOpacity={0.8}
+                >
+                  <Text style={styles.termsText}>
+                    By continuing, you agree to the Terms of Service and confirm{ '\n'}
+                    that you have read our Privacy Policy
+                  </Text>
+                </TouchableOpacity>
               </View>
             </LinearGradient>
             <View style={styles.antiGapBlock} />
@@ -278,16 +282,20 @@ export default function VerificationCodeScreen({ navigation, route }: Verificati
 }
 
 const styles = StyleSheet.create({
-  container: {
+container: {
+  flex: 1,
+  backgroundColor: "#F5F5F5"
+},
+  scroll: {
     flex: 1,
-    backgroundColor: '#F8F8F8',
+    backgroundColor: '#E76E6A',
   },
   keyboardView: {
     flex: 1,
   },
   scrollContent: {
     flexGrow: 1,
-    paddingBottom: 40,
+  backgroundColor: '#F5F5F5'
   },
   backButton: {
     position: 'absolute',
@@ -298,23 +306,25 @@ const styles = StyleSheet.create({
     height: 40,
     justifyContent: 'center',
   },
-  topSection: {
-    flex: 1,
-    minHeight: 150,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingBottom: 40,
-  },
-  headerLogo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
-  },
-  logo: {
-    width: 50,
-    height: 50,
-  },
+topSection: {
+  flex: 1,
+  minHeight: 200,   // increased from 150
+  justifyContent: 'center',
+  alignItems: 'center',
+  paddingBottom: 40,
+},
+
+headerLogo: {
+  flexDirection: 'row',
+  alignItems: 'center',
+  justifyContent: 'center',
+  gap: 10,
+},
+
+logo: {
+  width: 140,   // increased from 50
+  height: 140,  // increased from 50
+},
   brandText: {
     fontSize: 26,
     fontWeight: '600',
@@ -326,26 +336,26 @@ const styles = StyleSheet.create({
   },
   antiGapBlock: {
     position: 'absolute',
-    top: '99%',
+    top: '100%',
     left: 0,
     right: 0,
-    height: 1000,
-    backgroundColor: '#E88E99',
+    height: 500,
+    backgroundColor: '#E76E6A',
     zIndex: -1,
   },
-  overlappingLogoContainer: {
-    position: 'absolute',
-    top: -50,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    alignItems: 'center',
-  },
+overlappingLogoContainer: {
+  position: 'absolute',
+   top: -55,
+  left: 0,
+  right: 0,
+  zIndex: 10,
+  alignItems: 'center',
+},
   overlappingLogo: {
     width: 100,
     height: 100,
     borderRadius: 25,
-    backgroundColor: '#E88E99',
+    backgroundColor: '#E76E6A',
     alignItems: 'center',
     justifyContent: 'center',
     shadowColor: '#000',
@@ -355,16 +365,15 @@ const styles = StyleSheet.create({
     elevation: 8,
   },
   overlappingLogoImage: {
-    width: 60,
-    height: 60,
+   width: 110,
+  height: 110,
   },
   gradientCard: {
     width: '100%',
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
     paddingTop: 70,
-    paddingBottom: 40,
-    paddingHorizontal: 30,
+paddingBottom: 170,    paddingHorizontal: 30,
   },
   cardContent: {
     alignItems: 'center',

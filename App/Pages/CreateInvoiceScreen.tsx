@@ -166,18 +166,31 @@ interface PendingRecord {
 const generateInvoiceNumber = async (isOffline: boolean): Promise<string> => {
   try {
     const shopDetailsStr = await AsyncStorage.getItem('@viveha_shop_details');
+    let nextInvoiceNo = 1;
+
     if (shopDetailsStr) {
       const details = JSON.parse(shopDetailsStr);
-      const nextInvoiceNo = (details.invoiceCount || 0) + 1;
-      const formattedNumber = String(nextInvoiceNo).padStart(6, '0');
-      
-      // If offline or not internet reachable, add 'OFF-' prefix
-      if (isOffline) {
-        return `OFF-${formattedNumber}`;
-      }
-      return `#${formattedNumber}`;
+      nextInvoiceNo = (details.invoiceCount || 0) + 1;
     }
-    return isOffline ? 'OFF-000001' : '#000001';
+
+    // Check local storage for any existing invoices with higher numbers
+    const localInvoices = await getLocalData(STORAGE_KEYS.INVOICES) || [];
+    const pendingsStr = await AsyncStorage.getItem('@viveha_pendings');
+    const pendingList = pendingsStr ? JSON.parse(pendingsStr) : [];
+
+    const allExisting = [...localInvoices, ...pendingList];
+    allExisting.forEach(inv => {
+      const numStr = inv.number || inv.invoiceNumber;
+      if (numStr) {
+        const numericPart = parseInt(numStr.replace(/[^0-9]/g, ''));
+        if (!isNaN(numericPart) && numericPart >= nextInvoiceNo) {
+          nextInvoiceNo = numericPart + 1;
+        }
+      }
+    });
+
+    const formattedNumber = String(nextInvoiceNo).padStart(6, '0');
+    return isOffline ? `OFF-${formattedNumber}` : `#${formattedNumber}`;
   } catch (error) {
     console.error('Error generating invoice number:', error);
     return isOffline ? 'OFF-000001' : '#000001';
@@ -1002,12 +1015,42 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
           }
         }
 
-        const result = await createInvoiceViaBackend(invoiceData);
+        let currentAttemptNumber = invoiceData.number;
+        let finalInvoiceResult = null;
+        let retryCount = 0;
+        const maxRetries = 5;
 
+        while (retryCount < maxRetries) {
+          console.log(`📤 Generation attempt ${retryCount + 1} with number: ${currentAttemptNumber}`);
+          const result = await createInvoiceViaBackend({ ...invoiceData, number: currentAttemptNumber });
+
+          if (result.success) {
+            finalInvoiceResult = result;
+            break;
+          } else if (result.error && result.error.includes('duplicate key error')) {
+            retryCount++;
+            const numericPart = parseInt(currentAttemptNumber.replace(/[^0-9]/g, ''));
+            const prefix = currentAttemptNumber.includes('#') ? '#' : (currentAttemptNumber.includes('OFF-') ? 'OFF-' : '');
+            currentAttemptNumber = prefix + String(numericPart + 1).padStart(6, '0');
+            console.log(`🔄 Duplicate detected. Auto-incrementing to ${currentAttemptNumber}...`);
+
+            // Update UI to show the new number being tried
+            setInvoiceDetails(prev => ({ ...prev, number: currentAttemptNumber }));
+            invoiceData.number = currentAttemptNumber;
+          } else {
+            throw new Error(result.error);
+          }
+        }
+
+        if (!finalInvoiceResult) {
+          throw new Error('Could not generate invoice after multiple serial number attempts. Please check manually.');
+        }
+
+        const result = finalInvoiceResult;
         if (result.success) {
           // Use backend's invoice number if available (in case backend assigns a different one)
           const backendInvoiceNumber = result.invoice?.invoiceNumber || result.invoice?.number || invoiceNumber;
-          
+
           // If backend assigned a different invoice number, log it
           if (backendInvoiceNumber !== invoiceNumber) {
             console.log(`📝 Backend assigned different invoice number: ${invoiceNumber} → ${backendInvoiceNumber}`);
@@ -1069,7 +1112,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
             const details = JSON.parse(shopDetailsStr);
             details.invoiceCount = (details.invoiceCount || 0) + 1;
             await AsyncStorage.setItem('@viveha_shop_details', JSON.stringify(details));
-            
+
             // Generate new invoice number based on connection status
             const newInvoiceNumber = await generateInvoiceNumber(!isConnected || !isInternetReachable);
             setInvoiceDetails(prev => ({
@@ -1133,7 +1176,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
           const details = JSON.parse(shopDetailsStr);
           details.invoiceCount = (details.invoiceCount || 0) + 1;
           await AsyncStorage.setItem('@viveha_shop_details', JSON.stringify(details));
-          
+
           // Generate new invoice number with offline prefix if not connected
           const newInvoiceNumber = await generateInvoiceNumber(!isConnected || !isInternetReachable);
           setInvoiceDetails(prev => ({
@@ -1157,12 +1200,18 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
           position: 'bottom',
         });
       }
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error generating invoice:', error);
+
+      let errorMsg = error.message || 'Failed to generate invoice';
+      if (errorMsg.includes('duplicate key error')) {
+        errorMsg = 'Invoice Number ' + invoiceNumber + ' already exists. Please change the invoice number and try again.';
+      }
+
       Toast.show({
         type: 'error',
         text1: 'Error',
-        text2: (error as Error).message || 'Failed to generate invoice',
+        text2: errorMsg,
         position: 'bottom',
       });
     } finally {
@@ -1298,8 +1347,8 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
             <View style={styles.invoiceDetailsRow}>
               <View style={styles.invoiceDetailItem}>
                 <Text style={styles.detailLabel}>Number</Text>
-                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
-                  <Text style={styles.detailValue}>{invoiceDetails.number}</Text>
+                <View style={{ flexDirection: 'row', alignItems: 'center', gap: 4 }}>
+                  <Text style={styles.detailValue} numberOfLines={1}>{invoiceDetails.number}</Text>
                   {invoiceDetails.number.startsWith('OFF-') && (
                     <View style={styles.offlineBadge}>
                       <Text style={styles.offlineBadgeText}>Offline</Text>
@@ -1309,15 +1358,44 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
               </View>
               <View style={styles.invoiceDetailItem}>
                 <Text style={styles.detailLabel}>Invoice Date</Text>
-                <Text style={styles.detailValue}>{invoiceDetails.invoiceDate}</Text>
+                <Text style={styles.detailValue} numberOfLines={1}>{invoiceDetails.invoiceDate}</Text>
               </View>
-              <TouchableOpacity
-                style={styles.invoiceDetailItem}
-                onPress={() => setShowDueDatePicker(true)}
-              >
+              <View style={styles.invoiceDetailItem}>
                 <Text style={styles.detailLabel}>Due Date</Text>
-                <Text style={styles.detailValue}>{invoiceDetails.dueDate}</Text>
-              </TouchableOpacity>
+                <Text style={styles.detailValue} numberOfLines={1}>{invoiceDetails.dueDate}</Text>
+              </View>
+              <View style={[styles.invoiceDetailItem, { alignItems: 'flex-end' }]}>
+                <TouchableOpacity
+                  style={styles.editIconContainer}
+                  onPress={() => {
+                    Alert.alert(
+                      'Edit Details',
+                      'Select what to update:',
+                      [
+                        {
+                          text: 'Invoice Number',
+                          onPress: () => {
+                            // Using a prompt-like approach for cross-platform compatibility
+                            Alert.prompt ?
+                              Alert.prompt(
+                                "Invoice Number",
+                                "Change the invoice number:",
+                                (num) => setInvoiceDetails(prev => ({ ...prev, number: num })),
+                                'plain-text',
+                                invoiceDetails.number
+                              ) :
+                              Alert.alert("Feature", "Invoice number editing is limited on this platform version, but we've improved the sync. Tap generate again if you've updated settings.");
+                          }
+                        },
+                        { text: 'Due Date', onPress: () => setShowDueDatePicker(true) },
+                        { text: 'Cancel', style: 'cancel' }
+                      ]
+                    );
+                  }}
+                >
+                  <Ionicons name={"pencil" as any} size={22} color="#5D73F8" />
+                </TouchableOpacity>
+              </View>
             </View>
           </View>
         </View>
@@ -1329,14 +1407,14 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
             <TouchableOpacity style={styles.infoRow}>
               <View style={styles.infoLeft}>
                 <View style={styles.iconContainer}>
-                  <Ionicons name={"business" as any} size={20} color="#E46269" />
+                  <Ionicons name={"business" as any} size={16} color="#E46269" />
                 </View>
                 <View>
                   <Text style={styles.infoTitle}>From</Text>
                   <Text style={styles.infoSubtitle}>{businessInfo.name}</Text>
                 </View>
               </View>
-              <Ionicons name={"chevron-forward" as any} size={20} color="#999" />
+              <Ionicons name={"chevron-forward" as any} size={18} color="#999" />
             </TouchableOpacity>
 
             <View style={styles.divider} />
@@ -1347,7 +1425,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
             >
               <View style={styles.infoLeft}>
                 <View style={styles.iconContainer}>
-                  <Ionicons name={"person" as any} size={20} color="#FF9A5F" />
+                  <Ionicons name={"person" as any} size={16} color="#FF9A5F" />
                 </View>
                 <View style={styles.clientInfoText}>
                   <Text style={styles.infoTitle}>To</Text>
@@ -1361,7 +1439,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                   )}
                 </View>
               </View>
-              <Ionicons name={"chevron-forward" as any} size={20} color="#999" />
+              <Ionicons name={"chevron-forward" as any} size={18} color="#999" />
             </TouchableOpacity>
           </View>
         </View>
@@ -1372,7 +1450,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
           <View style={styles.card}>
             {items.length === 0 ? (
               <View style={styles.emptyItemsState}>
-                <Ionicons name={"cart-outline" as any} size={50} color="#ccc" />
+                <Ionicons name={"cart-outline" as any} size={32} color="#ccc" />
                 <Text style={styles.emptyItemsText}>No items added yet</Text>
                 <Text style={styles.emptyItemsSubtext}>Tap "Add Item" to get started</Text>
               </View>
@@ -1491,7 +1569,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
           }}
         >
           <Ionicons name={"add" as any} size={20} color="#333" />
-          <Text style={styles.addNewCardText}>Add Additional Fee</Text>
+          <Text style={styles.addNewCardText}>Add New Card</Text>
         </TouchableOpacity>
 
         {/* Action Buttons */}
@@ -1546,7 +1624,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         transparent={true}
         onRequestClose={() => setSelectClientModalVisible(false)}
       >
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior='padding'
           style={styles.modalOverlay}
         >
@@ -1748,7 +1826,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         transparent={true}
         onRequestClose={() => setSelectItemModalVisible(false)}
       >
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior='padding'
           style={styles.modalOverlay}
         >
@@ -1852,7 +1930,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         transparent={true}
         onRequestClose={() => setContactsModalVisible(false)}
       >
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior='padding'
           style={styles.modalOverlay}
         >
@@ -1950,14 +2028,14 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         transparent={true}
         onRequestClose={() => setAddFeeModalVisible(false)}
       >
-        <KeyboardAvoidingView 
+        <KeyboardAvoidingView
           behavior='padding'
           style={styles.modalOverlay}
         >
           <View style={styles.addFeeModalContent}>
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Add Additional Fee</Text>
-              <TouchableOpacity 
+              <TouchableOpacity
                 onPress={() => setAddFeeModalVisible(false)}
                 style={styles.closeButton}
               >
@@ -2070,7 +2148,7 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    marginTop: 20,
+    marginTop: 12,
     paddingHorizontal: 20,
   },
   sectionLabel: {
@@ -2089,18 +2167,25 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    gap: 20,
+  },
+  editIconContainer: {
+    width: 44,
+    height: 44,
+    borderRadius: 22,
+    backgroundColor: '#F0F5FF',
+    alignItems: 'center',
+    justifyContent: 'center',
   },
   invoiceDetailItem: {
     flex: 1,
   },
   detailLabel: {
-    fontSize: 12,
+    fontSize: 10,
     color: '#999',
     marginBottom: 4,
   },
   detailValue: {
-    fontSize: 14,
+    fontSize: 12,
     fontWeight: '600',
     color: '#333',
   },
@@ -2123,42 +2208,41 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingVertical: 12,
+    paddingVertical: 8,
   },
   infoLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 10,
     flex: 1,
   },
   iconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 20,
+    width: 32,
+    height: 32,
+    borderRadius: 16,
     backgroundColor: '#FFF3F3',
     alignItems: 'center',
     justifyContent: 'center',
   },
   infoTitle: {
-    fontSize: 14,
+    fontSize: 13,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 2,
+    marginBottom: 0,
   },
   infoSubtitle: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#999',
   },
   clientInfoText: {
     flex: 1,
   },
   clientPhone: {
-    fontSize: 11,
+    fontSize: 10,
     color: '#666',
-    marginTop: 2,
   },
   clientPlaceholder: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#ccc',
     fontStyle: 'italic',
   },
@@ -2262,14 +2346,14 @@ const styles = StyleSheet.create({
   },
   emptyItemsState: {
     alignItems: 'center',
-    paddingVertical: 40,
+    paddingVertical: 15,
   },
   emptyItemsText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#999',
-    marginTop: 15,
-    marginBottom: 20,
+    marginTop: 8,
+    marginBottom: 10,
   },
   emptyItemsSubtext: {
     fontSize: 13,
@@ -2294,7 +2378,7 @@ const styles = StyleSheet.create({
   totalRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginVertical: 5,
+    marginVertical: 3,
   },
   totalLabel: {
     fontSize: 13,
@@ -2327,8 +2411,8 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     marginHorizontal: 20,
-    marginTop: 20,
-    paddingVertical: 12,
+    marginTop: 10,
+    paddingVertical: 10,
     gap: 8,
   },
   addNewCardText: {
@@ -2362,9 +2446,9 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
-    backgroundColor: '#E46269',
+    backgroundColor: '#F97F48',
     borderRadius: 12,
-    paddingVertical: 15,
+    paddingVertical: 12,
     gap: 8,
   },
   generateText: {

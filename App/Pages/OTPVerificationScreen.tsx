@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState } from "react";
 import {
   View,
   Text,
@@ -8,98 +8,98 @@ import {
   Image,
   SafeAreaView,
   StatusBar,
-  Dimensions,
   KeyboardAvoidingView,
-  ScrollView,
+  Keyboard,
   Platform,
-  ActivityIndicator
-} from 'react-native';
-import { LinearGradient } from 'expo-linear-gradient';
-import { Ionicons } from '@expo/vector-icons';
-import axios from 'axios';
-import API_URL from '../api';
-import Toast from 'react-native-toast-message';
+  Dimensions,
+  ActivityIndicator,
+  ScrollView,
+} from "react-native";
+import { LinearGradient } from "expo-linear-gradient";
+import axios from "axios";
+import API_URL from "../api";
+import Toast from "react-native-toast-message";
 
-const { width } = Dimensions.get('window');
+const { height } = Dimensions.get("window");
 
 interface OTPVerificationScreenProps {
   navigation: any;
 }
 
-export default function OTPVerificationScreen({ navigation }: OTPVerificationScreenProps): React.JSX.Element {
-  const [phoneNumber, setPhoneNumber] = useState<string>('');
-  const [error, setError] = useState<string>('');
-  const [loading, setLoading] = useState<boolean>(false);
+export default function OTPVerificationScreen({ navigation }: OTPVerificationScreenProps) {
+  const [phone, setPhone] = useState("");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
 
-  const handlePhoneChange = (text: string): void => {
-    // Remove all non-numeric characters
-    const numericOnly = text.replace(/[^0-9]/g, '');
+  const handlePhoneChange = (text: string) => {
+    const numericOnly = text.replace(/[^0-9]/g, "");
 
-    // Limit to 10 digits
     if (numericOnly.length <= 10) {
-      setPhoneNumber(numericOnly);
-      setError('');
+      setPhone(numericOnly);
+      setError("");
     }
   };
 
-  const handleContinue = async (): Promise<void> => {
-    // Validation checks
-    if (phoneNumber.length === 0) {
-      setError('Phone number is required');
+  const handleContinue = async () => {
+    if (!phone.length) {
+      setError("Phone number is required");
       return;
     }
 
-    if (phoneNumber.length < 10) {
-      setError('Phone number must be 10 digits');
+    if (phone.length < 10) {
+      setError("Phone number must be 10 digits");
       return;
     }
 
-    // Check if number starts with valid digits (6-9 for Indian mobile numbers)
-    if (!['6', '7', '8', '9'].includes(phoneNumber[0])) {
-      setError('Please enter a valid mobile number');
+    if (!["6", "7", "8", "9"].includes(phone[0])) {
+      setError("Please enter a valid mobile number");
       return;
     }
 
-    // All validations passed
-    setError('');
+    setError("");
+    Keyboard.dismiss();
     setLoading(true);
 
     try {
-      // Send OTP
-      const response = await axios.post(`${API_URL}/otp/send`, {
-        phoneNumber: phoneNumber,
-        purpose: 'login'
-      }, {
-        timeout: 30000
-      });
+      const response = await axios.post(
+        `${API_URL}/otp/send`,
+        {
+          phoneNumber: phone,
+          purpose: "login",
+        },
+        {
+          timeout: 30000,
+        }
+      );
 
       if (response.data.success) {
         Toast.show({
-          type: 'success',
-          text1: 'OTP Sent',
-          text2: response.data.message || 'Please check your phone',
-          position: 'bottom',
+          type: "success",
+          text1: "OTP Sent",
+          text2: response.data.message || "Please check your phone",
+          position: "bottom",
           visibilityTime: 2000,
         });
-        navigation.navigate('VerificationCode', { phoneNumber });
-      } else {
-        Toast.show({
-          type: 'error',
-          text1: 'Failed to Send OTP',
-          text2: response.data.message || 'Please try again',
-          position: 'bottom',
-          visibilityTime: 3000,
-        });
+
+        navigation.navigate("VerificationCode", { phoneNumber: phone });
+        return;
       }
-    } catch (error: any) {
-      console.error('Send OTP Error:', error);
-      const errorMessage = error.response?.data?.message || 'Failed to send OTP. Please check your connection.';
-      
+
       Toast.show({
-        type: 'error',
-        text1: 'Connection Error',
-        text2: errorMessage,
-        position: 'bottom',
+        type: "error",
+        text1: "Failed to Send OTP",
+        text2: response.data.message || "Please try again",
+        position: "bottom",
+        visibilityTime: 3000,
+      });
+    } catch (requestError: any) {
+      Toast.show({
+        type: "error",
+        text1: "Connection Error",
+        text2:
+          requestError.response?.data?.message ||
+          "Failed to send OTP. Please check your connection.",
+        position: "bottom",
         visibilityTime: 3000,
       });
     } finally {
@@ -111,112 +111,97 @@ export default function OTPVerificationScreen({ navigation }: OTPVerificationScr
     <SafeAreaView style={styles.container}>
       <StatusBar barStyle="dark-content" />
 
+      {/* <KeyboardAvoidingView
+        style={{ flex: 1 }}
+        behavior={Platform.OS === "ios" ? "padding" : undefined}
+        keyboardVerticalOffset={Platform.OS === "ios" ? 80 : 0}
 
-      <KeyboardAvoidingView
-        style={styles.keyboardView}
-        behavior={Platform.OS === 'ios' ? 'padding' : 'height'}
-        keyboardVerticalOffset={0}
-      >
-        <ScrollView
-          contentContainerStyle={styles.scrollContent}
-          showsVerticalScrollIndicator={false}
-          keyboardShouldPersistTaps="handled"
+      > */}
+        {/* <ScrollView
+    contentContainerStyle={{ flexGrow: 1 }}
+    keyboardShouldPersistTaps="handled"
+  > */}
+        {/* TOP LOGO */}
+        <View style={styles.topSection}>
+          <View style={styles.logoRow}>
+            <Image
+              source={require("../assets/loginpage.jpeg")}
+              style={styles.logoImage}
+              resizeMode="contain"
+            />
+          </View>
+        </View>
+
+        {/* BOTTOM CARD */}
+        <LinearGradient
+          colors={["#7E93E6", "#E76E6A"]}
+          style={styles.bottomCard}
         >
-          {/* Top Section with Logo */}
-          <View style={styles.topSection}>
-            <View style={styles.headerLogo}>
-              <Image
-                source={require('../assets/logo2.png')}
-                style={styles.logo}
-                resizeMode="contain"
+          {/* Floating logo */}
+          <View style={styles.floatingLogo}>
+            <Image
+              source={require("../assets/logo2.png")}
+              style={styles.floatingLogoImage}
+              resizeMode="contain"
+            />
+          </View>
+
+          <Text style={styles.title}>OTP Verification</Text>
+
+          <Text style={styles.subtitle}>
+            Enter phone number to send one time password
+          </Text>
+
+          <View style={styles.inputWrapper}>
+            <Text style={styles.label}>Phone Number</Text>
+
+            <View style={styles.inputBox}>
+              <Text style={styles.countryCode}>+91-</Text>
+              <TextInput
+                style={styles.input}
+                keyboardType="number-pad"
+                maxLength={10}
+                value={phone}
+                onChangeText={handlePhoneChange}
               />
-              <Text style={styles.brandText}>viveha.ai</Text>
             </View>
+            {error ? <Text style={styles.errorText}>{error}</Text> : null}
           </View>
 
-          {/* Bottom Section - Full Width Gradient Card */}
-          <View style={styles.bottomSection}>
-            {/* Overlapping Logo */}
-            <View style={styles.overlappingLogoContainer}>
-              <View style={styles.overlappingLogo}>
-                <Image
-                  source={require('../assets/logo2.png')}
-                  style={styles.overlappingLogoImage}
-                  resizeMode="contain"
-                />
-              </View>
-            </View>
+          <TouchableOpacity
+            style={[styles.button, (phone.length < 10 || loading) && styles.buttonDisabled]}
+            onPress={handleContinue}
+            disabled={phone.length < 10 || loading}
+          >
+            {loading ? (
+              <ActivityIndicator color="#fff" />
+            ) : (
+              <Text style={styles.buttonText}>Continue</Text>
+            )}
+          </TouchableOpacity>
 
-            <LinearGradient
-              colors={['#8B9FE8', '#E88E99']}
-              start={{ x: 0, y: 0 }}
-              end={{ x: 0, y: 1 }}
-              style={styles.gradientCard}
-            >
-              <View style={styles.cardContent}>
-                <Text style={styles.title}>OTP Verification</Text>
-                <Text style={styles.subtitle}>
-                  Enter phone number to send one time{'\n'}
-                  password
-                </Text>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("ShopDetails")}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.registerText}>
+              Don't have an account?{" "}
+              <Text style={styles.registerBold}>Register Now</Text>
+            </Text>
+          </TouchableOpacity>
 
-                <View style={styles.inputContainer}>
-                  <View style={styles.labelRow}>
-                    <Text style={styles.label}>Phone Number</Text>
-                    <Text style={styles.charCount}>{phoneNumber.length}/10</Text>
-                  </View>
-                  <TextInput
-                    style={[styles.input, error ? styles.inputError : null]}
-                    placeholder="Enter 10 digit mobile number"
-                    placeholderTextColor="#999"
-                    value={phoneNumber}
-                    onChangeText={handlePhoneChange}
-                    keyboardType="number-pad"
-                    maxLength={10}
-                  />
-                  {error ? <Text style={styles.errorText}>{error}</Text> : null}
-                </View>
-
-                <TouchableOpacity
-                  style={[styles.button, (phoneNumber.length < 10 || loading) && styles.buttonDisabled]}
-                  onPress={handleContinue}
-                  activeOpacity={0.8}
-                  disabled={phoneNumber.length < 10 || loading}
-                >
-                  {loading ? (
-                    <ActivityIndicator color="#fff" />
-                  ) : (
-                    <Text style={styles.buttonText}>Continue</Text>
-                  )}
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.registerButton}
-                  onPress={() => navigation.navigate('ShopDetails')}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.registerButtonText}>
-                    Don't have an account? <Text style={styles.registerButtonTextBold}>Register</Text>
-                  </Text>
-                </TouchableOpacity>
-
-                <TouchableOpacity
-                  style={styles.termsContainer}
-                  onPress={() => navigation.navigate('TermsAgreement', {})}
-                  activeOpacity={0.7}
-                >
-                  <Text style={styles.termsText}>
-                    By continuing, you agree to the{' '}
-                    <Text style={styles.termsLink}>Terms of Service</Text>
-                    {' '}and confirm that you have read our{' '}
-                    <Text style={styles.termsLink}>Privacy Policy</Text>
-                  </Text>
-                </TouchableOpacity>
-              </View>
-            </LinearGradient>
-          </View>
-        </ScrollView>
-      </KeyboardAvoidingView>
+          <TouchableOpacity
+            onPress={() => navigation.navigate("TermsAgreement", {})}
+            activeOpacity={0.8}
+          >
+            <Text style={styles.terms}>
+              By continuing, you agree to the Terms of Service and confirm that
+              you have read our Privacy Policy.
+            </Text>
+          </TouchableOpacity>
+        </LinearGradient>
+        {/* </ScrollView> */}
+      {/* </KeyboardAvoidingView> */}
     </SafeAreaView>
   );
 }
@@ -224,173 +209,140 @@ export default function OTPVerificationScreen({ navigation }: OTPVerificationScr
 const styles = StyleSheet.create({
   container: {
     flex: 1,
-    backgroundColor: '#F8F8F8',
+  backgroundColor: "#F5F5F5", // or "#fff"
   },
-  keyboardView: {
-    flex: 1,
-  },
-  scrollContent: {
-    flexGrow: 1,
-  },
+
   topSection: {
-    flex: 1,
-    justifyContent: 'center',
-    alignItems: 'center',
-    paddingTop: 80,
-    paddingBottom: 200,
+    height: 260,
+    justifyContent: "center",
+    alignItems: "center",
   },
-  headerLogo: {
-    flexDirection: 'row',
-    alignItems: 'center',
-    justifyContent: 'center',
-    gap: 10,
+
+  logoRow: {
+    flexDirection: "row",
+    alignItems: "center",
   },
-  logo: {
-    width: 50,
-    height: 50,
+
+  logoImage: {
+     width: 120,   // increased size
+  height: 120,  // increased size
+  marginRight: 8,
   },
-  brandText: {
+
+  brand: {
     fontSize: 26,
-    fontWeight: '600',
-    color: '#333',
+    fontWeight: "600",
+    color: "#222",
   },
-  bottomSection: {
-    position: 'relative',
-  },
-  overlappingLogoContainer: {
-    position: 'absolute',
-    top: -50,
-    left: 0,
-    right: 0,
-    zIndex: 10,
-    alignItems: 'center',
-  },
-  overlappingLogo: {
-    width: 100,
-    height: 100,
-    borderRadius: 25,
-    backgroundColor: '#E88E99',
-    alignItems: 'center',
-    justifyContent: 'center',
-    shadowColor: '#000',
-    shadowOffset: { width: 0, height: 4 },
-    shadowOpacity: 0.2,
-    shadowRadius: 8,
-    elevation: 8,
-  },
-  overlappingLogoImage: {
-    width: 60,
-    height: 60,
-  },
-  gradientCard: {
-    width: width,
+
+  bottomCard: {
+    position: "absolute",
+    bottom: 0,
+    width: "100%",
+height: height * 0.70,
     borderTopLeftRadius: 40,
     borderTopRightRadius: 40,
-    paddingTop: 70,
-    paddingBottom: 40,
+    paddingTop: 80,
     paddingHorizontal: 30,
+    alignItems: "center",
   },
-  cardContent: {
-    alignItems: 'center',
-  },
+
+floatingLogo: {
+  position: "absolute",
+  top: -55,
+  alignItems: "center",
+  justifyContent: "center",
+},
+
+ floatingLogoImage: {
+  width: 110,
+  height: 110,
+},
+
   title: {
     fontSize: 24,
-    fontWeight: '700',
-    color: '#fff',
+    fontWeight: "700",
+    color: "#fff",
     marginBottom: 10,
   },
+
   subtitle: {
     fontSize: 13,
-    color: '#fff',
-    textAlign: 'center',
+    color: "#fff",
+    textAlign: "center",
+    marginBottom: 30,
+  },
+
+  inputWrapper: {
+    width: "100%",
     marginBottom: 25,
-    lineHeight: 20,
   },
-  inputContainer: {
-    width: '100%',
-    marginBottom: 25,
-  },
-  labelRow: {
-    flexDirection: 'row',
-    justifyContent: 'space-between',
-    alignItems: 'center',
-    marginBottom: 10,
-  },
+
   label: {
-    fontSize: 14,
-    color: '#fff',
-    fontWeight: '500',
+    color: "#fff",
+    marginBottom: 8,
+    fontWeight: "500",
   },
-  charCount: {
-    fontSize: 12,
-    color: '#fff',
-    opacity: 0.8,
-  },
-  input: {
-    backgroundColor: '#fff',
-    borderRadius: 25,
+
+  inputBox: {
+    flexDirection: "row",
+    backgroundColor: "#fff",
+    borderRadius: 30,
     paddingHorizontal: 20,
-    paddingVertical: 15,
+    alignItems: "center",
+  },
+
+  countryCode: {
     fontSize: 16,
-    color: '#333',
-    borderWidth: 2,
-    borderColor: 'transparent',
+    marginRight: 6,
+    color: "#333",
   },
-  inputError: {
-    borderColor: '#ff4444',
+
+  input: {
+    flex: 1,
+    height: 50,
+    fontSize: 16,
   },
+
   errorText: {
-    color: '#ff4444',
+    color: "#fff",
     fontSize: 12,
     marginTop: 8,
-    marginLeft: 10,
-    fontWeight: '500',
+    marginLeft: 12,
   },
+
   button: {
-    backgroundColor: '#FF9A5F',
-    borderRadius: 30,
+    backgroundColor: "#FF8A3C",
+    width: "100%",
     paddingVertical: 16,
-    width: '100%',
-    marginBottom: 20,
-    borderWidth: 2,
-    borderColor: '#fff',
+    borderRadius: 30,
+    alignItems: "center",
+    marginBottom: 15,
   },
+
   buttonDisabled: {
-    backgroundColor: '#ccc',
-    opacity: 0.6,
+    opacity: 0.65,
   },
+
   buttonText: {
-    color: '#fff',
-    fontSize: 18,
-    fontWeight: '700',
-    textAlign: 'center',
+    color: "#fff",
+    fontWeight: "700",
+    fontSize: 16,
   },
-  registerButton: {
-    marginBottom: 20,
-    paddingVertical: 12,
-    alignItems: 'center',
+
+  registerText: {
+    color: "#fff",
+    marginBottom: 12,
   },
-  registerButtonText: {
-    color: '#fff',
-    fontSize: 14,
-    fontWeight: '400',
+
+  registerBold: {
+    fontWeight: "700",
   },
-  registerButtonTextBold: {
-    fontWeight: '700',
-    textDecorationLine: 'underline',
-  },
-  termsContainer: {
-    marginTop: 12,
-  },
-  termsText: {
+
+  terms: {
     fontSize: 11,
-    color: '#fff',
-    textAlign: 'center',
-    lineHeight: 16,
-  },
-  termsLink: {
-    color: '#fff',
-    fontWeight: '700',
-    textDecorationLine: 'underline',
+    textAlign: "center",
+    color: "#fff",
+    opacity: 0.9,
   },
 });

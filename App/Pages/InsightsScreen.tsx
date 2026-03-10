@@ -15,7 +15,8 @@ import { Ionicons } from '@expo/vector-icons';
 import { LineChart } from 'react-native-chart-kit';
 import { LinearGradient } from 'expo-linear-gradient';
 
-import { getDashboardInsights, useNetworkStatus } from '../utils/NetworkManager';
+import Footer from '../Components/Footer';
+import { getDashboardInsights, getInvoices, useNetworkStatus } from '../utils/NetworkManager';
 
 const { width } = Dimensions.get('window');
 
@@ -45,6 +46,14 @@ interface Metrics {
     totalInvoices: number;
     topItems: TopItem[];
     monthlyData: MonthlyData;
+    monthlyPerformance: number;
+    averageTransactionValue: number;
+    invoiceCount: number;
+}
+
+interface InvoiceRecord {
+    totalAmount?: number;
+    amount?: number;
 }
 
 interface SalesTrend {
@@ -86,20 +95,23 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
         totalInvoices: 0,
         topItems: [],
         monthlyData: {
-            labels: ["W1", "W2", "W3", "W4"],
+            labels: [],
             datasets: [
                 { 
-                    data: [20000, 35000, 45000, 60000],
+                    data: [],
                     color: (opacity = 1) => `rgba(231, 76, 60, ${opacity})`,
                     strokeWidth: 3
                 },
                 { 
-                    data: [15000, 25000, 30000, 40000],
+                    data: [],
                     color: (opacity = 1) => `rgba(149, 165, 166, ${opacity})`,
                     strokeWidth: 3
                 }
             ]
-        }
+        },
+        monthlyPerformance: 0,
+        averageTransactionValue: 0,
+        invoiceCount: 0,
     });
 
     const { isConnected, isInternetReachable } = useNetworkStatus();
@@ -114,6 +126,7 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
         setIsLoading(true);
         try {
             const result: InsightsResult = await getDashboardInsights(6, 5);
+            const invoices = await getInvoices() as InvoiceRecord[];
 
             if (result && result.data) {
                 const { summary, salesTrends, topItems } = result.data;
@@ -127,11 +140,20 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
                 const labels = salesTrends.map((t: SalesTrend) => t.month);
                 const salesData = salesTrends.map((t: SalesTrend) => t.totalInvoiced);
                 const receivedData = salesTrends.map((t: SalesTrend) => t.totalReceived);
+                const currentMonthSales = salesTrends[salesTrends.length - 1]?.totalInvoiced || 0;
+                const previousMonthSales = salesTrends[salesTrends.length - 2]?.totalInvoiced || 0;
+                const monthlyPerformance = previousMonthSales > 0
+                    ? ((currentMonthSales - previousMonthSales) / previousMonthSales) * 100
+                    : currentMonthSales > 0 ? 100 : 0;
 
-                // Ensure we have at least some data for the chart to render properly
-                const chartSalesData = salesData.length > 0 ? salesData : [0, 0, 0, 0, 0, 0];
-                const chartReceivedData = receivedData.length > 0 ? receivedData : [0, 0, 0, 0, 0, 0];
-                const chartLabels = labels.length > 0 ? labels : ["Jan", "Feb", "Mar", "Apr", "May", "Jun"];
+                const invoiceList = Array.isArray(invoices) ? invoices : [];
+                const invoiceCount = invoiceList.length;
+                const averageTransactionValue = invoiceCount > 0
+                    ? invoiceList.reduce((sum: number, invoice: InvoiceRecord) => {
+                        const amount = Number(invoice.totalAmount || invoice.amount || 0);
+                        return sum + (Number.isNaN(amount) ? 0 : amount);
+                    }, 0) / invoiceCount
+                    : 0;
 
                 setMetrics({
                     totalSales: totalRevenue,
@@ -143,20 +165,23 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
                         quantity: item.quantity
                     })),
                     monthlyData: {
-                        labels: chartLabels,
+                        labels,
                         datasets: [
-                            { 
-                                data: chartSalesData,
+                            {
+                                data: salesData,
                                 color: (opacity = 1) => `rgba(231, 76, 60, ${opacity})`,
                                 strokeWidth: 3
                             },      // Total Sales/Invoiced (red line)
-                            { 
-                                data: chartReceivedData,
+                            {
+                                data: receivedData,
                                 color: (opacity = 1) => `rgba(149, 165, 166, ${opacity})`,
                                 strokeWidth: 3
                             }    // Amount Received (gray line)
                         ]
-                    }
+                    },
+                    monthlyPerformance,
+                    averageTransactionValue,
+                    invoiceCount,
                 });
 
                 if (result.source === 'cache') {
@@ -197,6 +222,10 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
         }
     };
 
+    const hasChartData = metrics.monthlyData.datasets.some((dataset) =>
+        dataset.data.some((value) => value > 0)
+    );
+
     return (
         <SafeAreaView style={styles.container}>
             <StatusBar barStyle="dark-content" />
@@ -233,19 +262,19 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
                     >
                         <View style={styles.topCardsRow}>
                             <View style={styles.topCardItem}>
-                                <Text style={styles.topCardLabel}>TOTAL REVENUE</Text>
+                                <Text style={styles.topCardLabel}>TOTAL VALUE</Text>
                                 <Text style={styles.topCardValue}>
                                     ₹{metrics.totalSales.toLocaleString('en-IN')}
                                 </Text>
-                                <Text style={styles.topCardSubtext}>Total Invoiced</Text>
+                                {/* <Text style={styles.topCardSubtext}>Total Invoiced</Text> */}
                             </View>
                             <View style={styles.topCardDivider} />
                             <View style={styles.topCardItem}>
-                                <Text style={styles.topCardLabel}>PENDING</Text>
+                                <Text style={styles.topCardLabel}>PAYABLE</Text>
                                 <Text style={styles.topCardValue}>
                                     ₹{metrics.totalPending.toLocaleString('en-IN')}
                                 </Text>
-                                <Text style={styles.topCardSubtext}>Yet to Receive</Text>
+                                {/* <Text style={styles.topCardSubtext}>Yet to Receive</Text> */}
                             </View>
                         </View>
                     </LinearGradient>
@@ -278,73 +307,94 @@ export default function InsightsScreen({ navigation }: InsightsScreenProps) {
 
                     {/* Sales vs Received Chart */}
                     <View style={styles.chartSection}>
-                        <View style={styles.chartHeader}>95A5A6
-                            <Text style={styles.sectionTitle}>Sales vs Received</Text>
-                            <View style={styles.legendContainer}>
-                                <View style={styles.legendItem}>
-                                    <View style={[styles.legendDot, { backgroundColor: '#E74C3C' }]} />
-                                    <Text style={styles.legendText}>Sales</Text>
-                                </View>
-                                <View style={styles.legendItem}>
-                                    <View style={[styles.legendDot, { backgroundColor: '#95A5A6' }]} />
-                                    <Text style={styles.legendText}>Received</Text>
+                        <View style={styles.chartCard}>
+                            <View style={styles.chartHeader}>
+                                <Text style={styles.sectionTitle}>Sales vs Expenses</Text>
+                                <View style={styles.legendContainer}>
+                                    <View style={styles.legendItem}>
+                                        <View style={[styles.legendDot, { backgroundColor: '#E74C3C' }]} />
+                                        <Text style={styles.legendText}>Sales</Text>
+                                    </View>
+                                    <View style={styles.legendItem}>
+                                        <View style={[styles.legendDot, { backgroundColor: '#95A5A6' }]} />
+                                        <Text style={styles.legendText}>Expenses</Text>
+                                    </View>
                                 </View>
                             </View>
-                        </View>
-                        <View style={styles.chartCard}>
-                            <LineChart
-                                data={metrics.monthlyData}
-                                width={width - 60}
-                                height={200}
-                                chartConfig={chartConfig}
-                                bezier
-                                style={styles.chart}
-                                withInnerLines={false}
-                                withOuterLines={false}
-                                withVerticalLines={false}
-                                withVerticalLabels={false}
-                                withHorizontalLines={true}
-                                withDots={true}
-                                withShadow={false}
-                                segments={4}
-                                yAxisInterval={1}
-                                hidePointsAtIndex={[]}
-                            />
+                            {hasChartData ? (
+                                <LineChart
+                                    data={metrics.monthlyData}
+                                    width={width - 60}
+                                    height={200}
+                                    chartConfig={chartConfig}
+                                    bezier
+                                    style={styles.chart}
+                                    withInnerLines={false}
+                                    withOuterLines={false}
+                                    withVerticalLines={false}
+                                    withVerticalLabels={false}
+                                    withHorizontalLines={true}
+                                    withDots={true}
+                                    withShadow={false}
+                                    segments={4}
+                                    yAxisInterval={1}
+                                    hidePointsAtIndex={[]}
+                                />
+                            ) : (
+                                <View style={styles.chartEmptyState}>
+                                    <Text style={styles.emptyText}>No chart data available</Text>
+                                </View>
+                            )}
                         </View>
                     </View>
 
-                    {/* Top Selling Items */}
-                    <View style={styles.topItemsSection}>
-                        <Text style={styles.sectionTitle}>Top Selling Items</Text>
-                        <View style={styles.topItemsCard}>
-                            {metrics.topItems.length > 0 ? (
-                                metrics.topItems.map((item: TopItem, index: number) => (
-                                    <View key={index} style={styles.topItemRow}>
-                                        <View style={styles.topItemLeft}>
-                                            <View style={styles.topItemRank}>
-                                                <Text style={styles.topItemRankText}>#{index + 1}</Text>
-                                            </View>
-                                            <View style={styles.topItemInfo}>
-                                                <Text style={styles.topItemName}>{item.name}</Text>
-                                                <Text style={styles.topItemQuantity}>{item.quantity} units sold</Text>
-                                            </View>
-                                        </View>
-                                        <Text style={styles.topItemRevenue}>
-                                            ₹{item.revenue.toLocaleString('en-IN')}
-                                        </Text>
-                                    </View>
-                                ))
-                            ) : (
-                                <View style={styles.emptyState}>
-                                    <Text style={styles.emptyText}>No sales data available</Text>
+                    <View style={styles.performanceSection}>
+                        <Text style={styles.sectionTitle}>Shop Performance</Text>
+                        <View style={styles.performanceCard}>
+                            <View style={styles.performanceRow}>
+                                <View style={styles.performanceIconWrap}>
+                                    <Ionicons
+                                        name={metrics.monthlyPerformance >= 0 ? 'trending-up-outline' : 'trending-down-outline'}
+                                        size={20}
+                                        color="#6B7BFF"
+                                    />
                                 </View>
-                            )}
+                                <View style={styles.performanceTextWrap}>
+                                    <Text style={styles.performanceTitle}>Monthly Performance</Text>
+                                    <Text style={styles.performanceSubtitle}>vs last month</Text>
+                                </View>
+                                <Text style={[
+                                    styles.performanceValue,
+                                    metrics.monthlyPerformance < 0 && styles.performanceValueNegative,
+                                ]}>
+                                    {metrics.monthlyPerformance >= 0 ? '+' : ''}{metrics.monthlyPerformance.toFixed(0)}%
+                                </Text>
+                            </View>
+
+                            <View style={styles.performanceDivider} />
+
+                            <View style={styles.performanceRow}>
+                                <View style={[styles.performanceIconWrap, styles.performanceIconWrapAlt]}>
+                                    <Ionicons name="wallet-outline" size={20} color="#FF8A50" />
+                                </View>
+                                <View style={styles.performanceTextWrap}>
+                                    <Text style={styles.performanceTitle}>Avg Transaction Value</Text>
+                                    <Text style={styles.performanceSubtitle}>
+                                        Across {metrics.invoiceCount} invoices
+                                    </Text>
+                                </View>
+                                <Text style={styles.performanceValueAlt}>
+                                    ₹{metrics.averageTransactionValue.toLocaleString('en-IN', { maximumFractionDigits: 0 })}
+                                </Text>
+                            </View>
                         </View>
                     </View>
 
                     <View style={styles.bottomSpacing} />
                 </ScrollView>
             )}
+
+            <Footer activeTab="Home" navigation={navigation} />
         </SafeAreaView>
     );
 }
@@ -474,10 +524,13 @@ const styles = StyleSheet.create({
         fontSize: 16,
         fontWeight: '700',
         color: '#000',
+        flex: 1,
     },
     legendContainer: {
         flexDirection: 'row',
         gap: 15,
+        alignItems: 'center',
+        justifyContent: 'flex-end',
     },
     legendItem: {
         flexDirection: 'row',
@@ -497,7 +550,9 @@ const styles = StyleSheet.create({
     chartCard: {
         backgroundColor: '#FFF',
         borderRadius: 12,
-        padding: 10,
+        paddingHorizontal: 10,
+        paddingTop: 16,
+        paddingBottom: 10,
         alignItems: 'center',
         shadowColor: '#000',
         shadowOffset: { width: 0, height: 1 },
@@ -509,63 +564,71 @@ const styles = StyleSheet.create({
         marginVertical: 8,
         borderRadius: 12,
     },
+    chartEmptyState: {
+        width: '100%',
+        minHeight: 200,
+        alignItems: 'center',
+        justifyContent: 'center',
+    },
     
-    // Top Selling Items
-    topItemsSection: {
+    performanceSection: {
         marginTop: 25,
         paddingHorizontal: 16,
     },
-    topItemsCard: {
+    performanceCard: {
         backgroundColor: '#FFF',
         borderRadius: 16,
-        padding: 8,
+        paddingHorizontal: 14,
+        paddingVertical: 8,
         marginTop: 12,
     },
-    topItemRow: {
+    performanceRow: {
         flexDirection: 'row',
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingVertical: 12,
-        paddingHorizontal: 12,
-        borderBottomWidth: 1,
-        borderBottomColor: '#F5F5F5',
     },
-    topItemLeft: {
-        flexDirection: 'row',
-        alignItems: 'center',
-        flex: 1,
-    },
-    topItemRank: {
-        width: 28,
-        height: 28,
-        borderRadius: 14,
-        backgroundColor: '#FFF0F2',
+    performanceIconWrap: {
+        width: 42,
+        height: 42,
+        borderRadius: 12,
+        backgroundColor: '#EEF1FF',
         alignItems: 'center',
         justifyContent: 'center',
         marginRight: 12,
     },
-    topItemRankText: {
-        fontSize: 12,
-        fontWeight: '700',
-        color: '#FF8A9B',
+    performanceIconWrapAlt: {
+        backgroundColor: '#FFF1E8',
     },
-    topItemInfo: {
+    performanceTextWrap: {
         flex: 1,
     },
-    topItemName: {
+    performanceTitle: {
         fontSize: 14,
         fontWeight: '600',
         color: '#000',
         marginBottom: 2,
     },
-    topItemQuantity: {
+    performanceSubtitle: {
         fontSize: 11,
         color: '#999',
     },
-    topItemRevenue: {
+    performanceValue: {
         fontSize: 14,
         fontWeight: '700',
-        color: '#4CAF50',
+        color: '#6B7BFF',
+    },
+    performanceValueNegative: {
+        color: '#E46269',
+    },
+    performanceValueAlt: {
+        fontSize: 14,
+        fontWeight: '700',
+        color: '#6B7BFF',
+    },
+    performanceDivider: {
+        height: 1,
+        backgroundColor: '#F2F2F2',
     },
     
     emptyState: {
