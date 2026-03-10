@@ -93,6 +93,11 @@ interface UpdateClientData {
     state?: string;
     gstin?: string;
     profileUrl?: string;
+    upiId?: string;
+    bankName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    paymentQrUrl?: string;
     clientSettings?: {
         customerFields?: Partial<CustomerFieldSettings>;
         taxSettings?: Partial<TaxSettings>;
@@ -111,6 +116,11 @@ export const updateClientProfile = async (clientId: string, updateData: UpdateCl
         'state',
         'gstin',
         'profileUrl',
+        'upiId',
+        'bankName',
+        'accountNumber',
+        'ifscCode',
+        'paymentQrUrl',
         'clientSettings',
     ];
 

@@ -9,4 +9,9 @@ export interface UpdateClientDto {
     state?: string;
     gstin?: string;
     profileUrl?: string;
+    upiId?: string;
+    bankName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    paymentQrUrl?: string;
 }

@@ -13,6 +13,11 @@ export interface IClient extends Document {
     state?: string;
     gstin?: string;
     profileUrl?: string;
+    upiId?: string;
+    bankName?: string;
+    accountNumber?: string;
+    ifscCode?: string;
+    paymentQrUrl?: string;
     clientSettings?: {
         customerFields?: {
             address?: boolean;
@@ -85,6 +90,31 @@ const clientSchema = new Schema<IClient>(
             default: '',
         },
         profileUrl: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        upiId: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        bankName: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        accountNumber: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        ifscCode: {
+            type: String,
+            trim: true,
+            default: '',
+        },
+        paymentQrUrl: {
             type: String,
             trim: true,
             default: '',
