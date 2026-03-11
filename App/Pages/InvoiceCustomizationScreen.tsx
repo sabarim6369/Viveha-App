@@ -39,6 +39,12 @@ interface InvoiceSettings {
 interface ShopDetails {
   shopName?: string;
   profileImage?: string;
+  location?: string;
+  state?: string;
+  mobile?: string;
+  phoneNumber?: string;
+  city?: string;
+  gstin?: string;
 }
 
 const COLOR_OPTIONS = [
@@ -64,6 +70,11 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
     profileImage: route?.params?.profileImage || '',
   });
 
+  const previewItems = [
+    { name: 'Product Name', quantity: 2, price: 500, tax: 18 },
+    { name: 'Another Product', quantity: 1, price: 750, tax: 18 },
+  ];
+
   useEffect(() => {
     loadSettings();
   }, []);
@@ -76,6 +87,12 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
         setShopDetails({
           shopName: parsedShopDetails.shopName || route?.params?.shopName || '',
           profileImage: parsedShopDetails.profileImage || route?.params?.profileImage || '',
+          location: parsedShopDetails.location || '',
+          state: parsedShopDetails.state || '',
+          mobile: parsedShopDetails.mobile || '',
+          phoneNumber: parsedShopDetails.phoneNumber || '',
+          city: parsedShopDetails.city || '',
+          gstin: parsedShopDetails.gstin || '',
         });
       }
 
@@ -162,6 +179,18 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
     setSettings(prev => ({ ...prev, [key]: value }));
   };
 
+  const previewSubTotal = previewItems.reduce((sum, item) => sum + (item.price * item.quantity), 0);
+  const previewTax = previewItems.reduce((sum, item) => sum + ((item.price * item.quantity * item.tax) / 100), 0);
+  const previewTotal = previewSubTotal + previewTax;
+  const previewTaxableAmount = previewSubTotal;
+  const previewSgst = previewTax / 2;
+  const previewCgst = previewTax / 2;
+  const previewSenderLines = [
+    [shopDetails.location, shopDetails.city, shopDetails.state].filter(Boolean).join(', '),
+    shopDetails.phoneNumber || shopDetails.mobile ? `Phone: ${shopDetails.phoneNumber || shopDetails.mobile}` : '',
+    settings.showGSTUIN && shopDetails.gstin ? `GST: ${shopDetails.gstin}` : '',
+  ].filter(Boolean);
+
   if (loading) {
     return (
       <View style={[styles.container, styles.centerContent]}>
@@ -213,123 +242,157 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
 
         {/* Invoice Preview Card */}
         <View style={styles.previewCard}>
-          <View style={styles.previewHeader}>
-            {settings.showBrandLogo && (
-              <View style={styles.brandSection}>
-                {shopDetails.profileImage ? (
-                  <Image
-                    source={{ uri: shopDetails.profileImage }}
-                    style={styles.brandIcon}
-                    resizeMode="cover"
-                  />
+          <View style={styles.previewPaper}>
+            <View style={styles.previewPaperHeader}>
+              <View style={styles.previewBrandWrap}>
+                {settings.showBrandLogo ? (
+                  <View style={styles.previewBrandSection}>
+                    {shopDetails.profileImage ? (
+                      <Image
+                        source={{ uri: shopDetails.profileImage }}
+                        style={styles.previewBrandIcon}
+                        resizeMode="cover"
+                      />
+                    ) : (
+                      <Image
+                        source={require('../assets/logo2.png')}
+                        style={styles.previewBrandIcon}
+                        resizeMode="contain"
+                      />
+                    )}
+                    <Text style={styles.previewBrandName}>{shopDetails.shopName || 'viveha.ai'}</Text>
+                  </View>
                 ) : (
-                  <Image 
-                    source={require('../assets/logo2.png')} 
-                    style={styles.brandIcon}
-                    resizeMode="contain"
-                  />
+                  <Text style={styles.previewBrandName}>{shopDetails.shopName || 'viveha.ai'}</Text>
                 )}
-                <Text style={styles.brandName}>{shopDetails.shopName || 'viveha.ai'}</Text>
               </View>
-            )}
-            
-            <View style={[styles.clientSection, !settings.showBrandLogo && { flex: 1, justifyContent: 'flex-end' }]}>
-              <View style={styles.clientInfo}>
-                <Text style={styles.clientName}>isaii.ai</Text>
-                {settings.showGSTUIN && (
-                  <Text style={styles.clientStoreId}>GST: 29ABCDE1234F1Z5</Text>
-                )}
-                <Text style={styles.clientPhone}>9003872804</Text>
+              <View style={styles.previewPoweredByContainer}>
+                <Text style={styles.previewPoweredLabel}>Powered by</Text>
+                <Text style={styles.previewPoweredName}>isaii.ai</Text>
+                <Text style={styles.previewPoweredId}>9003557604</Text>
               </View>
-              <View style={styles.clientAvatar}>
+
+              <View style={styles.previewBadgeWrap}>
                 <Image 
                   source={require('../assets/Home3.png')} 
-                  style={styles.avatarImage}
+                  style={styles.previewBadge}
                   resizeMode="contain"
                 />
               </View>
             </View>
-          </View>
 
-          {/* Invoice Content */}
-          <View style={styles.invoiceContent}>
-            {/* Customer & Invoice Info */}
-            <View style={styles.invoiceInfoRow}>
-              <View style={styles.infoCol}>
-                <Text style={styles.infoLabel}>Customer Name</Text>
-                <Text style={styles.infoValue}>John Doe</Text>
+            <View style={styles.previewMetaRow}>
+              <View style={styles.previewSenderSection}>
+                <Text style={styles.previewSenderName}>{shopDetails.shopName || 'Studio Den'}</Text>
+                {previewSenderLines.length > 0 && (
+                  <Text style={styles.previewSenderAddress}>{previewSenderLines.join('\n')}</Text>
+                )}
               </View>
-              <View style={styles.infoColRight}>
-                <Text style={styles.infoLabel}>Invoice No:</Text>
-                <Text style={styles.infoValue}>INV001</Text>
-                <Text style={styles.infoLabel}>Date:</Text>
-                <Text style={styles.infoValue}>06/03/2026</Text>
-              </View>
-            </View>
 
-            {/* Items Table */}
-            <View style={styles.itemsTable}>
-              <View style={[styles.tableHeader, { backgroundColor: settings.headerColor }]}>
-                <Text style={[styles.tableHeaderText, { flex: 3 }]}>Item</Text>
-                <Text style={[styles.tableHeaderText, { flex: 1 }]}>Qty</Text>
-                <Text style={[styles.tableHeaderText, { flex: 1 }]}>Rate</Text>
-                <Text style={[styles.tableHeaderText, { flex: 1.5 }]}>Amount</Text>
-              </View>
-              
-              <View style={styles.tableRow}>
-                <Text style={[styles.tableCell, { flex: 3 }]}>Product Name</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>2</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>₹500</Text>
-                <Text style={[styles.tableCell, { flex: 1.5 }]}>₹1,000</Text>
-              </View>
-              
-              <View style={[styles.tableRow, styles.tableRowAlt]}>
-                <Text style={[styles.tableCell, { flex: 3 }]}>Another Product lorem ipsum</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>1</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>₹750</Text>
-                <Text style={[styles.tableCell, { flex: 1.5 }]}>₹750</Text>
-              </View>
-              
-              <View style={styles.tableRow}>
-                <Text style={[styles.tableCell, { flex: 3 }]}>Service charges</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>1</Text>
-                <Text style={[styles.tableCell, { flex: 1 }]}>₹200</Text>
-                <Text style={[styles.tableCell, { flex: 1.5 }]}>₹200</Text>
-              </View>
-            </View>
-
-            {/* Totals */}
-            <View style={styles.totalsSection}>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Sub Total</Text>
-                <Text style={styles.totalValue}>₹1,950</Text>
-              </View>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Grand Total Amount</Text>
-                <Text style={styles.totalValue}>₹1,950</Text>
-              </View>
-              <View style={styles.totalRow}>
-                <Text style={styles.totalLabel}>Paid</Text>
-                <Text style={styles.totalValue}>₹0</Text>
-              </View>
-              <View style={[styles.totalRow, styles.balanceRow]}>
-                <Text style={styles.balanceLabel}>Balance</Text>
-                <Text style={[styles.balanceValue, { color: settings.headerColor }]}>₹1,950</Text>
-              </View>
-            </View>
-
-            {/* Footer with QR */}
-            {settings.showQRCode && (
-              <View style={styles.invoiceFooter}>
-                <View style={styles.qrSection}>
-                  <Ionicons name="qr-code" size={36} color="#333" />
+              <View style={styles.previewInvoiceMetaSection}>
+                <Text style={[styles.previewMetaLabel, { color: settings.headerColor }]}>Service Details:</Text>
+                <View style={styles.previewMetaPair}>
+                  <Text style={styles.previewSubLabel}>Invoice #:</Text>
+                  <Text style={styles.previewSubValue}>INV001</Text>
+                </View>
+                <View style={styles.previewMetaPair}>
+                  <Text style={styles.previewSubLabel}>Invoice Date:</Text>
+                  <Text style={styles.previewSubValue}>06/03/2026</Text>
+                </View>
+                <View style={styles.previewMetaPair}>
+                  <Text style={styles.previewSubLabel}>Due Date:</Text>
+                  <Text style={styles.previewSubValue}>21/03/2026</Text>
                 </View>
               </View>
-            )}
+            </View>
+
+            <View style={styles.previewTable}>
+              <View style={[styles.previewTableHeader, { backgroundColor: settings.headerColor }]}>
+                <Text style={[styles.previewTh, styles.previewColDesc]}>Item/Service</Text>
+                <Text style={[styles.previewTh, styles.previewColBrief, styles.previewCenterText]}>Qty</Text>
+                <Text style={[styles.previewTh, styles.previewColBrief, styles.previewCenterText]}>GST</Text>
+                <Text style={[styles.previewTh, styles.previewColAmount, styles.previewRightText]}>Amount</Text>
+              </View>
+
+              {previewItems.map((item, index) => {
+                const lineSubtotal = item.price * item.quantity;
+                const lineTax = (lineSubtotal * item.tax) / 100;
+                const lineTotal = lineSubtotal + lineTax;
+
+                return (
+                  <View key={item.name} style={[styles.previewTableRow, index % 2 !== 0 && styles.previewRowAlt]}>
+                    <Text style={[styles.previewTd, styles.previewColDesc]} numberOfLines={1}>{item.name}</Text>
+                    <Text style={[styles.previewTd, styles.previewColBrief, styles.previewCenterText]}>{item.quantity}</Text>
+                    <Text style={[styles.previewTd, styles.previewColBrief, styles.previewCenterText]}>{item.tax}%</Text>
+                    <Text style={[styles.previewTd, styles.previewColAmount, styles.previewRightText]}>₹{lineTotal.toFixed(0)}</Text>
+                  </View>
+                );
+              })}
+            </View>
+
+            <View style={styles.previewDivider} />
+
+            <View style={styles.previewSummarySection}>
+              <View style={styles.previewSummaryLeft}>
+                <Text style={styles.previewSummaryLabel}>Country of supply: <Text style={styles.previewNormalText}>India</Text></Text>
+                <Text style={styles.previewSummaryLabel}>Place of supply: <Text style={styles.previewNormalText}>{shopDetails.city || 'Bangalore'}</Text></Text>
+                <Text style={[styles.previewSummaryLabel, styles.previewWordsHeading]}>Invoice Total In Words:</Text>
+                <Text style={[styles.previewWordsText, { color: settings.headerColor }]}>Two Thousand Three Hundred One Rupees Only</Text>
+              </View>
+
+              <View style={styles.previewSummaryRight}>
+                <View style={styles.previewSumRow}>
+                  <Text style={styles.previewSumLabel}>Sub Total</Text>
+                  <Text style={styles.previewSumValue}>₹{previewSubTotal.toFixed(2)}</Text>
+                </View>
+                <View style={styles.previewSumRow}>
+                  <Text style={styles.previewSumLabel}>Taxable Amount</Text>
+                  <Text style={styles.previewSumValue}>₹{previewTaxableAmount.toFixed(2)}</Text>
+                </View>
+                <View style={styles.previewSumRow}>
+                  <Text style={styles.previewSumLabel}>SGST</Text>
+                  <Text style={styles.previewSumValue}>₹{previewSgst.toFixed(2)}</Text>
+                </View>
+                <View style={styles.previewSumRow}>
+                  <Text style={styles.previewSumLabel}>CGST</Text>
+                  <Text style={styles.previewSumValue}>₹{previewCgst.toFixed(2)}</Text>
+                </View>
+                <View style={styles.previewTotalDueRow}>
+                  <Text style={styles.previewTotalDueLabel}>Total Due</Text>
+                  <Text style={[styles.previewTotalDueValue, { color: settings.headerColor }]}>₹{previewTotal.toFixed(2)}</Text>
+                </View>
+              </View>
+            </View>
+
+            <View style={styles.previewFooterSection}>
+              <View style={styles.previewTermsCol}>
+                <Text style={styles.previewFooterTitle}>Terms and Conditions</Text>
+                <Text style={styles.previewLegalText} numberOfLines={2}>
+                  Please pay within 15 days from the invoice date. Quote invoice number when remitting funds.
+                </Text>
+              </View>
+
+              {(settings.showQRCode || settings.showGSTUIN) && (
+                <View style={styles.previewBankCol}>
+                  <Text style={styles.previewFooterTitle}>Payment Details</Text>
+                  {settings.showGSTUIN && (
+                    <View style={styles.previewBankRow}>
+                      <Text style={styles.previewLbl}>GST:</Text>
+                      <Text style={styles.previewVal}>{shopDetails.gstin || '29ABCDE1234F1Z5'}</Text>
+                    </View>
+                  )}
+                  {settings.showQRCode && (
+                    <View style={styles.previewQrWrap}>
+                      <Ionicons name="qr-code" size={28} color="#333" />
+                    </View>
+                  )}
+                </View>
+              )}
+            </View>
           </View>
         </View>
 
-        {/* Layout Style */}
+      
         <View style={styles.section}>
           <Text style={styles.sectionTitle}>Layout Style</Text>
           <View style={styles.layoutOptions}>
@@ -540,175 +603,276 @@ const styles = StyleSheet.create({
     marginBottom: 16,
     borderRadius: 12,
     padding: 10,
+    maxHeight: 360,
+    overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.08,
     shadowRadius: 8,
     elevation: 4,
   },
-  previewHeader: {
+  previewPaper: {
+    backgroundColor: '#fff',
+  },
+  previewPaperHeader: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    marginBottom: 10,
     paddingBottom: 8,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
-  brandSection: {
+  previewBrandWrap: {
+    flex: 1.2,
+    paddingRight: 8,
+  },
+  previewBrandSection: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 10,
-    flex: 1,
+    gap: 8,
   },
-  brandIcon: {
-    width: 22,
-    height: 22,
-    borderRadius: 6,
+  previewBrandIcon: {
+    width: 26,
+    height: 26,
+    borderRadius: 8,
   },
-  brandName: {
+  previewBrandName: {
+    flexShrink: 1,
     fontSize: 13,
-    fontWeight: '600',
-    color: '#1A1A1A',
+    fontWeight: '800',
+    color: '#111',
   },
-  clientSection: {
-    flexDirection: 'row',
+  previewPoweredByContainer: {
+    flex: 1,
     alignItems: 'center',
-    gap: 12,
   },
-  clientInfo: {
+  previewPoweredLabel: {
+    fontSize: 7,
+    color: '#9CA3AF',
+  },
+  previewPoweredName: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#374151',
+  },
+  previewPoweredId: {
+    fontSize: 7,
+    color: '#9CA3AF',
+  },
+  previewBadgeWrap: {
+    width: 30,
     alignItems: 'flex-end',
   },
-  clientName: {
-    fontSize: 11,
-    fontWeight: '600',
-    color: '#1A1A1A',
-    marginBottom: 1,
+  previewBadge: {
+    width: 28,
+    height: 28,
   },
-  clientStoreId: {
-    fontSize: 7,
-    color: '#999',
-    marginBottom: 1,
-  },
-  clientPhone: {
-    fontSize: 8,
-    color: '#666',
-  },
-  clientAvatar: {
-    width: 34,
-    height: 34,
-    borderRadius: 8,
-    // backgroundColor: '#F0F0F0',
-    alignItems: 'center',
-    justifyContent: 'center',
-    overflow: 'visible',
-  },
-  avatarImage: {
-    width: 44,
-    height: 44,
-  },
-  invoiceContent: {
-    backgroundColor: '#FAFAFA',
-    borderRadius: 8,
-    padding: 8,
-  },
-  invoiceInfoRow: {
+  previewMetaRow: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 8,
+    alignItems: 'flex-start',
+    marginBottom: 10,
   },
-  infoCol: {
-    flex: 1,
+  previewSenderSection: {
+    flex: 0.42,
+    paddingRight: 8,
   },
-  infoColRight: {
-    alignItems: 'flex-end',
-  },
-  infoLabel: {
-    fontSize: 8,
-    color: '#999',
-    marginBottom: 2,
-  },
-  infoValue: {
-    fontSize: 9,
-    fontWeight: '600',
-    color: '#1A1A1A',
+  previewSenderName: {
+    fontSize: 10,
+    fontWeight: '700',
+    color: '#111',
     marginBottom: 3,
   },
-  itemsTable: {
-    marginBottom: 8,
+  previewSenderAddress: {
+    fontSize: 7,
+    color: '#4B5563',
+    lineHeight: 10,
   },
-  tableHeader: {
+  previewInvoiceMetaSection: {
+    flex: 0.58,
+    alignItems: 'flex-start',
+  },
+  previewMetaLabel: {
+    fontSize: 7,
+    fontWeight: '700',
+    marginBottom: 4,
+  },
+  previewMetaPair: {
+    flexDirection: 'row',
+    justifyContent: 'flex-start',
+    alignItems: 'center',
+    marginBottom: 2,
+    gap: 4,
+  },
+  previewSubLabel: {
+    fontSize: 7,
+    color: '#6B7280',
+    minWidth: 44,
+  },
+  previewSubValue: {
+    fontSize: 7,
+    fontWeight: '600',
+    color: '#111',
+    textAlign: 'left',
+  },
+  previewTable: {
+    marginBottom: 10,
+  },
+  previewTableHeader: {
     flexDirection: 'row',
     paddingVertical: 6,
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
     borderRadius: 4,
     marginBottom: 1,
   },
-  tableHeaderText: {
+  previewTh: {
     fontSize: 7,
     fontWeight: '700',
     color: '#fff',
-    textTransform: 'uppercase',
   },
-  tableRow: {
+  previewTableRow: {
     flexDirection: 'row',
     paddingVertical: 5,
-    paddingHorizontal: 6,
+    paddingHorizontal: 5,
     backgroundColor: '#fff',
     marginBottom: 1,
   },
-  tableRowAlt: {
+  previewRowAlt: {
     backgroundColor: '#F8F9FA',
   },
-  tableCell: {
+  previewTd: {
     fontSize: 7,
     color: '#333',
   },
-  totalsSection: {
-    backgroundColor: '#fff',
-    borderRadius: 6,
-    padding: 8,
+  previewColDesc: {
+    flex: 2.5,
   },
-  totalRow: {
+  previewColBrief: {
+    flex: 0.7,
+  },
+  previewColAmount: {
+    flex: 1.2,
+  },
+  previewCenterText: {
+    textAlign: 'center',
+  },
+  previewRightText: {
+    textAlign: 'right',
+  },
+  previewDivider: {
+    height: 1,
+    backgroundColor: '#E5E7EB',
+    marginBottom: 10,
+  },
+  previewSummarySection: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    marginBottom: 4,
+    marginBottom: 10,
   },
-  totalLabel: {
-    fontSize: 8,
-    color: '#666',
+  previewSummaryLeft: {
+    flex: 1,
+    paddingRight: 10,
   },
-  totalValue: {
+  previewSummaryLabel: {
+    fontSize: 7,
+    color: '#6B7280',
+    fontWeight: '700',
+    marginBottom: 2,
+  },
+  previewNormalText: {
+    fontWeight: '400',
+    color: '#111',
+  },
+  previewWordsHeading: {
+    marginTop: 5,
+  },
+  previewWordsText: {
     fontSize: 8,
     fontWeight: '600',
-    color: '#333',
+    marginTop: 3,
+    lineHeight: 11,
   },
-  balanceRow: {
-    marginTop: 2,
+  previewSummaryRight: {
+    width: 112,
+  },
+  previewSumRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginBottom: 3,
+  },
+  previewSumLabel: {
+    fontSize: 7,
+    color: '#6B7280',
+  },
+  previewSumValue: {
+    fontSize: 7,
+    fontWeight: '600',
+    color: '#111',
+  },
+  previewTotalDueRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    marginTop: 4,
     paddingTop: 4,
     borderTopWidth: 1,
-    borderTopColor: '#E8E8E8',
+    borderTopColor: '#E5E7EB',
   },
-  balanceLabel: {
+  previewTotalDueLabel: {
+    fontSize: 8,
+    fontWeight: '700',
+    color: '#111',
+  },
+  previewTotalDueValue: {
     fontSize: 9,
     fontWeight: '700',
-    color: '#1A1A1A',
   },
-  balanceValue: {
-    fontSize: 9,
+  previewFooterSection: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  previewTermsCol: {
+    flex: 1,
+  },
+  previewBankCol: {
+    width: 92,
+    backgroundColor: '#F9FAFB',
+    padding: 6,
+    borderRadius: 6,
+  },
+  previewFooterTitle: {
+    fontSize: 7,
     fontWeight: '700',
+    color: '#111',
+    marginBottom: 4,
   },
-  invoiceFooter: {
-    marginTop: 8,
-    alignItems: 'flex-end',
+  previewLegalText: {
+    fontSize: 6,
+    color: '#6B7280',
+    lineHeight: 9,
   },
-  qrSection: {
-    width: 40,
-    height: 40,
-    backgroundColor: '#fff',
-    borderRadius: 4,
+  previewBankRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 4,
+    marginBottom: 4,
+  },
+  previewLbl: {
+    fontSize: 6,
+    color: '#6B7280',
+  },
+  previewVal: {
+    flex: 1,
+    fontSize: 6,
+    fontWeight: '600',
+    color: '#111',
+    textAlign: 'right',
+  },
+  previewQrWrap: {
+    marginTop: 4,
     alignItems: 'center',
     justifyContent: 'center',
+    minHeight: 38,
   },
   section: {
     backgroundColor: '#fff',

@@ -1367,31 +1367,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
               <View style={[styles.invoiceDetailItem, { alignItems: 'flex-end' }]}>
                 <TouchableOpacity
                   style={styles.editIconContainer}
-                  onPress={() => {
-                    Alert.alert(
-                      'Edit Details',
-                      'Select what to update:',
-                      [
-                        {
-                          text: 'Invoice Number',
-                          onPress: () => {
-                            // Using a prompt-like approach for cross-platform compatibility
-                            Alert.prompt ?
-                              Alert.prompt(
-                                "Invoice Number",
-                                "Change the invoice number:",
-                                (num) => setInvoiceDetails(prev => ({ ...prev, number: num })),
-                                'plain-text',
-                                invoiceDetails.number
-                              ) :
-                              Alert.alert("Feature", "Invoice number editing is limited on this platform version, but we've improved the sync. Tap generate again if you've updated settings.");
-                          }
-                        },
-                        { text: 'Due Date', onPress: () => setShowDueDatePicker(true) },
-                        { text: 'Cancel', style: 'cancel' }
-                      ]
-                    );
-                  }}
+                  onPress={() => setShowDueDatePicker(true)}
                 >
                   <Ionicons name={"pencil" as any} size={22} color="#5D73F8" />
                 </TouchableOpacity>

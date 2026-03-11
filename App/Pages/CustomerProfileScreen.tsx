@@ -474,7 +474,7 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
             {/* ══ WHITE TOP HEADER BAR ══ */}
             <View style={[s.header, { paddingTop: Math.max(insets.top, 14) }]}>
                 <Image
-                    source={require('../assets/logo.jpeg')}
+                    source={require('../assets/new.jpeg')}
                     style={s.logo}
                     resizeMode="contain"
                 />
@@ -796,7 +796,7 @@ const s = StyleSheet.create({
     header: {
         flexDirection: 'row',
         alignItems: 'center',
-        backgroundColor: '#fff',
+        backgroundColor: '#F5F5F5',
         paddingHorizontal: 18,
         paddingBottom: 12,
         borderBottomWidth: 1,

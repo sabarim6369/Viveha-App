@@ -14,7 +14,7 @@ import {
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
-import * as FileSystem from 'expo-file-system';
+import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import Toast from 'react-native-toast-message';
@@ -37,7 +37,7 @@ interface ExportCenterScreenProps {
 
 type ReportType = 'insights' | 'inventory' | 'tax' | 'outstanding';
 type DateRangeType = 'preview' | 'week' | 'month' | 'custom';
-type FormatType = 'pdf' | 'csv';
+type FormatType = 'pdf' | 'excel' | 'csv';
 
 interface ReportData {
   type: string;
@@ -182,6 +182,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
 
   const formatOptions = [
     { id: 'pdf' as FormatType, icon: 'document-text', label: 'PDF', color: '#FF6B6B' },
+    { id: 'excel' as FormatType, icon: 'grid', label: 'Excel', color: '#1D9B5F' },
     { id: 'csv' as FormatType, icon: 'list', label: 'CSV', color: '#4A90E2' },
   ];
 
@@ -498,6 +499,219 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
     }
 
     return csv;
+  };
+
+  const getExcelSheetData = (data: ReportData): { sheetName: string; rows: Array<Array<string | number>> } => {
+    const rows: Array<Array<string | number>> = [];
+    const isOffline = !isConnected || !isInternetReachable;
+
+    if (isOffline) {
+      rows.push(['GENERATED IN OFFLINE MODE']);
+      rows.push(['Data Source', 'Local Cache']);
+      rows.push([]);
+    }
+
+    if (data.customerName) {
+      rows.push(['Customer Report']);
+      rows.push(['Customer Name', data.customerName]);
+      rows.push(['Phone', data.customerPhone || 'N/A']);
+      rows.push(['Report Period', `${data.startDate} - ${data.endDate}`]);
+      rows.push(['Generated On', new Date().toLocaleDateString()]);
+      rows.push([]);
+    }
+
+    if (data.type === 'Insights Report' && data.invoices) {
+      rows.push(['Date', 'Invoice Number', 'Customer', 'Customer Phone', 'Amount', 'Paid', 'Pending', 'Status']);
+      data.invoices.forEach((invoice: any) => {
+        const amount = invoice.total || invoice.totalAmount || invoice.grandTotal || 0;
+        const paid = invoice.paidAmount || 0;
+        const pending = amount - paid;
+
+        rows.push([
+          formatDate(new Date(invoice.createdAt || invoice.date)),
+          invoice.number || invoice.invoiceNumber || 'N/A',
+          invoice.clientName || invoice.clientInfo?.name || 'N/A',
+          invoice.clientPhone || invoice.clientInfo?.phone || 'N/A',
+          amount,
+          paid,
+          pending,
+          invoice.status || 'pending',
+        ]);
+      });
+
+      const uniqueCustomerCount = getUniqueCustomerCount(data.invoices);
+      const totalRevenue = data.invoices.reduce((sum, inv) => sum + (inv.total || inv.totalAmount || inv.grandTotal || 0), 0);
+      const totalPaid = data.invoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0);
+      rows.push([]);
+      rows.push(['Summary']);
+      rows.push(['Total Invoices', data.invoices.length]);
+      rows.push(['Unique Customers', uniqueCustomerCount]);
+      rows.push(['Total Revenue', totalRevenue]);
+      rows.push(['Total Paid', totalPaid]);
+      rows.push(['Total Pending', totalRevenue - totalPaid]);
+
+      return { sheetName: 'Insights', rows };
+    }
+
+    if (data.type === 'Tax Report' && data.invoices) {
+      rows.push(['Date', 'Invoice Number', 'Customer', 'Subtotal', 'Tax Amount', 'Discount', 'Total']);
+      data.invoices.forEach((invoice: any) => {
+        const subtotal = invoice.subTotal || invoice.subtotal || 0;
+        const tax = invoice.tax || invoice.totalTax || 0;
+        const discount = invoice.discount || invoice.totalDiscount || 0;
+        const total = invoice.total || invoice.totalAmount || invoice.grandTotal || 0;
+
+        rows.push([
+          formatDate(new Date(invoice.createdAt || invoice.date)),
+          invoice.number || invoice.invoiceNumber || 'N/A',
+          invoice.clientName || invoice.clientInfo?.name || 'N/A',
+          subtotal,
+          tax,
+          discount,
+          total,
+        ]);
+      });
+
+      const totalTax = data.invoices.reduce((sum, inv) => sum + (inv.tax || inv.totalTax || 0), 0);
+      const totalAmount = data.invoices.reduce((sum, inv) => sum + (inv.total || inv.totalAmount || inv.grandTotal || 0), 0);
+      rows.push([]);
+      rows.push(['Tax Summary']);
+      rows.push(['Total Invoices', data.invoices.length]);
+      rows.push(['Total Tax Collected', totalTax]);
+      rows.push(['Total Amount', totalAmount]);
+
+      return { sheetName: 'Tax Report', rows };
+    }
+
+    if (data.type === 'Customer Outstanding Report' && data.pending) {
+      if (data.customerName) {
+        rows.push(['Invoice Number', 'Invoice Date', 'Amount Due', 'Total Amount', 'Paid Amount', 'Due Date']);
+        data.pending.forEach((pending: any) => {
+          rows.push([
+            pending.invoiceNumber || 'N/A',
+            formatDate(new Date(pending.invoiceDate || pending.createdAt || pending.date)),
+            pending.pendingAmount || pending.amount || 0,
+            pending.totalAmount || 0,
+            pending.paidAmount || 0,
+            pending.dueDate || 'N/A',
+          ]);
+        });
+      } else {
+        rows.push(['Customer Name', 'Phone', 'Amount Due', 'Total Amount', 'Paid Amount', 'Invoice Number', 'Invoice Date', 'Due Date']);
+        data.pending.forEach((pending: any) => {
+          rows.push([
+            pending.clientCustomerName || pending.clientName || 'N/A',
+            pending.clientCustomerPhone || pending.clientPhone || 'N/A',
+            pending.pendingAmount || pending.amount || 0,
+            pending.totalAmount || 0,
+            pending.paidAmount || 0,
+            pending.invoiceNumber || 'N/A',
+            formatDate(new Date(pending.invoiceDate || pending.createdAt || pending.date)),
+            pending.dueDate || 'N/A',
+          ]);
+        });
+      }
+
+      const uniqueCustomerCount = getUniqueCustomerCount(data.pending);
+      const totalOutstanding = data.pending.reduce((sum, p) => sum + (p.pendingAmount || p.amount || 0), 0);
+      rows.push([]);
+      rows.push(['Summary']);
+      rows.push(['Total Invoices', data.pending.length]);
+      if (!data.customerName) {
+        rows.push(['Unique Customers', uniqueCustomerCount]);
+      }
+      rows.push(['Total Outstanding', totalOutstanding]);
+
+      return { sheetName: 'Outstanding', rows };
+    }
+
+    if (data.type === 'Inventory Report' && data.items) {
+      rows.push(['Item Name', 'SKU', 'Quantity', 'Price', 'Tax', 'Unit', 'Group', 'Description']);
+      data.items.forEach((item: any) => {
+        rows.push([
+          item.name || item.itemName || 'N/A',
+          item.sku || item.code || 'N/A',
+          item.quantity || item.stockAvailable || item.stock || 0,
+          item.price || item.amount || item.sellingPrice || 0,
+          `${item.tax || 0}%`,
+          item.unit || 'pcs',
+          item.groupName || 'Ungrouped',
+          item.description || '',
+        ]);
+      });
+
+      const totalValue = data.items.reduce((sum, item) => sum + ((item.quantity || item.stockAvailable || item.stock || 0) * (item.price || item.amount || item.sellingPrice || 0)), 0);
+      rows.push([]);
+      rows.push(['Summary']);
+      rows.push(['Total Items', data.items.length]);
+      rows.push(['Total Inventory Value', totalValue]);
+
+      return { sheetName: 'Inventory', rows };
+    }
+
+    return { sheetName: 'Report', rows };
+  };
+
+  const escapeExcelXml = (value: string): string => {
+    return value
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;')
+      .replace(/'/g, '&apos;');
+  };
+
+  const formatDataAsExcel = (data: ReportData): string => {
+    const { sheetName, rows } = getExcelSheetData(data);
+    const safeSheetName = sheetName.replace(/[\\/:?*\[\]]/g, '').slice(0, 31) || 'Report';
+
+    const tableRows = rows
+      .map((row, rowIndex) => {
+        const isHeaderRow = (rowIndex === 0 || rows[rowIndex - 1]?.length === 0) && row.some(cell => cell !== '');
+        const cells = row.length === 0
+          ? '<Cell><Data ss:Type="String"></Data></Cell>'
+          : row.map((cell) => {
+              const isNumber = typeof cell === 'number' && Number.isFinite(cell);
+              const styleId = isHeaderRow ? 'Header' : isNumber ? 'Number' : 'Default';
+              const type = isNumber ? 'Number' : 'String';
+              const value = isNumber ? String(cell) : escapeExcelXml(String(cell));
+              return `<Cell ss:StyleID="${styleId}"><Data ss:Type="${type}">${value}</Data></Cell>`;
+            }).join('');
+
+        return `<Row>${cells}</Row>`;
+      })
+      .join('');
+
+    return `<?xml version="1.0"?>
+<?mso-application progid="Excel.Sheet"?>
+<Workbook xmlns="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:o="urn:schemas-microsoft-com:office:office"
+ xmlns:x="urn:schemas-microsoft-com:office:excel"
+ xmlns:ss="urn:schemas-microsoft-com:office:spreadsheet"
+ xmlns:html="http://www.w3.org/TR/REC-html40">
+ <Styles>
+  <Style ss:ID="Default">
+   <Alignment ss:Vertical="Center"/>
+   <Borders/>
+   <Font ss:FontName="Calibri" ss:Size="11"/>
+   <Interior/>
+   <NumberFormat/>
+   <Protection/>
+  </Style>
+  <Style ss:ID="Header">
+   <Font ss:FontName="Calibri" ss:Size="11" ss:Bold="1" ss:Color="#FFFFFF"/>
+   <Interior ss:Color="#1D9B5F" ss:Pattern="Solid"/>
+  </Style>
+  <Style ss:ID="Number">
+   <NumberFormat ss:Format="Standard"/>
+  </Style>
+ </Styles>
+ <Worksheet ss:Name="${escapeExcelXml(safeSheetName)}">
+  <Table>
+   ${tableRows}
+  </Table>
+ </Worksheet>
+</Workbook>`;
   };
 
   const generatePDFHTML = (data: ReportData): string => {
@@ -847,6 +1061,31 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           visibilityTime: 3000,
         });
         
+      } else if (selectedFormat === 'excel') {
+        const excelContent = formatDataAsExcel(reportData);
+        const fileName = `${reportName}${customerStr}_${dateStr}.xls`;
+        const fileUri = `${FileSystem.documentDirectory}${fileName}`;
+
+        await FileSystem.writeAsStringAsync(fileUri, excelContent, {
+          encoding: FileSystem.EncodingType.UTF8,
+        });
+
+        if (await Sharing.isAvailableAsync()) {
+          await Sharing.shareAsync(fileUri, {
+            mimeType: 'application/vnd.ms-excel',
+            dialogTitle: 'Export Report',
+            UTI: 'com.microsoft.excel.xls',
+          });
+        }
+
+        const isOffline = !isConnected || !isInternetReachable;
+        Toast.show({
+          type: 'success',
+          text1: isOffline ? 'Excel Generated (Offline)' : 'Excel Generated',
+          text2: isOffline ? 'Report created from cached data' : 'Report generated successfully!',
+          position: 'bottom',
+          visibilityTime: 3000,
+        });
       } else if (selectedFormat === 'csv') {
         // Generate CSV
         const csvContent = formatDataAsCSV(reportData);
@@ -902,7 +1141,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           style={styles.backButton}
           onPress={() => navigation.goBack()}
         >
-          <Ionicons name="arrow-back" size={24} color="#333" />
+          <Ionicons name="arrow-back" size={20} color="#333" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Export Center</Text>
         <View style={styles.placeholder} />
@@ -918,7 +1157,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
       {/* Offline Indicator Banner */}
       {(!isConnected || !isInternetReachable) && (
         <View style={styles.offlineBanner}>
-          <Ionicons name="cloud-offline-outline" size={18} color="#FF8A5B" />
+          <Ionicons name="cloud-offline-outline" size={16} color="#FF8A5B" />
           <Text style={styles.offlineBannerText}>
             Offline Mode - Reports will use cached data
           </Text>
@@ -928,7 +1167,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
       {/* Pending Sync Banner */}
       {pendingSyncCount > 0 && isConnected && isInternetReachable && (
         <View style={styles.pendingSyncBanner}>
-          <Ionicons name="cloud-upload-outline" size={18} color="#4A90E2" />
+          <Ionicons name="cloud-upload-outline" size={16} color="#4A90E2" />
           <Text style={styles.pendingSyncBannerText}>
             {pendingSyncCount} item{pendingSyncCount !== 1 ? 's' : ''} syncing with server...
           </Text>
@@ -948,7 +1187,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
               >
                 <View style={styles.reportLeft}>
                   <View style={styles.reportIconContainer}>
-                    <Ionicons name={report.icon as any} size={22} color="#666" />
+                    <Ionicons name={report.icon as any} size={18} color="#666" />
                   </View>
                   <View style={styles.reportInfo}>
                     <Text style={styles.reportTitle}>{report.title}</Text>
@@ -1003,7 +1242,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                   style={styles.dateButton}
                   onPress={() => setShowStartDatePicker(true)}
                 >
-                  <Ionicons name="calendar-outline" size={18} color="#666" />
+                  <Ionicons name="calendar-outline" size={16} color="#666" />
                   <Text style={styles.dateText}>{formatDate(startDate)}</Text>
                 </TouchableOpacity>
               </View>
@@ -1014,7 +1253,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                   style={styles.dateButton}
                   onPress={() => setShowEndDatePicker(true)}
                 >
-                  <Ionicons name="calendar-outline" size={18} color="#666" />
+                  <Ionicons name="calendar-outline" size={16} color="#666" />
                   <Text style={styles.dateText}>{formatDate(endDate)}</Text>
                 </TouchableOpacity>
               </View>
@@ -1052,12 +1291,12 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
               onPress={() => setShowCustomerSelector(true)}
             >
               <View style={styles.customerSelectorLeft}>
-                <Ionicons name="person-outline" size={20} color="#666" />
+                <Ionicons name="person-outline" size={18} color="#666" />
                 <Text style={styles.customerSelectorText}>
                   {selectedCustomer ? selectedCustomer.name : 'All Customers'}
                 </Text>
               </View>
-              <Ionicons name="chevron-down" size={20} color="#666" />
+              <Ionicons name="chevron-down" size={18} color="#666" />
             </TouchableOpacity>
             {selectedCustomer && (
               <TouchableOpacity 
@@ -1085,7 +1324,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                 onPress={() => setSelectedFormat(format.id)}
               >
                 <View style={[styles.formatIconContainer, { backgroundColor: format.color + '20' }]}>
-                  <Ionicons name={format.icon as any} size={28} color={format.color} />
+                  <Ionicons name={format.icon as any} size={22} color={format.color} />
                 </View>
                 <Text style={styles.formatLabel}>{format.label}</Text>
               </TouchableOpacity>
@@ -1094,7 +1333,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         </View>
 
         {/* Preview Button */}
-        <TouchableOpacity 
+        {/* <TouchableOpacity 
           style={[styles.previewButton, loading && styles.previewButtonDisabled]} 
           onPress={handlePreviewReport}
           disabled={loading || isGenerating}
@@ -1110,7 +1349,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
               <Text style={styles.previewButtonText}>Preview Report</Text>
             </>
           )}
-        </TouchableOpacity>
+        </TouchableOpacity> */}
 
         {/* Generate Report Button */}
         <TouchableOpacity 
@@ -1127,7 +1366,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
             </>
           ) : (
             <>
-              <Ionicons name="download-outline" size={24} color="#FFFFFF" />
+              <Ionicons name="download-outline" size={20} color="#FFFFFF" />
               <Text style={styles.generateButtonText}>Generate Report</Text>
             </>
           )}
@@ -1135,7 +1374,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
 
         <Text style={styles.helpText}>
           Reports are generated in {selectedFormat.toUpperCase()} format for the selected date range.
-          {(!isConnected || !isInternetReachable) ? '\n📴 Working offline - using cached data.' : '\n☁️ All reports are automatically synced.'}
+          {(!isConnected || !isInternetReachable) ? '\n📴 Working offline - using cached data.' : '\n All reports are automatically synced.'}
         </Text>
 
         <View style={styles.bottomSpacing} />
@@ -1153,7 +1392,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Select Customer</Text>
               <TouchableOpacity onPress={() => setShowCustomerSelector(false)}>
-                <Ionicons name="close" size={24} color="#333" />
+                <Ionicons name="close" size={20} color="#333" />
               </TouchableOpacity>
             </View>
             
@@ -1164,10 +1403,10 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                 setShowCustomerSelector(false);
               }}
             >
-              <Ionicons name="people-outline" size={24} color="#4A90E2" />
+              <Ionicons name="people-outline" size={20} color="#4A90E2" />
               <Text style={styles.customerItemText}>All Customers</Text>
               {!selectedCustomer && (
-                <Ionicons name="checkmark-circle" size={24} color="#4A90E2" />
+                <Ionicons name="checkmark-circle" size={20} color="#4A90E2" />
               )}
             </TouchableOpacity>
 
@@ -1185,13 +1424,13 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                     setShowCustomerSelector(false);
                   }}
                 >
-                  <Ionicons name="person-outline" size={24} color="#666" />
+                  <Ionicons name="person-outline" size={20} color="#666" />
                   <View style={styles.customerItemInfo}>
                     <Text style={styles.customerItemText}>{item.name}</Text>
                     <Text style={styles.customerItemPhone}>{item.phone}</Text>
                   </View>
                   {selectedCustomer?.id === item.id && (
-                    <Ionicons name="checkmark-circle" size={24} color="#4A90E2" />
+                    <Ionicons name="checkmark-circle" size={20} color="#4A90E2" />
                   )}
                 </TouchableOpacity>
               )}
@@ -1218,7 +1457,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
             <View style={styles.modalHeader}>
               <Text style={styles.modalTitle}>Preview Report</Text>
               <TouchableOpacity onPress={() => setShowPreview(false)}>
-                <Ionicons name="close" size={24} color="#333" />
+                <Ionicons name="close" size={20} color="#333" />
               </TouchableOpacity>
             </View>
             
@@ -1238,7 +1477,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                     <Text style={styles.previewTitle}>{previewData.type}</Text>
                     {(!isConnected || !isInternetReachable) && (
                       <View style={styles.offlineIndicator}>
-                        <Ionicons name="cloud-offline" size={14} color="#FF8A5B" />
+                        <Ionicons name="cloud-offline" size={12} color="#FF8A5B" />
                         <Text style={styles.offlineIndicatorText}>
                           Offline Mode - Using Cached Data
                         </Text>
@@ -1260,7 +1499,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                    !previewData.items?.length && 
                    !previewData.payments?.length && (
                     <View style={styles.previewEmptyState}>
-                      <Ionicons name="document-outline" size={64} color="#CCC" />
+                       <Ionicons name="document-outline" size={52} color="#CCC" />
                       <Text style={styles.previewEmptyTitle}>No Data Available</Text>
                       <Text style={styles.previewEmptyText}>
                         There is no data for this report in the selected date range.
@@ -1271,7 +1510,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                   {previewData.invoices && previewData.invoices.length > 0 && (
                     <View style={styles.previewSection}>
                       <View style={styles.previewSectionHeader}>
-                        <Ionicons name="receipt-outline" size={20} color="#FF8A5B" />
+                        <Ionicons name="receipt-outline" size={18} color="#FF8A5B" />
                         <Text style={styles.previewSectionTitle}>
                           Invoices ({previewData.invoices.length})
                         </Text>
@@ -1302,7 +1541,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                   {previewData.pending && previewData.pending.length > 0 && (
                     <View style={styles.previewSection}>
                       <View style={styles.previewSectionHeader}>
-                        <Ionicons name="time-outline" size={20} color="#FF8A5B" />
+                        <Ionicons name="time-outline" size={18} color="#FF8A5B" />
                         <Text style={styles.previewSectionTitle}>
                           Pending Payments ({previewData.pending.length})
                         </Text>
@@ -1333,7 +1572,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                   {previewData.items && previewData.items.length > 0 && (
                     <View style={styles.previewSection}>
                       <View style={styles.previewSectionHeader}>
-                        <Ionicons name="cube-outline" size={20} color="#FF8A5B" />
+                        <Ionicons name="cube-outline" size={18} color="#FF8A5B" />
                         <Text style={styles.previewSectionTitle}>
                           Items ({previewData.items.length})
                         </Text>
@@ -1364,7 +1603,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                   {previewData.payments && previewData.payments.length > 0 && (
                     <View style={styles.previewSection}>
                       <View style={styles.previewSectionHeader}>
-                        <Ionicons name="cash-outline" size={20} color="#FF8A5B" />
+                        <Ionicons name="cash-outline" size={18} color="#FF8A5B" />
                         <Text style={styles.previewSectionTitle}>
                           Payments ({previewData.payments.length})
                         </Text>
@@ -1406,7 +1645,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
               </>
             ) : (
               <View style={styles.previewEmptyState}>
-                <Ionicons name="alert-circle-outline" size={64} color="#CCC" />
+                <Ionicons name="alert-circle-outline" size={52} color="#CCC" />
                 <Text style={styles.previewEmptyTitle}>No Preview Available</Text>
                 <Text style={styles.previewEmptyText}>
                   Unable to load preview data.
@@ -1432,39 +1671,39 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    paddingHorizontal: 20,
-    paddingTop: 50,
-    paddingBottom: 15,
+    paddingHorizontal: 16,
+    paddingTop: 42,
+    paddingBottom: 12,
     backgroundColor: '#FFFFFF',
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
   backButton: {
-    padding: 5,
+    padding: 4,
   },
   headerTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#333',
     flex: 1,
     textAlign: 'center',
   },
   placeholder: {
-    width: 34,
+    width: 28,
   },
   offlineBanner: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FFF4ED',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#FFE0CC',
-    gap: 8,
+    gap: 6,
   },
   offlineBannerText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#FF8A5B',
   },
@@ -1473,14 +1712,14 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#F0F7FF',
-    paddingVertical: 12,
-    paddingHorizontal: 16,
+    paddingVertical: 9,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#D0E7FF',
-    gap: 8,
+    gap: 6,
   },
   pendingSyncBannerText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#4A90E2',
   },
@@ -1488,19 +1727,19 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   section: {
-    marginTop: 20,
-    paddingHorizontal: 20,
+    marginTop: 14,
+    paddingHorizontal: 16,
   },
   sectionLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: '#999',
     letterSpacing: 0.5,
-    marginBottom: 12,
+    marginBottom: 10,
   },
   reportTypeContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
+    borderRadius: 10,
     overflow: 'hidden',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1512,7 +1751,8 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
-    padding: 15,
+    paddingVertical: 11,
+    paddingHorizontal: 12,
     borderBottomWidth: 1,
     borderBottomColor: '#F5F5F5',
   },
@@ -1522,25 +1762,25 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   reportIconContainer: {
-    width: 40,
-    height: 40,
-    borderRadius: 8,
+    width: 34,
+    height: 34,
+    borderRadius: 7,
     backgroundColor: '#F8F8F8',
     alignItems: 'center',
     justifyContent: 'center',
-    marginRight: 12,
+    marginRight: 10,
   },
   reportInfo: {
     flex: 1,
   },
   reportTitle: {
-    fontSize: 15,
+    fontSize: 14,
     fontWeight: '600',
     color: '#333',
-    marginBottom: 3,
+    marginBottom: 2,
   },
   reportDescription: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#999',
   },
   badge: {
@@ -1550,9 +1790,9 @@ const styles = StyleSheet.create({
     backgroundColor: '#FF6B6B',
   },
   radioButton: {
-    width: 20,
-    height: 20,
-    borderRadius: 10,
+    width: 18,
+    height: 18,
+    borderRadius: 9,
     borderWidth: 2,
     borderColor: '#DDD',
     alignItems: 'center',
@@ -1562,15 +1802,15 @@ const styles = StyleSheet.create({
     borderColor: '#4A90E2',
   },
   radioButtonInner: {
-    width: 10,
-    height: 10,
-    borderRadius: 5,
+    width: 8,
+    height: 8,
+    borderRadius: 4,
     backgroundColor: '#4A90E2',
   },
   dataRangeContainer: {
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 15,
+    borderRadius: 10,
+    padding: 12,
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
     shadowOpacity: 0.05,
@@ -1579,20 +1819,20 @@ const styles = StyleSheet.create({
   },
   dateRangeTabs: {
     flexDirection: 'row',
-    marginBottom: 15,
+    marginBottom: 10,
   },
   dateRangeTab: {
     flex: 1,
-    paddingVertical: 8,
+    paddingVertical: 7,
     alignItems: 'center',
-    borderRadius: 8,
-    marginRight: 8,
+    borderRadius: 7,
+    marginRight: 6,
   },
   dateRangeTabActive: {
     backgroundColor: '#FF8A5B',
   },
   dateRangeTabText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     color: '#666',
   },
@@ -1601,31 +1841,31 @@ const styles = StyleSheet.create({
   },
   dateDisplay: {
     flexDirection: 'row',
-    gap: 12,
-    marginTop: 15,
+    gap: 10,
+    marginTop: 10,
   },
   dateColumn: {
     flex: 1,
   },
   dateLabel: {
-    fontSize: 11,
+    fontSize: 10,
     fontWeight: '600',
     color: '#999',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   dateButton: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#F8F8F8',
-    paddingVertical: 10,
-    paddingHorizontal: 12,
-    borderRadius: 8,
+    paddingVertical: 8,
+    paddingHorizontal: 10,
+    borderRadius: 7,
     borderWidth: 1,
     borderColor: '#E5E5E5',
-    gap: 8,
+    gap: 6,
   },
   dateText: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '500',
     color: '#333',
     flex: 1,
@@ -1633,13 +1873,14 @@ const styles = StyleSheet.create({
   formatOptionsContainer: {
     flexDirection: 'row',
     justifyContent: 'space-between',
-    gap: 12,
+    gap: 8,
   },
   formatOption: {
     flex: 1,
     backgroundColor: '#FFFFFF',
-    borderRadius: 12,
-    padding: 20,
+    borderRadius: 10,
+    paddingVertical: 14,
+    paddingHorizontal: 10,
     alignItems: 'center',
     shadowColor: '#000',
     shadowOffset: { width: 0, height: 2 },
@@ -1653,15 +1894,15 @@ const styles = StyleSheet.create({
     borderColor: '#4A90E2',
   },
   formatIconContainer: {
-    width: 60,
-    height: 60,
-    borderRadius: 12,
+    width: 44,
+    height: 44,
+    borderRadius: 10,
     alignItems: 'center',
     justifyContent: 'center',
-    marginBottom: 10,
+    marginBottom: 8,
   },
   formatLabel: {
-    fontSize: 13,
+    fontSize: 12,
     fontWeight: '600',
     color: '#333',
   },
@@ -1670,11 +1911,11 @@ const styles = StyleSheet.create({
     alignItems: 'center',
     justifyContent: 'center',
     backgroundColor: '#FF8A5B',
-    marginHorizontal: 20,
-    marginTop: 30,
-    paddingVertical: 16,
-    borderRadius: 12,
-    gap: 10,
+    marginHorizontal: 16,
+    marginTop: 22,
+    paddingVertical: 13,
+    borderRadius: 10,
+    gap: 8,
     shadowColor: '#FF8A5B',
     shadowOffset: { width: 0, height: 4 },
     shadowOpacity: 0.3,
@@ -1685,54 +1926,55 @@ const styles = StyleSheet.create({
     opacity: 0.6,
   },
   generateButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
   },
   helpText: {
-    fontSize: 12,
+    fontSize: 11,
     color: '#999',
     textAlign: 'center',
-    marginTop: 15,
-    marginHorizontal: 20,
-    lineHeight: 18,
+    marginTop: 12,
+    marginHorizontal: 16,
+    lineHeight: 16,
   },
   bottomSpacing: {
-    height: 30,
+    height: 18,
   },
   customerSelector: {
     flexDirection: 'row',
     alignItems: 'center',
     justifyContent: 'space-between',
     backgroundColor: '#FFFFFF',
-    padding: 16,
-    borderRadius: 12,
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderRadius: 10,
     borderWidth: 1,
     borderColor: '#E0E0E0',
   },
   customerSelectorLeft: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 12,
+    gap: 8,
   },
   customerSelectorText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#333',
     fontWeight: '500',
   },
   clearCustomerButton: {
     flexDirection: 'row',
     alignItems: 'center',
-    gap: 6,
-    marginTop: 12,
-    paddingVertical: 8,
-    paddingHorizontal: 12,
+    gap: 5,
+    marginTop: 10,
+    paddingVertical: 6,
+    paddingHorizontal: 10,
     backgroundColor: '#FFF5F5',
-    borderRadius: 8,
+    borderRadius: 7,
     alignSelf: 'flex-start',
   },
   clearCustomerText: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#FF6B6B',
     fontWeight: '500',
   },
@@ -1765,34 +2007,36 @@ const styles = StyleSheet.create({
   },
   modalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
     maxHeight: '80%',
-    paddingBottom: 20,
+    paddingBottom: 16,
   },
   modalHeader: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    padding: 20,
+    paddingHorizontal: 16,
+    paddingVertical: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
   modalTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#333',
   },
   customerList: {
-    maxHeight: 400,
+    maxHeight: 360,
   },
   customerItem: {
     flexDirection: 'row',
     alignItems: 'center',
-    padding: 16,
+    paddingVertical: 12,
+    paddingHorizontal: 14,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
-    gap: 12,
+    gap: 10,
   },
   customerItemSelected: {
     backgroundColor: '#F5F9FF',
@@ -1801,28 +2045,28 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   customerItemText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '500',
     color: '#333',
   },
   customerItemPhone: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
     marginTop: 2,
   },
   emptyState: {
-    padding: 40,
+    padding: 28,
     alignItems: 'center',
   },
   emptyStateText: {
-    fontSize: 16,
+    fontSize: 14,
     color: '#999',
   },
   previewModalContent: {
     backgroundColor: '#FFFFFF',
-    borderTopLeftRadius: 20,
-    borderTopRightRadius: 20,
-    height: '90%',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    height: '86%',
     display: 'flex',
     flexDirection: 'column',
   },
@@ -1830,104 +2074,104 @@ const styles = StyleSheet.create({
     flex: 1,
   },
   previewScrollContent: {
-    paddingBottom: 20,
+    paddingBottom: 14,
   },
   previewLoadingContainer: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
+    padding: 28,
   },
   previewLoadingText: {
-    marginTop: 16,
-    fontSize: 16,
+    marginTop: 12,
+    fontSize: 14,
     color: '#666',
   },
   previewEmptyState: {
     flex: 1,
     justifyContent: 'center',
     alignItems: 'center',
-    padding: 40,
-    minHeight: 300,
+    padding: 28,
+    minHeight: 240,
   },
   previewEmptyTitle: {
-    fontSize: 18,
+    fontSize: 16,
     fontWeight: '600',
     color: '#333',
-    marginTop: 16,
-    marginBottom: 8,
+    marginTop: 12,
+    marginBottom: 6,
   },
   previewEmptyText: {
-    fontSize: 14,
+    fontSize: 13,
     color: '#666',
     textAlign: 'center',
-    lineHeight: 20,
+    lineHeight: 18,
   },
   previewHeader: {
-    padding: 20,
+    padding: 16,
     backgroundColor: '#F8F9FA',
     borderBottomWidth: 1,
     borderBottomColor: '#E0E0E0',
   },
   previewTitle: {
-    fontSize: 20,
+    fontSize: 17,
     fontWeight: '700',
     color: '#333',
-    marginBottom: 8,
+    marginBottom: 6,
   },
   offlineIndicator: {
     flexDirection: 'row',
     alignItems: 'center',
     backgroundColor: '#FFF4ED',
-    paddingVertical: 6,
-    paddingHorizontal: 12,
-    borderRadius: 16,
+    paddingVertical: 5,
+    paddingHorizontal: 10,
+    borderRadius: 14,
     alignSelf: 'flex-start',
-    marginBottom: 8,
-    gap: 6,
+    marginBottom: 6,
+    gap: 5,
     borderWidth: 1,
     borderColor: '#FFE0CC',
   },
   offlineIndicatorText: {
-    fontSize: 12,
+    fontSize: 11,
     fontWeight: '600',
     color: '#FF8A5B',
   },
   previewDateRange: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#666',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   previewCustomer: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#FF8A5B',
     fontWeight: '600',
-    marginTop: 8,
-    paddingTop: 8,
+    marginTop: 6,
+    paddingTop: 6,
     borderTopWidth: 1,
     borderTopColor: '#E0E0E0',
   },
   previewSection: {
-    padding: 20,
+    padding: 16,
     borderBottomWidth: 1,
     borderBottomColor: '#F0F0F0',
   },
   previewSectionHeader: {
     flexDirection: 'row',
     alignItems: 'center',
-    marginBottom: 12,
-    gap: 8,
+    marginBottom: 10,
+    gap: 6,
   },
   previewSectionTitle: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#333',
   },
   previewItem: {
     backgroundColor: '#F8F9FA',
-    padding: 14,
-    borderRadius: 10,
-    marginBottom: 10,
+    padding: 11,
+    borderRadius: 8,
+    marginBottom: 8,
     borderLeftWidth: 3,
     borderLeftColor: '#FF8A5B',
   },
@@ -1935,16 +2179,16 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 6,
+    marginBottom: 4,
   },
   previewItemTitle: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '600',
     color: '#333',
     flex: 1,
   },
   previewItemAmount: {
-    fontSize: 15,
+    fontSize: 13,
     fontWeight: '700',
     color: '#4A90E2',
   },
@@ -1955,31 +2199,31 @@ const styles = StyleSheet.create({
     color: '#51CF66',
   },
   previewItemDetail: {
-    fontSize: 13,
+    fontSize: 11,
     color: '#666',
   },
   previewMore: {
-    fontSize: 14,
+    fontSize: 12,
     color: '#FF8A5B',
     fontWeight: '600',
-    marginTop: 12,
+    marginTop: 8,
     textAlign: 'center',
-    paddingVertical: 8,
+    paddingVertical: 6,
   },
   previewBottomSpacing: {
-    height: 20,
+    height: 12,
   },
   previewFooter: {
-    padding: 20,
-    paddingBottom: Platform.OS === 'ios' ? 30 : 20,
+    padding: 16,
+    paddingBottom: Platform.OS === 'ios' ? 24 : 16,
     backgroundColor: '#FFFFFF',
     borderTopWidth: 1,
     borderTopColor: '#F0F0F0',
   },
   previewCloseButton: {
     backgroundColor: '#FF8A5B',
-    paddingVertical: 16,
-    borderRadius: 12,
+    paddingVertical: 12,
+    borderRadius: 10,
     alignItems: 'center',
     elevation: 2,
     shadowColor: '#000',
@@ -1988,7 +2232,7 @@ const styles = StyleSheet.create({
     shadowRadius: 4,
   },
   previewCloseButtonText: {
-    fontSize: 16,
+    fontSize: 14,
     fontWeight: '600',
     color: '#FFFFFF',
   },

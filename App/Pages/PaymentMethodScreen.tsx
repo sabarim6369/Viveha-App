@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useEffect, useState } from 'react';
 import {
   View,
   Text,
@@ -23,7 +23,16 @@ interface PaymentMethodScreenProps {
   navigation: any;
 }
 
+interface PaymentSettings {
+  upiId?: string;
+  bankName?: string;
+  accountNumber?: string;
+  ifscCode?: string;
+  paymentQrUrl?: string;
+}
+
 export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenProps): React.JSX.Element {
+  const paymentSettingsKey = '@viveha_payment_settings';
   const [bankCardEnabled, setBankCardEnabled] = useState(true);
   const [upiId, setUpiId] = useState('@viveha.retail@okaxis');
 
@@ -42,6 +51,59 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
   const [saving, setSaving] = useState(false);
   const [isEditingCard, setIsEditingCard] = useState(false);
   const [isEditingUpi, setIsEditingUpi] = useState(false);
+  const generatedQrPreviewUrl = upiId.trim()
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(`upi://pay?pa=${upiId.trim()}&pn=Viveha&cu=INR`)}`
+    : '';
+
+  useEffect(() => {
+    const loadPaymentSettings = async (): Promise<void> => {
+      try {
+        const cachedSettings = await AsyncStorage.getItem(paymentSettingsKey);
+        if (cachedSettings) {
+          const parsed: PaymentSettings = JSON.parse(cachedSettings);
+          setUpiId(parsed.upiId || '@viveha.retail@okaxis');
+          setBankName(parsed.bankName || 'Viveha Bank');
+          setAccountNumber(parsed.accountNumber || '');
+          setIfscCode(parsed.ifscCode || '');
+          setQrImageUri(parsed.paymentQrUrl || null);
+        }
+
+        const token = await AsyncStorage.getItem('@viveha_token');
+        const clientId = await AsyncStorage.getItem('@viveha_client_id');
+        if (!token || !clientId) {
+          return;
+        }
+
+        const response = await fetch(`${apiurl}/auth/client/${clientId}`, {
+          headers: {
+            Authorization: `Bearer ${token}`,
+          },
+        });
+        const data = await response.json();
+
+        if (response.ok && data.success && data.client) {
+          const remoteSettings: PaymentSettings = {
+            upiId: data.client.upiId || '',
+            bankName: data.client.bankName || '',
+            accountNumber: data.client.accountNumber || '',
+            ifscCode: data.client.ifscCode || '',
+            paymentQrUrl: data.client.paymentQrUrl || '',
+          };
+
+          setUpiId(remoteSettings.upiId || '@viveha.retail@okaxis');
+          setBankName(remoteSettings.bankName || 'Viveha Bank');
+          setAccountNumber(remoteSettings.accountNumber || '');
+          setIfscCode(remoteSettings.ifscCode || '');
+          setQrImageUri(remoteSettings.paymentQrUrl || null);
+          await AsyncStorage.setItem(paymentSettingsKey, JSON.stringify(remoteSettings));
+        }
+      } catch (error) {
+        console.error('Error loading payment settings', error);
+      }
+    };
+
+    loadPaymentSettings();
+  }, []);
 
   const handlePickQrImage = async (): Promise<void> => {
     const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
@@ -65,6 +127,15 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
   const handleSaveChanges = async (): Promise<void> => {
     try {
       setSaving(true);
+      const paymentSettings: PaymentSettings = {
+        upiId,
+        bankName,
+        accountNumber,
+        ifscCode,
+        paymentQrUrl: qrImageUri || undefined,
+      };
+      await AsyncStorage.setItem(paymentSettingsKey, JSON.stringify(paymentSettings));
+
       const token = await AsyncStorage.getItem('@viveha_token');
       const clientId = await AsyncStorage.getItem('@viveha_client_id');
 
@@ -108,7 +179,10 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
       };
       if (paymentQrUrl) {
         payload.paymentQrUrl = paymentQrUrl;
+        paymentSettings.paymentQrUrl = paymentQrUrl;
       }
+
+      await AsyncStorage.setItem(paymentSettingsKey, JSON.stringify(paymentSettings));
 
       await fetch(`${apiurl}/auth/client/${clientId}`, {
         method: 'PUT',
@@ -197,17 +271,27 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
           <View style={styles.section}>
           <Text style={styles.sectionTitle}>UPI & QR Setup</Text>
           <View style={styles.qrUploadContainer}>
-            <TouchableOpacity style={styles.uploadBox} activeOpacity={0.8} onPress={handlePickQrImage}>
-              {qrImageUri ? (
-                <Image source={{ uri: qrImageUri }} style={styles.qrPreview as any} resizeMode="contain" />
+            <View style={styles.uploadBox}>
+              {generatedQrPreviewUrl ? (
+                <>
+                  <Image source={{ uri: generatedQrPreviewUrl }} style={styles.qrPreview as any} resizeMode="contain" />
+                  <Text style={styles.uploadText}>QR generated from your UPI ID</Text>
+                  <Text style={styles.uploadSubtext}>Each invoice will create its own QR with that invoice amount already filled in.</Text>
+                </>
+              ) : qrImageUri ? (
+                <>
+                  <Image source={{ uri: qrImageUri }} style={styles.qrPreview as any} resizeMode="contain" />
+                  <Text style={styles.uploadText}>Fallback QR image selected</Text>
+                  <Text style={styles.uploadSubtext}>This will only be used if no UPI ID is available.</Text>
+                </>
               ) : (
                 <>
-                  <Ionicons name="camera-outline" size={40} color="#CCC" />
-                  <Text style={styles.uploadText}>Upload screenshot or photo</Text>
-                  <Text style={styles.uploadSubtext}>This QR will be automatically added to your digital invoices</Text>
+                  <Ionicons name="qr-code-outline" size={40} color="#CCC" />
+                  <Text style={styles.uploadText}>Enter a UPI ID to generate QR</Text>
+                  <Text style={styles.uploadSubtext}>Invoice QR codes will auto-fill the payable amount for each invoice.</Text>
                 </>
               )}
-            </TouchableOpacity>
+            </View>
             <View style={styles.inputGroup}>
               <View style={styles.upiHeaderRow}>
                 <Text style={styles.inputLabel}>UPI ID</Text>
@@ -240,6 +324,11 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
                     }}
                     disabled={saving}
                   >
+                <TouchableOpacity style={styles.optionalQrButton} activeOpacity={0.8} onPress={handlePickQrImage}>
+                  <Ionicons name="image-outline" size={18} color="#666" />
+                  <Text style={styles.optionalQrButtonText}>{qrImageUri ? 'Replace fallback QR image' : 'Upload fallback QR image'}</Text>
+                </TouchableOpacity>
+                <Text style={styles.optionalQrHint}>Fallback QR is optional. When UPI ID is set, invoice QR will be generated automatically with the invoice amount.</Text>
                     <Text style={styles.upiSaveText}>{saving ? 'Saving…' : 'Save'}</Text>
                   </TouchableOpacity>
                   <TouchableOpacity
@@ -567,6 +656,28 @@ const styles = StyleSheet.create({
     color: '#BBB',
     textAlign: 'center',
     marginTop: 5,
+  },
+  optionalQrButton: {
+    marginTop: 12,
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'center',
+    gap: 8,
+    paddingVertical: 10,
+    borderRadius: 10,
+    backgroundColor: '#F6F6F6',
+  },
+  optionalQrButtonText: {
+    fontSize: 13,
+    fontWeight: '500',
+    color: '#555',
+  },
+  optionalQrHint: {
+    marginTop: 8,
+    fontSize: 11,
+    lineHeight: 16,
+    color: '#888',
+    textAlign: 'center',
   },
   upiIdContainer: {
     flexDirection: 'row',

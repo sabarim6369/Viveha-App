@@ -20,6 +20,7 @@ import {
   getPendingInvoices,
   recordPayment,
 } from '../utils/NetworkManager';
+import Footer from '../Components/Footer';
 import PaymentSuccessModal from '../Components/PaymentSuccessModal';
 
 interface Product {
@@ -770,8 +771,10 @@ export default function CustomerInvoicesScreen({ navigation, route }: CustomerIn
           </View>
         ) : null}
 
-        <View style={{ height: 40 }} />
+        <View style={{ height: 100 }} />
       </ScrollView>
+
+      <Footer activeTab="Pendings" navigation={navigation} />
 
       {/* Payment Options Modal */}
       <Modal
