@@ -12,7 +12,10 @@ import {
   Modal,
   KeyboardAvoidingView,
   Platform,
+  StatusBar,
+  ActivityIndicator,
 } from 'react-native';
+import Toast from 'react-native-toast-message';
 import { Ionicons } from '@expo/vector-icons';
 import Footer from '../Components/Footer';
 import * as ImagePicker from 'expo-image-picker';
@@ -37,7 +40,7 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
   const [upiId, setUpiId] = useState('@viveha.retail@okaxis');
 
   // Editable card fields (Viveha prefix is fixed in UI)
-  const [cardRetailSuffix, setCardRetailSuffix] = useState('Retailers Pvt');
+  const [cardRetailName, setCardRetailName] = useState('Viveha Retailers Pvt');
   const [cardCity, setCardCity] = useState('Coimbatore');
   const [cardBusinessName, setCardBusinessName] = useState('JAYAKUMAR JK TRADERS');
   const [cardLast4, setCardLast4] = useState('0930');
@@ -51,9 +54,6 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
   const [saving, setSaving] = useState(false);
   const [isEditingCard, setIsEditingCard] = useState(false);
   const [isEditingUpi, setIsEditingUpi] = useState(false);
-  const generatedQrPreviewUrl = upiId.trim()
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=220x220&data=${encodeURIComponent(`upi://pay?pa=${upiId.trim()}&pn=Viveha&cu=INR`)}`
-    : '';
 
   useEffect(() => {
     const loadPaymentSettings = async (): Promise<void> => {
@@ -61,8 +61,8 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
         const cachedSettings = await AsyncStorage.getItem(paymentSettingsKey);
         if (cachedSettings) {
           const parsed: PaymentSettings = JSON.parse(cachedSettings);
-          setUpiId(parsed.upiId || '@viveha.retail@okaxis');
-          setBankName(parsed.bankName || 'Viveha Bank');
+          setUpiId(parsed.upiId || '');
+          setBankName(parsed.bankName || '');
           setAccountNumber(parsed.accountNumber || '');
           setIfscCode(parsed.ifscCode || '');
           setQrImageUri(parsed.paymentQrUrl || null);
@@ -90,8 +90,8 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
             paymentQrUrl: data.client.paymentQrUrl || '',
           };
 
-          setUpiId(remoteSettings.upiId || '@viveha.retail@okaxis');
-          setBankName(remoteSettings.bankName || 'Viveha Bank');
+          setUpiId(remoteSettings.upiId || '');
+          setBankName(remoteSettings.bankName || '');
           setAccountNumber(remoteSettings.accountNumber || '');
           setIfscCode(remoteSettings.ifscCode || '');
           setQrImageUri(remoteSettings.paymentQrUrl || null);
@@ -112,12 +112,24 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
       return;
     }
 
+    // Force black background and light icons for high contrast in native editor
+    if (Platform.OS === 'android') {
+      StatusBar.setBackgroundColor('#000000', true);
+      StatusBar.setBarStyle('light-content', true);
+    }
+
     const result = await ImagePicker.launchImageLibraryAsync({
       mediaTypes: ImagePicker.MediaTypeOptions.Images,
       allowsEditing: true,
       aspect: [1, 1],
       quality: 0.8,
     });
+
+    // Reset back to original style (white background, dark icons)
+    if (Platform.OS === 'android') {
+        StatusBar.setBackgroundColor('#ffffff', true);
+        StatusBar.setBarStyle('dark-content', true);
+    }
 
     if (!result.canceled) {
       setQrImageUri(result.assets[0].uri);
@@ -128,10 +140,10 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
     try {
       setSaving(true);
       const paymentSettings: PaymentSettings = {
-        upiId,
-        bankName,
-        accountNumber,
-        ifscCode,
+        upiId: upiId.trim(),
+        bankName: bankName.trim(),
+        accountNumber: accountNumber.trim(),
+        ifscCode: ifscCode.trim(),
         paymentQrUrl: qrImageUri || undefined,
       };
       await AsyncStorage.setItem(paymentSettingsKey, JSON.stringify(paymentSettings));
@@ -172,10 +184,10 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
       }
 
       const payload: any = {
-        upiId,
-        bankName,
-        accountNumber,
-        ifscCode,
+        upiId: upiId.trim(),
+        bankName: bankName.trim(),
+        accountNumber: accountNumber.trim(),
+        ifscCode: ifscCode.trim(),
       };
       if (paymentQrUrl) {
         payload.paymentQrUrl = paymentQrUrl;
@@ -192,8 +204,21 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
         },
         body: JSON.stringify(payload),
       });
+
+      Toast.show({
+        type: 'success',
+        text1: 'Success',
+        text2: 'Payment settings updated successfully',
+        position: 'bottom',
+      });
     } catch (e) {
       console.error('Error saving payment settings', e);
+      Toast.show({
+        type: 'error',
+        text1: 'Error',
+        text2: 'Failed to save payment settings',
+        position: 'bottom',
+      });
     } finally {
       setSaving(false);
     }
@@ -235,22 +260,18 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
             {/* Card Top Section */}
             <View style={styles.cardTop}>
               <View style={styles.cardHeader}>
-                <Text style={styles.bankName}>VIVEHA</Text>
-                <Switch
-                  value={bankCardEnabled}
-                  onValueChange={setBankCardEnabled}
-                  trackColor={{ false: '#D1D1D6', true: '#FFFFFF' }}
-                  thumbColor={bankCardEnabled ? '#FFFFFF' : '#F4F3F4'}
-                  ios_backgroundColor="#3e3e3e"
-                  style={styles.cardSwitch}
-                />
+                <Text style={styles.bankName}>{cardRetailName.split(' ')[0].toUpperCase()}</Text>
+                <View style={styles.logoGroup}>
+                  <View style={styles.circle1} />
+                  <View style={styles.circle2} />
+                </View>
               </View>
-              <View style={styles.cardDetails}>
-                <View>
-                  <Text style={styles.cardHolder}>Viveha {cardRetailSuffix}</Text>
+              <View style={styles.cardBody}>
+                <View style={styles.holderInfo}>
+                  <Text style={styles.cardHolder}>{cardRetailName}</Text>
                   <Text style={styles.cardLocation}>{cardCity}</Text>
                 </View>
-                <Ionicons name="wifi" size={40} color="#FFFFFF" style={styles.contactlessIcon} />
+                <Ionicons name="wifi" size={32} color="#FFFFFF" style={styles.contactlessIcon} />
               </View>
             </View>
 
@@ -269,78 +290,71 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
 
           {/* UPI & QR Setup */}
           <View style={styles.section}>
-          <Text style={styles.sectionTitle}>UPI & QR Setup</Text>
-          <View style={styles.qrUploadContainer}>
-            <View style={styles.uploadBox}>
-              {generatedQrPreviewUrl ? (
-                <>
-                  <Image source={{ uri: generatedQrPreviewUrl }} style={styles.qrPreview as any} resizeMode="contain" />
-                  <Text style={styles.uploadText}>QR generated from your UPI ID</Text>
-                  <Text style={styles.uploadSubtext}>Each invoice will create its own QR with that invoice amount already filled in.</Text>
-                </>
-              ) : qrImageUri ? (
-                <>
-                  <Image source={{ uri: qrImageUri }} style={styles.qrPreview as any} resizeMode="contain" />
-                  <Text style={styles.uploadText}>Fallback QR image selected</Text>
-                  <Text style={styles.uploadSubtext}>This will only be used if no UPI ID is available.</Text>
-                </>
-              ) : (
-                <>
-                  <Ionicons name="qr-code-outline" size={40} color="#CCC" />
-                  <Text style={styles.uploadText}>Enter a UPI ID to generate QR</Text>
-                  <Text style={styles.uploadSubtext}>Invoice QR codes will auto-fill the payable amount for each invoice.</Text>
-                </>
-              )}
-            </View>
-            <View style={styles.inputGroup}>
-              <View style={styles.upiHeaderRow}>
-                <Text style={styles.inputLabel}>UPI ID</Text>
-                <TouchableOpacity
-                  style={styles.upiEditButton}
-                  onPress={() => setIsEditingUpi(true)}
-                >
-                  <Ionicons name="create-outline" size={16} color="#FF8A5B" />
-                  <Text style={styles.upiEditText}>Edit</Text>
-                </TouchableOpacity>
-              </View>
-              <TextInput
-                style={[styles.textInput, !isEditingUpi && styles.readonlyInput]}
-                value={upiId}
-                onChangeText={setUpiId}
-                placeholder="e.g. viveha.retail@okaxis"
-                placeholderTextColor="#999"
-                autoCapitalize="none"
-                autoCorrect={false}
-                keyboardType="email-address"
-                editable={isEditingUpi}
-              />
-              {isEditingUpi && (
-                <View style={styles.upiActionsRow}>
+            <Text style={styles.sectionTitle}>Payment QR Code</Text>
+            <View style={styles.qrUploadContainer}>
+              <TouchableOpacity
+                style={styles.uploadBox}
+                onPress={handlePickQrImage}
+                activeOpacity={0.8}
+              >
+                {qrImageUri ? (
+                  <>
+                    <Image source={{ uri: qrImageUri }} style={styles.qrPreview as any} resizeMode="contain" />
+                    <Text style={styles.uploadText}>Tap to change QR image</Text>
+                  </>
+                ) : (
+                  <>
+                    <Ionicons name="cloud-upload-outline" size={40} color="#FF8A5B" />
+                    <Text style={styles.uploadText}>Upload your Payment QR</Text>
+                    <Text style={styles.uploadSubtext}>This QR will be shown on all your invoices</Text>
+                  </>
+                )}
+              </TouchableOpacity>
+
+              <View style={styles.inputGroup}>
+                <View style={styles.upiHeaderRow}>
+                  <Text style={styles.inputLabel}>UPI ID (for display)</Text>
                   <TouchableOpacity
-                    style={styles.upiSaveButton}
-                    onPress={async () => {
-                      await handleSaveChanges();
-                      setIsEditingUpi(false);
-                    }}
-                    disabled={saving}
+                    style={styles.upiEditButton}
+                    onPress={() => setIsEditingUpi(true)}
                   >
-                <TouchableOpacity style={styles.optionalQrButton} activeOpacity={0.8} onPress={handlePickQrImage}>
-                  <Ionicons name="image-outline" size={18} color="#666" />
-                  <Text style={styles.optionalQrButtonText}>{qrImageUri ? 'Replace fallback QR image' : 'Upload fallback QR image'}</Text>
-                </TouchableOpacity>
-                <Text style={styles.optionalQrHint}>Fallback QR is optional. When UPI ID is set, invoice QR will be generated automatically with the invoice amount.</Text>
-                    <Text style={styles.upiSaveText}>{saving ? 'Saving…' : 'Save'}</Text>
-                  </TouchableOpacity>
-                  <TouchableOpacity
-                    style={styles.upiCancelButton}
-                    onPress={() => setIsEditingUpi(false)}
-                  >
-                    <Text style={styles.upiCancelText}>Cancel</Text>
+                    <Ionicons name="create-outline" size={16} color="#FF8A5B" />
+                    <Text style={styles.upiEditText}>Edit</Text>
                   </TouchableOpacity>
                 </View>
-              )}
+                <TextInput
+                  style={[styles.textInput, !isEditingUpi && styles.readonlyInput]}
+                  value={upiId}
+                  onChangeText={setUpiId}
+                  placeholder="e.g. viveha.retail@okaxis"
+                  placeholderTextColor="#999"
+                  autoCapitalize="none"
+                  autoCorrect={false}
+                  keyboardType="email-address"
+                  editable={isEditingUpi}
+                />
+                {isEditingUpi && (
+                  <View style={styles.upiActionsRow}>
+                    <TouchableOpacity
+                      style={styles.upiSaveButton}
+                      onPress={async () => {
+                        await handleSaveChanges();
+                        setIsEditingUpi(false);
+                      }}
+                      disabled={saving}
+                    >
+                      <Text style={styles.upiSaveText}>{saving ? 'Saving…' : 'Save'}</Text>
+                    </TouchableOpacity>
+                    <TouchableOpacity
+                      style={styles.upiCancelButton}
+                      onPress={() => setIsEditingUpi(false)}
+                    >
+                      <Text style={styles.upiCancelText}>Cancel</Text>
+                    </TouchableOpacity>
+                  </View>
+                )}
+              </View>
             </View>
-          </View>
           </View>
 
           {/* Bank Account Details */}
@@ -388,7 +402,11 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
 
           {/* Save Button */}
           <TouchableOpacity style={styles.saveButton} onPress={handleSaveChanges} disabled={saving}>
-            <Ionicons name="checkmark-circle-outline" size={24} color="#FFFFFF" />
+            {saving ? (
+              <ActivityIndicator color="#FFFFFF" size="small" />
+            ) : (
+              <Ionicons name="checkmark-circle-outline" size={24} color="#FFFFFF" />
+            )}
             <Text style={styles.saveButtonText}>{saving ? 'Saving...' : 'Save Changes'}</Text>
           </TouchableOpacity>
 
@@ -418,16 +436,14 @@ export default function PaymentMethodScreen({ navigation }: PaymentMethodScreenP
               </TouchableOpacity>
             </View>
 
-            <Text style={styles.modalHint}>“Viveha” is fixed and cannot be edited.</Text>
-
             <View style={styles.inputGroup}>
               <Text style={styles.inputLabel}>Retail name</Text>
               <TextInput
                 style={styles.textInput}
-                placeholder="Retailers Pvt"
+                placeholder="Retail Name"
                 placeholderTextColor="#999"
-                value={cardRetailSuffix}
-                onChangeText={setCardRetailSuffix}
+                value={cardRetailName}
+                onChangeText={setCardRetailName}
               />
             </View>
 
@@ -553,36 +569,58 @@ const styles = StyleSheet.create({
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'center',
-    marginBottom: 20,
+    marginBottom: 35,
   },
   bankName: {
     fontSize: 14,
     fontWeight: '700',
     color: '#FFFFFF',
-    letterSpacing: 1,
+    letterSpacing: 1.5,
+    opacity: 0.9,
   },
-  cardSwitch: {
-    transform: [{ scaleX: 0.9 }, { scaleY: 0.9 }],
+  logoGroup: {
+    flexDirection: 'row',
+    alignItems: 'center',
   },
-  cardDetails: {
+  circle1: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.7)',
+    zIndex: 1,
+  },
+  circle2: {
+    width: 24,
+    height: 24,
+    borderRadius: 12,
+    backgroundColor: 'rgba(255, 255, 255, 0.4)',
+    marginLeft: -12,
+  },
+  cardBody: {
     flexDirection: 'row',
     justifyContent: 'space-between',
     alignItems: 'flex-end',
+    marginTop: 10,
+  },
+  holderInfo: {
+    flex: 1,
   },
   cardHolder: {
-    fontSize: 18,
-    fontWeight: '600',
+    fontSize: 20,
+    fontWeight: '700',
     color: '#FFFFFF',
-    marginBottom: 4,
+    marginBottom: 2,
   },
   cardLocation: {
-    fontSize: 12,
+    fontSize: 13,
     color: '#FFFFFF',
     opacity: 0.8,
+    fontWeight: '500',
   },
   contactlessIcon: {
     transform: [{ rotate: '90deg' }],
     opacity: 0.9,
+    marginBottom: 5,
   },
   cardBottom: {
     backgroundColor: '#000000',

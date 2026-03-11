@@ -60,13 +60,12 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
 
     return (
         <View style={styles.container}>
-            {/* Header */}
-            <View style={[styles.header, { paddingTop: insets.top }]}>
-                <TouchableOpacity onPress={() => navigation.goBack()}>
-                    <Ionicons name="close" size={24} color="#333" />
+            <View style={[styles.header, { paddingTop: insets.top + 10 }]}>
+                <TouchableOpacity onPress={() => navigation.goBack()} style={styles.headerIconButton}>
+                    <Ionicons name="close" size={28} color="#D1D1D1" />
                 </TouchableOpacity>
                 <Text style={styles.headerTitle}>Help & Support</Text>
-                <View style={styles.headerSpacer} />
+                <View style={styles.headerIconButton} />
             </View>
 
             <ScrollView 
@@ -88,12 +87,12 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
                     {/* Call Us */}
                     <View style={styles.contactCard}>
                         <View style={styles.contactLeft}>
-                            <View style={styles.iconCircle}>
-                                <Ionicons name="call" size={24} color="#4CAF50" />
+                            <View style={styles.iconWrapper}>
+                                <Ionicons name="call-outline" size={24} color="#777" />
                             </View>
                             <View style={styles.contactInfo}>
                                 <Text style={styles.contactTitle}>Call Us</Text>
-                                <Text style={styles.contactDetails}>+91-9603072804</Text>
+                                <Text style={styles.contactDetails}>+91-9003672804</Text>
                             </View>
                         </View>
                         <TouchableOpacity style={styles.actionButton} onPress={handleCallNow}>
@@ -104,8 +103,8 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
                     {/* Email Us */}
                     <View style={styles.contactCard}>
                         <View style={styles.contactLeft}>
-                            <View style={styles.iconCircle}>
-                                <Ionicons name="mail" size={24} color="#2196F3" />
+                            <View style={styles.iconWrapper}>
+                                <Ionicons name="mail-outline" size={24} color="#777" />
                             </View>
                             <View style={styles.contactInfo}>
                                 <Text style={styles.contactTitle}>Email Us</Text>
@@ -120,8 +119,8 @@ export default function HelpSupportScreen({ navigation }: HelpSupportScreenProps
                     {/* WhatsApp Support */}
                     <View style={styles.contactCard}>
                         <View style={styles.contactLeft}>
-                            <View style={styles.iconCircle}>
-                                <Ionicons name="logo-whatsapp" size={24} color="#25D366" />
+                            <View style={styles.iconWrapper}>
+                                <Ionicons name="logo-whatsapp" size={24} color="#777" />
                             </View>
                             <View style={styles.contactInfo}>
                                 <Text style={styles.contactTitle}>WhatsApp Support</Text>
@@ -150,33 +149,33 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         paddingHorizontal: 20,
-        paddingVertical: 15,
+        paddingBottom: 15,
         backgroundColor: '#fff',
-        borderBottomWidth: 1,
-        borderBottomColor: '#E5E5E5',
+    },
+    headerIconButton: {
+        width: 40,
+        height: 40,
+        justifyContent: 'center',
     },
     headerTitle: {
-        fontSize: 18,
-        fontWeight: '600',
-        color: '#333',
+        fontSize: 22,
+        fontWeight: '700',
+        color: '#111',
         flex: 1,
         textAlign: 'center',
-    },
-    headerSpacer: {
-        width: 24,
     },
     scrollView: {
         flex: 1,
     },
     illustrationContainer: {
         alignItems: 'center',
-        paddingVertical: 30,
+        paddingVertical: 20,
         paddingHorizontal: 20,
         backgroundColor: '#fff',
     },
     illustrationImage: {
-        width: 280,
-        height: 220,
+        width: 320,
+        height: 280,
     },
     contactContainer: {
         paddingHorizontal: 20,
@@ -188,54 +187,55 @@ const styles = StyleSheet.create({
         alignItems: 'center',
         justifyContent: 'space-between',
         backgroundColor: '#fff',
-        padding: 15,
-        borderRadius: 12,
-        marginBottom: 15,
+        padding: 18,
+        borderRadius: 16,
+        marginBottom: 16,
+        borderWidth: 1,
+        borderColor: '#F0F0F0',
         shadowColor: '#000',
-        shadowOffset: { width: 0, height: 2 },
-        shadowOpacity: 0.05,
-        shadowRadius: 4,
-        elevation: 2,
+        shadowOffset: { width: 0, height: 4 },
+        shadowOpacity: 0.04,
+        shadowRadius: 10,
+        elevation: 3,
     },
     contactLeft: {
         flexDirection: 'row',
         alignItems: 'center',
         flex: 1,
     },
-    iconCircle: {
-        width: 50,
-        height: 50,
-        borderRadius: 25,
-        backgroundColor: '#F5F5F5',
+    iconWrapper: {
+        width: 40,
+        height: 40,
         justifyContent: 'center',
         alignItems: 'center',
-        marginRight: 15,
+        marginRight: 12,
     },
     contactInfo: {
         flex: 1,
     },
     contactTitle: {
         fontSize: 16,
-        fontWeight: '600',
-        color: '#333',
-        marginBottom: 4,
+        fontWeight: '700',
+        color: '#111',
+        marginBottom: 2,
     },
     contactDetails: {
-        fontSize: 13,
-        color: '#666',
+        fontSize: 12,
+        color: '#999',
+        fontWeight: '500',
     },
     actionButton: {
-        backgroundColor: '#E46269',
-        paddingHorizontal: 16,
+        backgroundColor: '#D1706C',
+        paddingHorizontal: 18,
         paddingVertical: 10,
-        borderRadius: 20,
-        minWidth: 100,
+        borderRadius: 24,
+        minWidth: 110,
         alignItems: 'center',
         justifyContent: 'center',
     },
     actionButtonText: {
         color: '#fff',
-        fontSize: 14,
+        fontSize: 13,
         fontWeight: '600',
     },
 });

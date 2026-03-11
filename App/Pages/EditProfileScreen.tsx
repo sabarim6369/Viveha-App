@@ -11,8 +11,10 @@ import {
   KeyboardAvoidingView,
   Platform,
   ActivityIndicator,
+  Image,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
+import * as ImagePicker from 'expo-image-picker';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
 import apiurl from '../api';
@@ -32,6 +34,8 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
   const [saving, setSaving] = useState<boolean>(false);
   const [showStateDropdown, setShowStateDropdown] = useState<boolean>(false);
   const [stateSearch, setStateSearch] = useState<string>('');
+  const [profileImage, setProfileImage] = useState<string | null>(null);
+  const [newImageUri, setNewImageUri] = useState<string | null>(null);
 
   const indianStates: string[] = [
     'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -69,6 +73,7 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
           setCity(remote.city || '');
           setStateName(remote.state || '');
           setGstin(remote.gstin || '');
+          setProfileImage(remote.profileImage || null);
         }
       } catch (error) {
         console.error('Error loading profile for edit:', error);
@@ -85,6 +90,42 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
 
     loadProfile();
   }, []);
+
+  const handlePickImage = async () => {
+    const { status } = await ImagePicker.requestMediaLibraryPermissionsAsync();
+    if (status !== 'granted') {
+      Toast.show({
+        type: 'error',
+        text1: 'Permission Denied',
+        text2: 'We need access to your gallery to update your profile photo.',
+        position: 'bottom',
+      });
+      return;
+    }
+
+    // Force black background and light icons for high contrast in native editor
+    if (Platform.OS === 'android') {
+        StatusBar.setBackgroundColor('#000000', true);
+        StatusBar.setBarStyle('light-content', true);
+    }
+
+    const result = await ImagePicker.launchImageLibraryAsync({
+      mediaTypes: ImagePicker.MediaTypeOptions.Images,
+      allowsEditing: true,
+      aspect: [1, 1],
+      quality: 0.7,
+    });
+
+    // Reset back to original style (white background, dark icons)
+    if (Platform.OS === 'android') {
+        StatusBar.setBackgroundColor('#ffffff', true);
+        StatusBar.setBarStyle('dark-content', true);
+    }
+
+    if (!result.canceled) {
+      setNewImageUri(result.assets[0].uri);
+    }
+  };
 
   const handleSave = async (): Promise<void> => {
     try {
@@ -121,6 +162,34 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
         state: stateName.trim(),
         gstin: gstin.trim(),
       };
+
+      // 1) Handle Image Upload if new image selected
+      let uploadedImageUrl = profileImage;
+      if (newImageUri) {
+        const formData = new FormData();
+        formData.append('profileImage', {
+          uri: newImageUri,
+          name: 'profile_photo.jpg',
+          type: 'image/jpeg',
+        } as any);
+
+        const uploadResponse = await fetch(`${apiurl}/upload/profile-picture`, {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+          },
+          body: formData as any,
+        });
+
+        const uploadData = await uploadResponse.json();
+        if (uploadData.success && uploadData.profileUrl) {
+          uploadedImageUrl = uploadData.profileUrl;
+          // Update payload with new image URL
+          (payload as any).profileUrl = uploadedImageUrl;
+        } else {
+          console.warn('Image upload failed, continuing with text updates');
+        }
+      }
 
       const url = `${apiurl}/auth/client/${clientId}`;
       console.log('Updating client profile at:', url, 'payload:', payload);
@@ -214,6 +283,30 @@ export default function EditProfileScreen({ navigation }: EditProfileScreenProps
           showsVerticalScrollIndicator={false}
           keyboardShouldPersistTaps="handled"
         >
+          {/* Profile Photo Section */}
+          <View style={styles.photoSection}>
+            <TouchableOpacity 
+              style={styles.avatarContainer} 
+              onPress={handlePickImage}
+              activeOpacity={0.9}
+            >
+              {newImageUri || profileImage ? (
+                <Image 
+                  source={{ uri: newImageUri || profileImage || '' }} 
+                  style={styles.avatar} 
+                />
+              ) : (
+                <View style={styles.avatarPlaceholder}>
+                  <Ionicons name="person" size={40} color="#CCC" />
+                </View>
+              )}
+              <View style={styles.editIconBadge}>
+                <Ionicons name="camera" size={18} color="#fff" />
+              </View>
+            </TouchableOpacity>
+            <Text style={styles.photoHint}>Tap to change business logo</Text>
+          </View>
+
           <View style={styles.card}>
             <Text style={styles.sectionTitle}>Business details</Text>
             <Text style={styles.sectionSubtitle}>
@@ -414,6 +507,59 @@ const styles = StyleSheet.create({
     paddingHorizontal: 20,
     paddingTop: 20,
     paddingBottom: 40,
+  },
+  photoSection: {
+    alignItems: 'center',
+    marginBottom: 24,
+    marginTop: 10,
+  },
+  avatarContainer: {
+    width: 100,
+    height: 100,
+    borderRadius: 50,
+    backgroundColor: '#FFF',
+    elevation: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.1,
+    shadowRadius: 10,
+    justifyContent: 'center',
+    alignItems: 'center',
+    position: 'relative',
+    borderWidth: 3,
+    borderColor: '#FFF',
+  },
+  avatar: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+  },
+  avatarPlaceholder: {
+    width: '100%',
+    height: '100%',
+    borderRadius: 50,
+    backgroundColor: '#F9F9F9',
+    justifyContent: 'center',
+    alignItems: 'center',
+  },
+  editIconBadge: {
+    position: 'absolute',
+    right: -2,
+    bottom: -2,
+    backgroundColor: '#FF6B35',
+    width: 32,
+    height: 32,
+    borderRadius: 16,
+    justifyContent: 'center',
+    alignItems: 'center',
+    borderWidth: 3,
+    borderColor: '#FFF',
+  },
+  photoHint: {
+    marginTop: 10,
+    fontSize: 12,
+    color: '#999',
+    fontWeight: '500',
   },
   card: {
     backgroundColor: '#fff',

@@ -185,6 +185,7 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
   const previewTaxableAmount = previewSubTotal;
   const previewSgst = previewTax / 2;
   const previewCgst = previewTax / 2;
+  const previewPaidAmount = 0;
   const previewSenderLines = [
     [shopDetails.location, shopDetails.city, shopDetails.state].filter(Boolean).join(', '),
     shopDetails.phoneNumber || shopDetails.mobile ? `Phone: ${shopDetails.phoneNumber || shopDetails.mobile}` : '',
@@ -290,18 +291,27 @@ export default function InvoiceCustomizationScreen({ navigation, route }: Invoic
               </View>
 
               <View style={styles.previewInvoiceMetaSection}>
-                <Text style={[styles.previewMetaLabel, { color: settings.headerColor }]}>Service Details:</Text>
-                <View style={styles.previewMetaPair}>
-                  <Text style={styles.previewSubLabel}>Invoice #:</Text>
-                  <Text style={styles.previewSubValue}>INV001</Text>
+                <View style={styles.previewMetaBlock}>
+                  <Text style={[styles.previewMetaLabel, { color: settings.headerColor }]}>Invoice Details:</Text>
+                  <View style={styles.previewMetaPair}>
+                    <Text style={styles.previewSubLabel}>Invoice #:</Text>
+                    <Text style={styles.previewSubValue}>INV001</Text>
+                  </View>
+                  <View style={styles.previewMetaPair}>
+                    <Text style={styles.previewSubLabel}>Invoice Date:</Text>
+                    <Text style={styles.previewSubValue}>06/03/2026</Text>
+                  </View>
+                  <View style={styles.previewMetaPair}>
+                    <Text style={styles.previewSubLabel}>Due Date:</Text>
+                    <Text style={styles.previewSubValue}>21/03/2026</Text>
+                  </View>
                 </View>
-                <View style={styles.previewMetaPair}>
-                  <Text style={styles.previewSubLabel}>Invoice Date:</Text>
-                  <Text style={styles.previewSubValue}>06/03/2026</Text>
-                </View>
-                <View style={styles.previewMetaPair}>
-                  <Text style={styles.previewSubLabel}>Due Date:</Text>
-                  <Text style={styles.previewSubValue}>21/03/2026</Text>
+
+                <View style={styles.previewPaymentBlock}>
+                  <Text style={[styles.previewMetaLabel, { color: settings.headerColor }]}>Payment Received</Text>
+                  <Text style={styles.previewPaymentLabel}>Paid Amount</Text>
+                  <Text style={styles.previewPaymentPaid}>₹{previewPaidAmount.toFixed(0)}</Text>
+                  {/* <Text style={[styles.previewPaymentTotal, { color: settings.headerColor }]}>₹{previewTotal.toFixed(0)}</Text> */}
                 </View>
               </View>
             </View>
@@ -692,6 +702,12 @@ const styles = StyleSheet.create({
   previewInvoiceMetaSection: {
     flex: 0.58,
     alignItems: 'flex-start',
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    gap: 8,
+  },
+  previewMetaBlock: {
+    flex: 1,
   },
   previewMetaLabel: {
     fontSize: 7,
@@ -715,6 +731,28 @@ const styles = StyleSheet.create({
     fontWeight: '600',
     color: '#111',
     textAlign: 'left',
+  },
+  previewPaymentBlock: {
+    minWidth: 66,
+    alignItems: 'center',
+  },
+  previewPaymentLabel: {
+    fontSize: 7,
+    fontWeight: '700',
+    color: '#111',
+    marginBottom: 2,
+  },
+  previewPaymentPaid: {
+    fontSize: 12,
+    fontWeight: '700',
+    color: '#111',
+    lineHeight: 14,
+  },
+  previewPaymentTotal: {
+    fontSize: 15,
+    fontWeight: '800',
+    marginTop: 4,
+    lineHeight: 17,
   },
   previewTable: {
     marginBottom: 10,

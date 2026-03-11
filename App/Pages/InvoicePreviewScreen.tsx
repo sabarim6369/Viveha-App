@@ -53,16 +53,27 @@ interface AdditionalFee {
   amount: number;
 }
 
+interface ClientInfo {
+  name: string;
+  phone: string;
+  address?: string;
+  email?: string;
+  gstNo?: string;
+}
+
 interface Invoice {
   number: string;
   invoiceDate: string;
   dueDate: string;
   items: InvoiceItem[];
+  clientInfo?: ClientInfo;
   total?: number;
+  totalAmount?: number;
   grandTotal?: number;
   subTotal?: number;
   tax?: number;
   discount?: number;
+  paidAmount?: number;
   customCharges?: CustomCharge[];
   additionalFees?: AdditionalFee[];
 }
@@ -92,9 +103,9 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
   const poweredByPhone = '9003557604';
   const { invoice: routeInvoice, isPreview } = route.params || {};
   const { isConnected, isInternetReachable } = useNetworkStatus();
-  
+
   const invoiceRef = useRef<View>(null);
-  
+
   const [invoice, setInvoice] = useState<Invoice | null>(routeInvoice || null);
   const [shopDetails, setShopDetails] = useState<ShopDetails | null>(null);
   const [paymentDetails, setPaymentDetails] = useState<PaymentDetails | null>(null);
@@ -249,14 +260,17 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
 
   const getQrCodeBase64 = async (totalAmountValue: number): Promise<string> => {
     try {
+      // Prioritize uploaded QR image if available
+      if (paymentDetails?.paymentQrUrl) {
+        return await loadImageUriAsBase64(paymentDetails.paymentQrUrl);
+      }
+
+      // Fallback to auto-generated UPI QR only if no image is uploaded
       if (!paymentDetails?.upiId) {
-        if (paymentDetails?.paymentQrUrl) {
-          return await loadImageUriAsBase64(paymentDetails.paymentQrUrl);
-        }
         return '';
       }
 
-      const upiString = `upi://pay?pa=${encodeURIComponent(paymentDetails.upiId)}&pn=${encodeURIComponent(shopDetails?.shopName || 'Viveha')}&am=${totalAmountValue}&cu=INR`;
+      const upiString = `upi://pay?pa=${paymentDetails.upiId.trim()}&pn=${(shopDetails?.shopName || 'Viveha').trim()}&am=${totalAmountValue.toFixed(2)}&cu=INR&mc=0000`;
       const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiString)}`;
       const qrDownload = await FileSystem.downloadAsync(
         qrApiUrl,
@@ -325,7 +339,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     let calculatedSubTotal = 0;
     let calculatedTax = 0;
     let calculatedDiscount = 0; // Discount feature disabled
-    
+
     (invoice.items || []).forEach(item => {
       const itemSubtotal = (item.price || 0) * (item.quantity || 0);
       calculatedSubTotal += itemSubtotal;
@@ -338,14 +352,15 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     const subTotal = invoice.subTotal !== undefined ? invoice.subTotal.toFixed(2) : calculatedSubTotal.toFixed(2);
     const tax = invoice.tax !== undefined ? invoice.tax.toFixed(2) : calculatedTax.toFixed(2);
     const discount = invoice.discount !== undefined ? invoice.discount.toFixed(2) : calculatedDiscount.toFixed(2);
-    
+
     // Calculate final total
     const calculatedTotal = calculatedSubTotal + calculatedTax - calculatedDiscount;
-    const totalAmount = (invoice.total || invoice.grandTotal || calculatedTotal).toFixed(2);
+    const totalAmount = (invoice.total || invoice.totalAmount || invoice.grandTotal || calculatedTotal).toFixed(2);
+    const paidAmount = (invoice.paidAmount || 0).toFixed(2);
 
     // Calculate taxable amount (subtotal - discount)
     const taxableAmount = (parseFloat(subTotal) - parseFloat(discount)).toFixed(2);
-    
+
     // Split tax into SGST and CGST (half each for GST)
     const sgst = (parseFloat(tax) / 2).toFixed(2);
     const cgst = (parseFloat(tax) / 2).toFixed(2);
@@ -374,7 +389,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
       const itemTaxAmount = (itemSubtotal * (item.tax || 0)) / 100;
       const itemDiscountAmount = 0; // Discount feature disabled
       const itemTotal = itemSubtotal + itemTaxAmount - itemDiscountAmount;
-      
+
       return `
       <tr style="background-color: ${index % 2 === 0 ? '#FFFFFF' : '#F9FAFB'};">
         <td style="padding: 10px 12px; font-size: 10px; border-bottom: 1px solid #E5E7EB; color: #1F2937;">${item.name}</td>
@@ -436,14 +451,28 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
               vertical-align: middle;
               object-fit: cover;
             }
+            .brand-info {
+              display: flex;
+              flex-direction: column;
+            }
             .brand-title {
-              font-size: 18px;
+              font-size: 16px;
               font-weight: 800;
               color: #111;
+              line-height: 1.2;
+            }
+            .brand-address {
+              font-size: 8px;
+              color: #6B7280;
+              margin-top: 2px;
             }
             .powered-by {
-              flex: 1;
-              text-align: center;
+              text-align: right;
+            }
+            .header-right {
+              display: flex;
+              align-items: center;
+              gap: 12px;
             }
             .powered-text { font-size: 8px; color: #9CA3AF; margin-bottom: 2px; }
             .isaii-logo { font-size: 12px; font-weight: 700; color: #111; }
@@ -459,16 +488,22 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
               display: flex; 
               justify-content: space-between; 
               margin-bottom: 20px; 
+              gap: 18px;
             }
-            .sender-details { max-width: 45%; }
+            .sender-details { flex: 0 0 40%; }
             .sender-name { font-size: 13px; font-weight: 700; color: #111; margin-bottom: 5px; }
             .sender-address { font-size: 9px; color: #6B7280; line-height: 1.5; }
-            
+            .meta-right { display: flex; align-items: flex-start; justify-content: flex-end; gap: 22px; flex: 1; }
             .invoice-details { text-align: right; }
             .detail-label { font-size: 10px; font-weight: 600; color: ${tableHeaderColor}; margin-bottom: 6px; }
             .detail-row { font-size: 9px; margin-bottom: 3px; }
             .detail-row .label { color: #6B7280; }
             .detail-row .value { font-weight: 600; color: #111; margin-left: 6px; }
+            .payment-status { text-align: center; min-width: 96px; }
+            .payment-title { font-size: 10px; font-weight: 600; color: ${tableHeaderColor}; margin-bottom: 4px; }
+            .payment-label { font-size: 9px; font-weight: 700; color: #111; margin-bottom: 3px; }
+            .payment-paid { font-size: 13px; font-weight: 700; color: #111; line-height: 1.1; }
+            .payment-total { font-size: 16px; font-weight: 800; color: ${tableHeaderColor}; margin-top: 4px; line-height: 1.1; }
             
             /* Table */
             table { 
@@ -591,40 +626,59 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
             <div class="header">
               <div class="brand-logo">
                 ${brandLogoBase64 ? `<img src="${brandLogoBase64}" alt="Shop Logo" class="logo-icon" />` : '<span class="logo-icon"></span>'}
-                <span class="brand-title">${shopName}</span>
+                <div class="brand-info">
+                  <div class="brand-title">${shopName}</div>
+                  <div class="brand-address">
+                    ${shopLocation}
+                    ${shopPhone ? `<br>Phone: ${shopPhone}` : ''}
+                    ${showGSTUIN && shopGstin ? `<br>GST: ${shopGstin}` : ''}
+                  </div>
+                </div>
               </div>
-              <div class="powered-by">
-                <div class="powered-text">Powered by</div>
-                <div class="isaii-logo">${poweredByName}</div>
-                <div class="powered-text">${poweredByPhone}</div>
+              <div class="header-right">
+                <div class="powered-by">
+                  <div class="powered-text">Powered by</div>
+                  <div class="isaii-logo">${poweredByName}</div>
+                  <div class="powered-text">${poweredByPhone}</div>
+                </div>
+                ${homeBadgeBase64 ? `<img src="${homeBadgeBase64}" alt="Home Badge" class="header-badge" />` : '<div class="header-badge"></div>'}
               </div>
-              ${homeBadgeBase64 ? `<img src="${homeBadgeBase64}" alt="Home Badge" class="header-badge" />` : '<div class="header-badge"></div>'}
             </div>
             
             <!-- Meta Section -->
             <div class="meta-section">
               <div class="sender-details">
-                <div class="sender-name">${shopName}</div>
+                <div class="detail-label" style="text-align: left;">Issued to:</div>
+                <div class="sender-name">${invoice.clientInfo?.name || 'Customer Name'}</div>
                 <div class="sender-address">
-                  ${shopLocation || ''}
-                  ${shopPhone ? `<br>Phone: ${shopPhone}` : ''}
-                  ${showGSTUIN && shopGstin ? `<br>GST: ${shopGstin}` : ''}
+                  ${invoice.clientInfo?.phone ? `Phone: ${invoice.clientInfo.phone}` : ''}
+                  ${invoice.clientInfo?.email ? `<br>Email: ${invoice.clientInfo.email}` : ''}
+                  ${invoice.clientInfo?.address ? `<br>${invoice.clientInfo.address}` : ''}
+                  ${invoice.clientInfo?.gstNo ? `<br>GST: ${invoice.clientInfo.gstNo}` : ''}
                 </div>
               </div>
               
-              <div class="invoice-details">
-                <div class="detail-label">Service Details:</div>
-                <div class="detail-row">
-                  <span class="label">Invoice #:</span>
-                  <span class="value">${invoice.number}</span>
+              <div class="meta-right">
+                <div class="invoice-details">
+                  <div class="detail-label">Invoice Details:</div>
+                  <div class="detail-row">
+                    <span class="label">Invoice #:</span>
+                    <span class="value">${invoice.number}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">Invoice Date:</span>
+                    <span class="value">${invoice.invoiceDate}</span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">Due Date:</span>
+                    <span class="value">${invoice.dueDate}</span>
+                  </div>
                 </div>
-                <div class="detail-row">
-                  <span class="label">Invoice Date:</span>
-                  <span class="value">${invoice.invoiceDate}</span>
-                </div>
-                <div class="detail-row">
-                  <span class="label">Due Date:</span>
-                  <span class="value">${invoice.dueDate}</span>
+                <div class="payment-status">
+                  <div class="payment-title">Payment Received</div>
+                  <div class="payment-label">Paid Amount</div>
+                  <div class="payment-paid">₹${paidAmount}</div>
+                  <div class="payment-total">₹${totalAmount}</div>
                 </div>
               </div>
             </div>
@@ -731,14 +785,14 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
   const handlePrint = async (): Promise<void> => {
     try {
       if (!invoice) return;
-      
+
       const brandLogoBase64 = await getBrandLogoBase64();
       const homeBadgeBase64 = await getHomeBadgeBase64();
       const qrCodeBase64 = await getQrCodeBase64(invoice.total || invoice.grandTotal || 0);
-      
+
       // Generate HTML from the invoice data (same design as preview)
       const html = generateInvoiceHtml(invoice, brandLogoBase64, homeBadgeBase64, qrCodeBase64);
-      
+
       // Directly print the invoice
       await Print.printAsync({ html });
     } catch (error) {
@@ -750,47 +804,47 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
   const handleDownload = async (): Promise<void> => {
     try {
       if (!invoice) return;
-      
+
       // Request media library permissions with write access
       const { status } = await MediaLibrary.requestPermissionsAsync();
       if (status !== 'granted') {
         Alert.alert('Permission Required', 'Please grant storage access to save the invoice.');
         return;
       }
-      
+
       Toast.show({
         type: 'info',
         text1: 'Creating PDF',
         text2: 'Please wait...',
         position: 'bottom',
       });
-      
+
       const brandLogoBase64 = await getBrandLogoBase64();
       const homeBadgeBase64 = await getHomeBadgeBase64();
       const qrCodeBase64 = await getQrCodeBase64(invoice.total || invoice.grandTotal || 0);
-      
+
       // Generate HTML from the invoice data and create PDF
       const html = generateInvoiceHtml(invoice, brandLogoBase64, homeBadgeBase64, qrCodeBase64);
       const { uri: pdfUri } = await Print.printToFileAsync({ html });
-      
+
       // Create a filename for the PDF with proper extension
       const fileName = `Invoice_${invoice.number}_${new Date().getTime()}.pdf`;
       const downloadPath = `${FileSystem.documentDirectory}${fileName}`;
-      
+
       // Ensure the file has .pdf extension and copy to document directory
       await FileSystem.copyAsync({
         from: pdfUri,
         to: downloadPath
       });
-      
+
       // Verify file exists and has content
       const fileInfo = await FileSystem.getInfoAsync(downloadPath);
       console.log('PDF file info:', fileInfo);
-      
+
       // Save to phone's gallery/photos with proper PDF extension
       try {
         const asset = await MediaLibrary.createAssetAsync(downloadPath);
-        
+
         // Try to create album or add to existing album
         try {
           await MediaLibrary.createAlbumAsync('Viveha Invoices', asset, false);
@@ -805,7 +859,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
         console.error('Media library error:', mediaError);
         // If saving to media library fails, at least we have the file in cache
       }
-      
+
       // Show success message
       Toast.show({
         type: 'success',
@@ -816,7 +870,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
       });
     } catch (error) {
       console.error('Download error:', error);
-      
+
       // Provide more specific error message
       let errorMessage = 'Failed to download invoice.';
       if (error instanceof Error) {
@@ -828,7 +882,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
           errorMessage = `Failed to download invoice: ${error.message}`;
         }
       }
-      
+
       Alert.alert('Download Error', errorMessage);
     }
   };
@@ -836,17 +890,17 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
   const handleShare = async (): Promise<void> => {
     try {
       if (!invoice) return;
-      
+
       const brandLogoBase64 = await getBrandLogoBase64();
       const homeBadgeBase64 = await getHomeBadgeBase64();
       const qrCodeBase64 = await getQrCodeBase64(invoice.total || invoice.grandTotal || 0);
-      
+
       // Generate HTML from the invoice data and create PDF
       const html = generateInvoiceHtml(invoice, brandLogoBase64, homeBadgeBase64, qrCodeBase64);
       const { uri: pdfUri } = await Print.printToFileAsync({ html });
-      
+
       // Share the PDF
-      await Sharing.shareAsync(pdfUri, { 
+      await Sharing.shareAsync(pdfUri, {
         mimeType: 'application/pdf',
         UTI: 'com.adobe.pdf'
       });
@@ -864,7 +918,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
             <Ionicons name={"arrow-back" as any} size={24} color="#000" />
           </TouchableOpacity>
           <Text style={styles.headerTitle}>Invoice Preview</Text>
-          <TouchableOpacity 
+          <TouchableOpacity
             style={styles.editButton}
             onPress={() => navigation.navigate('InvoiceCustomization')}
           >
@@ -878,7 +932,9 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     );
   }
 
-  const totalAmount = (invoice.total || invoice.grandTotal || 0).toFixed(2);
+  const resolvedTotal = invoice.total || invoice.totalAmount || invoice.grandTotal || 0;
+  const totalAmount = resolvedTotal.toFixed(2);
+  const paidAmount = (invoice.paidAmount || 0).toFixed(2);
   const amountWords = numberToWords(parseFloat(totalAmount));
   const shopAddressParts = [shopDetails?.location, shopDetails?.city, shopDetails?.state].filter(Boolean);
   const senderLines = [
@@ -891,16 +947,18 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     paymentDetails?.accountNumber ? { label: 'Account Number:', value: paymentDetails.accountNumber } : null,
     paymentDetails?.ifscCode ? { label: 'IFSC:', value: paymentDetails.ifscCode } : null,
   ].filter(Boolean) as Array<{ label: string; value: string }>;
-  const invoiceQrPreviewUrl = paymentDetails?.upiId
-    ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${paymentDetails.upiId}&pn=${shopDetails?.shopName || 'Viveha'}&am=${totalAmount}&cu=INR`)}`
-    : paymentDetails?.paymentQrUrl || '';
+  const invoiceQrPreviewUrl = paymentDetails?.paymentQrUrl
+    ? paymentDetails.paymentQrUrl
+    : paymentDetails?.upiId
+      ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${paymentDetails.upiId.trim()}&pn=${(shopDetails?.shopName || 'Viveha').trim()}&am=${totalAmount}&cu=INR&mc=0000`)}`
+      : '';
   const hasPaymentDetails = Boolean(paymentRows.length || paymentDetails?.upiId || (showQRCode && invoiceQrPreviewUrl));
 
   // Calculate actual values from items
   let calculatedSubTotal = 0;
   let calculatedTax = 0;
   let calculatedDiscount = 0;
-  
+
   (invoice.items || []).forEach(item => {
     const itemSubtotal = (item.price || 0) * (item.quantity || 0);
     calculatedSubTotal += itemSubtotal;
@@ -924,7 +982,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
           <Ionicons name={"arrow-back" as any} size={24} color="#000" />
         </TouchableOpacity>
         <Text style={styles.headerTitle}>Invoice Preview</Text>
-        <TouchableOpacity 
+        <TouchableOpacity
           style={styles.editButton}
           onPress={() => navigation.navigate('InvoiceCustomization')}
         >
@@ -957,29 +1015,40 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
                   style={styles.brandIcon}
                   resizeMode={shopDetails?.profileImage ? 'cover' : 'contain'}
                 />
-                <Text style={styles.brandName}>{shopDetails?.shopName || 'viveha.ai'}</Text>
+                <View style={styles.brandInfoWrapper}>
+                  <Text style={styles.brandName}>{shopDetails?.shopName || 'viveha.ai'}</Text>
+                  {senderLines.length > 0 && (
+                    <Text style={styles.brandAddress}>{senderLines.join('\n')}</Text>
+                  )}
+                </View>
               </View>
             </View>
-            <View style={styles.poweredByContainer}>
+            <View style={styles.paperHeaderRight}>
+              <View style={styles.poweredByContainer}>
                 <Text style={styles.poweredLabel}>Powered by</Text>
                 <Text style={styles.poweredName}>{poweredByName}</Text>
                 <Text style={styles.poweredId}>{poweredByPhone}</Text>
+              </View>
+              <Image source={require('../assets/Home3.png')} style={styles.headerBadge} resizeMode="contain" />
             </View>
-            <Image source={require('../assets/Home3.png')} style={styles.headerBadge} resizeMode="contain" />
           </View>
 
           {/* Sender & Invoice Info */}
           <View style={styles.metaRow}>
             <View style={styles.senderSection}>
-              <Text style={styles.senderName}>{shopDetails?.shopName || 'Studio Den'}</Text>
-              {senderLines.length > 0 && (
-                <Text style={styles.senderAddress}>{senderLines.join('\n')}</Text>
-              )}
+              <Text style={[styles.metaLabel, { color: headerColor }]}>Issued to:</Text>
+              <Text style={styles.senderName}>{invoice.clientInfo?.name || 'Customer Name'}</Text>
+              <Text style={styles.senderAddress}>
+                {invoice.clientInfo?.phone ? `Phone: ${invoice.clientInfo.phone}` : ''}
+                {invoice.clientInfo?.email ? `\nEmail: ${invoice.clientInfo.email}` : ''}
+                {invoice.clientInfo?.address ? `\n${invoice.clientInfo.address}` : ''}
+                {invoice.clientInfo?.gstNo ? `\nGST: ${invoice.clientInfo.gstNo}` : ''}
+              </Text>
             </View>
 
             <View style={styles.invoiceMetaSection}>
               <View style={styles.metaCol}>
-                <Text style={[styles.metaLabel, { color: headerColor }]}>Service Details:</Text>
+                <Text style={[styles.metaLabel, { color: headerColor }]}>Invoice Details:</Text>
                 <View style={styles.metaPair}>
                   <Text style={styles.subLabel}>Invoice #:</Text>
                   <Text style={styles.subValue}>{invoice.number}</Text>
@@ -992,6 +1061,12 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
                   <Text style={styles.subLabel}>Due Date:</Text>
                   <Text style={styles.subValue}>{invoice.dueDate}</Text>
                 </View>
+              </View>
+              <View style={styles.metaColRight}>
+                <Text style={[styles.metaLabel, { color: headerColor }]}>Payment Received</Text>
+                <Text style={styles.paymentLabel}>Paid Amount</Text>
+                <Text style={styles.paidZero}>{paidAmount}</Text>
+                {/* <Text style={[styles.bigAmount, { color: headerColor }]}>₹{totalAmount}</Text> */}
               </View>
             </View>
           </View>
@@ -1014,7 +1089,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
               const itemTaxAmount = (itemSubtotal * (item.tax || 0)) / 100;
               const itemDiscountAmount = (itemSubtotal * (item.discount || 0)) / 100;
               const lineTotal = itemSubtotal + itemTaxAmount - itemDiscountAmount;
-              
+
               return (
                 <View key={idx} style={[styles.tableRow, idx % 2 !== 0 && styles.rowAlt]}>
                   <Text style={[styles.td, styles.colDesc]}>{item.name}</Text>
@@ -1108,27 +1183,27 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
             </View>
 
             {hasPaymentDetails && (
-            <View style={styles.bankCol}>
-              <Text style={styles.footerTitle}>Bank & Payment Details</Text>
-              {paymentRows.map((row) => (
-                <View key={row.label} style={styles.bankRow}><Text style={styles.lbl}>{row.label}</Text><Text style={[styles.val, { flex: 1, textAlign: 'right' }]}>{row.value}</Text></View>
-              ))}
+              <View style={styles.bankCol}>
+                <Text style={styles.footerTitle}>Bank & Payment Details</Text>
+                {paymentRows.map((row) => (
+                  <View key={row.label} style={styles.bankRow}><Text style={styles.lbl}>{row.label}</Text><Text style={[styles.val, { flex: 1, textAlign: 'right' }]}>{row.value}</Text></View>
+                ))}
 
-              {paymentDetails?.upiId ? (
-                <View style={styles.ubiRow}>
-                  <Text style={styles.lbl}>UPI:</Text>
-                  <Text style={[styles.val, { flex: 1, textAlign: 'right' }]}>{paymentDetails.upiId}</Text>
-                </View>
-              ) : null}
-              {showQRCode && invoiceQrPreviewUrl ? (
-                <>
-              <Text style={[styles.lbl, { marginTop: 4 }]}>UPI - Scan & Pay</Text>
-                <View style={styles.qrPlaceholder}>
-                  <Image source={{ uri: invoiceQrPreviewUrl }} style={styles.qrImage} resizeMode="contain" />
-                </View>
-                </>
-              ) : null}
-            </View>
+                {paymentDetails?.upiId ? (
+                  <View style={styles.ubiRow}>
+                    <Text style={styles.lbl}>UPI:</Text>
+                    <Text style={[styles.val, { flex: 1, textAlign: 'right' }]}>{paymentDetails.upiId}</Text>
+                  </View>
+                ) : null}
+                {showQRCode && invoiceQrPreviewUrl ? (
+                  <>
+                    <Text style={[styles.lbl, { marginTop: 4 }]}>UPI - Scan & Pay</Text>
+                    <View style={styles.qrPlaceholder}>
+                      <Image source={{ uri: invoiceQrPreviewUrl }} style={styles.qrImage} resizeMode="contain" />
+                    </View>
+                  </>
+                ) : null}
+              </View>
             )}
           </View>
 
@@ -1185,14 +1260,17 @@ const styles = StyleSheet.create({
     shadowColor: '#000', shadowOffset: { width: 0, height: 2 }, shadowOpacity: 0.1, shadowRadius: 8, elevation: 4
   },
   paperHeader: { flexDirection: 'row', alignItems: 'center', justifyContent: 'space-between', marginBottom: 20, paddingBottom: 15, borderBottomWidth: 1, borderBottomColor: '#F3F4F6' },
-  headerBrandWrapper: { flex: 1, paddingRight: 10 },
-  brandContainer: { flexDirection: 'row', alignItems: 'center', gap: 8 },
-  brandIcon: { width: 38, height: 38, borderRadius: 10 },
-  brandName: { flexShrink: 1, fontSize: 18, fontWeight: '800', color: '#111' },
-  poweredByContainer: { flex: 1, alignItems: 'center' },
-  poweredLabel: { fontSize: 9, color: '#9CA3AF' },
-  poweredName: { fontSize: 13, fontWeight: '700', color: '#374151' },
-  poweredId: { fontSize: 9, color: '#9CA3AF' },
+  headerBrandWrapper: { flex: 1.8, paddingRight: 10 },
+  brandContainer: { flexDirection: 'row', alignItems: 'flex-start', gap: 10 },
+  brandIcon: { width: 38, height: 38, borderRadius: 10, marginTop: 2 },
+  brandInfoWrapper: { flex: 1 },
+  brandName: { fontSize: 13, fontWeight: '800', color: '#111', lineHeight: 16 },
+  brandAddress: { fontSize: 8, color: '#6B7280', marginTop: 2, lineHeight: 12 },
+  paperHeaderRight: { flexDirection: 'row', alignItems: 'center', gap: 12 },
+  poweredByContainer: { alignItems: 'flex-end' },
+  poweredLabel: { fontSize: 9, color: '#9CA3AF', textAlign: 'right' },
+  poweredName: { fontSize: 13, fontWeight: '700', color: '#374151', textAlign: 'right' },
+  poweredId: { fontSize: 9, color: '#9CA3AF', textAlign: 'right' },
   headerBadge: { width: 42, height: 42, borderRadius: 12 },
 
   metaRow: { flexDirection: 'row', justifyContent: 'space-between', alignItems: 'flex-start' },
@@ -1202,11 +1280,12 @@ const styles = StyleSheet.create({
 
   invoiceMetaSection: { flex: 0.65, flexDirection: 'row', justifyContent: 'space-between' },
   metaCol: {},
-  metaColRight: { alignItems: 'flex-end' },
+  metaColRight: { alignItems: 'center', minWidth: 96 },
   metaLabel: { fontSize: 9, fontWeight: '700', color: '#3B82F6', marginBottom: 6 },
   metaPair: { flexDirection: 'row', justifyContent: 'space-between', marginBottom: 3, gap: 5 },
   subLabel: { fontSize: 9, color: '#6B7280' },
   subValue: { fontSize: 9, fontWeight: '600', color: '#111' },
+  paymentLabel: { fontSize: 9, fontWeight: '700', color: '#111', marginBottom: 4 },
   paidZero: { fontSize: 12, fontWeight: '700', color: '#111' },
   bigAmount: { fontSize: 16, fontWeight: '800', color: '#3B82F6', marginTop: 4 },
 
