@@ -136,6 +136,16 @@ export default function ShopDetailsScreen({ navigation }: any) {
   };
 
   const handleNext = async () => {
+    if (!profileImage) {
+      Toast.show({
+        type: 'error',
+        text1: 'Profile Image Required',
+        text2: 'Please upload a shop/profile image to continue',
+        position: 'bottom',
+        visibilityTime: 3000,
+      });
+      return;
+    }
     if (!shopName || !location || phoneNumber.length < 10 || loading) return;
 
     const shopDetails = {
@@ -250,11 +260,12 @@ export default function ShopDetailsScreen({ navigation }: any) {
               To begin creating account, add shop details.
             </Text>
 
-            {/* PROFILE IMAGE */}
+            {/* PROFILE IMAGE (Required) */}
 
             {!keyboardVisible && (
-              
-              <TouchableOpacity
+              <View style={styles.profileImageWrapper}>
+                <Text style={styles.label}>Profile Image *</Text>
+                <TouchableOpacity
                 style={styles.profileImageContainer}
                 onPress={handleImagePick}
               >
@@ -283,6 +294,7 @@ export default function ShopDetailsScreen({ navigation }: any) {
                 </View> */}
 
               </TouchableOpacity>
+              </View>
             )}
 
             {/* SHOP NAME */}
@@ -315,7 +327,7 @@ export default function ShopDetailsScreen({ navigation }: any) {
             {/* CITY AND STATE */}
 
             <View style={styles.row}>
-  <View style={[styles.halfInput]}>
+              <View style={[styles.halfInput]}>
                 {/* <Text style={styles.label}>City</Text> */}
 
                 <TextInput
@@ -449,35 +461,35 @@ export default function ShopDetailsScreen({ navigation }: any) {
 
       {/* NEXT BUTTON */}
 
-   <View style={styles.bottomSection}>
+      <View style={styles.bottomSection}>
 
-  <TouchableOpacity
-    style={[styles.button, (!shopName || !location || phoneNumber.length < 10 || loading) && styles.buttonDisabled]}
-    onPress={handleNext}
-    disabled={!shopName || !location || phoneNumber.length < 10 || loading}
-  >
-    {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Next</Text>}
-  </TouchableOpacity>
+        <TouchableOpacity
+          style={[styles.button, (!profileImage || !shopName || !location || phoneNumber.length < 10 || loading) && styles.buttonDisabled]}
+          onPress={handleNext}
+          disabled={!profileImage || !shopName || !location || phoneNumber.length < 10 || loading}
+        >
+          {loading ? <ActivityIndicator color="#fff" /> : <Text style={styles.buttonText}>Next</Text>}
+        </TouchableOpacity>
 
-  <TouchableOpacity
-    style={styles.loginButton}
-    onPress={() => navigation.navigate('OTPVerification')}
-  >
-    <Text style={styles.loginButtonText}>
-      Already have an account? <Text style={styles.loginButtonTextBold}>Login</Text>
-    </Text>
-  </TouchableOpacity>
+        <TouchableOpacity
+          style={styles.loginButton}
+          onPress={() => navigation.navigate('OTPVerification')}
+        >
+          <Text style={styles.loginButtonText}>
+            Already have an account? <Text style={styles.loginButtonTextBold}>Login</Text>
+          </Text>
+        </TouchableOpacity>
 
-  {/* Branding */}
-  <View style={styles.footerBranding}>
-    <Image
-      source={require('../assets/loginpage.jpeg')}
-      style={styles.footerLogo}
-      resizeMode="contain"
-    />
-  </View>
+        {/* Branding */}
+        <View style={styles.footerBranding}>
+          <Image
+            source={require('../assets/loginpage.jpeg')}
+            style={styles.footerLogo}
+            resizeMode="contain"
+          />
+        </View>
 
-</View>
+      </View>
 
     </SafeAreaView>
 
@@ -496,10 +508,10 @@ const styles = StyleSheet.create({
     paddingLeft: 20
   },
 
- content: {
-  paddingHorizontal: 24,
-  paddingTop: 8
-},
+  content: {
+    paddingHorizontal: 24,
+    paddingTop: 8
+  },
 
   title: {
     fontSize: 22,
@@ -558,23 +570,23 @@ const styles = StyleSheet.create({
   },
 
   row: {
-  flexDirection: 'row',
-  justifyContent: 'space-between',
-  alignItems: 'center',
-  gap: 12,
-  marginBottom: 14
-},
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    gap: 12,
+    marginBottom: 14
+  },
 
   halfInput: {
     flex: 1
   },
 
- label: {
-  fontSize: 13,
-  fontWeight: '600',
-  marginBottom: 5,
-  color: '#222'
-},
+  label: {
+    fontSize: 13,
+    fontWeight: '600',
+    marginBottom: 5,
+    color: '#222'
+  },
 
   input: {
     borderWidth: 1,
@@ -725,27 +737,27 @@ const styles = StyleSheet.create({
     fontSize: 16
   },
   footerBranding: {
-  alignItems: "center",
-  marginTop: 8,
-},
+    alignItems: "center",
+    marginTop: 8,
+  },
 
-footerLogo: {
-  width: 60,
-  height: 40,
-},
-loginButton: {
-  alignItems: "center",
-  marginTop: 10,
-},
+  footerLogo: {
+    width: 60,
+    height: 40,
+  },
+  loginButton: {
+    alignItems: "center",
+    marginTop: 10,
+  },
 
-loginButtonText: {
-  fontSize: 13,
-  color: "#666",
-},
+  loginButtonText: {
+    fontSize: 13,
+    color: "#666",
+  },
 
-loginButtonTextBold: {
-  fontWeight: "600",
-  color: "#FF6B35",
-},
+  loginButtonTextBold: {
+    fontWeight: "600",
+    color: "#FF6B35",
+  },
 
 });

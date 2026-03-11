@@ -295,6 +295,7 @@ export const STORAGE_KEYS = {
   ITEM_GROUPS: '@viveha_item_groups',
   FETCHED_PAYMENTS: '@viveha_fetched_payments',
   DASHBOARD: '@viveha_dashboard',
+  PENDINGS_REFRESH_TRIGGER: '@viveha_pendings_refresh_trigger',
 };
 
 // Save data locally

@@ -16,6 +16,7 @@ import {
   Linking,
   Platform,
   KeyboardAvoidingView,
+  InteractionManager,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import { useFocusEffect } from '@react-navigation/native';
@@ -29,6 +30,7 @@ import {
   recordPayment,
   useNetworkStatus,
   createReminder,
+  STORAGE_KEYS,
 } from '../utils/NetworkManager';
 import Footer from '../Components/Footer';
 import PaymentSuccessModal from '../Components/PaymentSuccessModal';
@@ -171,12 +173,18 @@ export default function PendingsScreen({ navigation }: PendingsScreenProps): Rea
   useEffect(() => {
     const unsubscribe = navigation.addListener('focus', () => {
       console.log('🔄 [PendingsScreen] Navigation focus event - force reload');
-      // Force reload with a delay to ensure AsyncStorage is updated
-      // Increased delay to 200ms for better reliability
-      setTimeout(() => {
-        console.log('⏰ [PendingsScreen] Executing delayed reload after navigation focus');
-        loadPendings();
-      }, 200);
+      (async () => {
+        const trigger = await AsyncStorage.getItem(STORAGE_KEYS.PENDINGS_REFRESH_TRIGGER);
+        const delay = trigger ? 450 : 200;
+        if (trigger) {
+          await AsyncStorage.removeItem(STORAGE_KEYS.PENDINGS_REFRESH_TRIGGER);
+        }
+        await new Promise(r => setTimeout(r, delay));
+        InteractionManager.runAfterInteractions(() => {
+          console.log('⏰ [PendingsScreen] Executing reload after navigation focus');
+          loadPendings();
+        });
+      })();
     });
 
     return unsubscribe;

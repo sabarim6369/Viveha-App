@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   View,
   Text,
@@ -12,6 +12,7 @@ import {
   TextInput,
   Platform,
   KeyboardAvoidingView,
+  Switch,
 } from 'react-native';
 import { useFocusEffect } from '@react-navigation/native';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -231,6 +232,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
     enableTaxCalculation: false,
     primaryTaxRate: 0,
   });
+  const [enableInvoiceTax, setEnableInvoiceTax] = useState<boolean>(false);
 
   const [items, setItems] = useState<InvoiceItem[]>([]);
   const [additionalFees, setAdditionalFees] = useState<AdditionalFee[]>([]);
@@ -268,9 +270,15 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
     gstNo: '',
   });
 
-  // Reset form when screen comes into focus
+  const returningFromPreviewRef = useRef(false);
+
+  // Reset form when screen comes into focus (but not when returning from Preview)
   useFocusEffect(
     React.useCallback(() => {
+      if (returningFromPreviewRef.current) {
+        returningFromPreviewRef.current = false;
+        return;
+      }
       // Reset all form state
       setItems([]);
       setAdditionalFees([]);
@@ -357,6 +365,13 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         const settings = JSON.parse(cachedTaxSettings);
         console.log('📊 Loaded tax settings:', settings);
         setTaxSettings(settings);
+
+        const draftTaxStatus = await AsyncStorage.getItem('@viveha_invoice_draft_tax');
+        if (draftTaxStatus !== null) {
+          setEnableInvoiceTax(JSON.parse(draftTaxStatus));
+        } else {
+          setEnableInvoiceTax(settings.enableTaxCalculation);
+        }
       }
     } catch (error) {
       console.error('Error loading tax settings:', error);
@@ -396,7 +411,13 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         if (draft.items) setItems(draft.items);
         if (draft.details) setInvoiceDetails(draft.details);
         if (draft.businessInfo) setBusinessInfo(draft.businessInfo);
-
+        if (draft.clientInfo) {
+          setClientInfo(draft.clientInfo);
+          setClientName(draft.clientInfo.name);
+          setClientAddress(draft.clientInfo.address || '');
+          setClientEmail(draft.clientInfo.email || '');
+          setClientGstNo(draft.clientInfo.gstNo || '');
+        }
         console.log('📝 Loaded saved draft with', draft.items?.length || 0, 'items');
       }
 
@@ -532,6 +553,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
   };
 
   const calculateTotalTax = (): number => {
+    if (!enableInvoiceTax) return 0;
     return items.reduce((sum, item) => sum + (((item.price || 0) * (item.quantity || 0) * (item.tax || 0)) / 100), 0);
   };
 
@@ -1088,7 +1110,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
           pendingList.push(pending);
           await AsyncStorage.setItem('@viveha_pendings', JSON.stringify(pendingList));
 
-          // Navigate to preview
+          await AsyncStorage.setItem(STORAGE_KEYS.PENDINGS_REFRESH_TRIGGER, Date.now().toString());
           navigation.navigate('InvoicePreview', { invoice: { ...invoiceData, id: pending.id } });
 
           // Clear form
@@ -1105,6 +1127,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
 
           // Clear draft after successful creation
           await saveLocalData(STORAGE_KEYS.DRAFTS, []);
+          await AsyncStorage.removeItem('@viveha_invoice_draft_tax');
 
           // Increment local counter and generate new invoice number
           const shopDetailsStr = await AsyncStorage.getItem('@viveha_shop_details');
@@ -1160,6 +1183,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
         const pendingList: PendingRecord[] = pendings ? JSON.parse(pendings) : [];
         pendingList.push(pending);
         await AsyncStorage.setItem('@viveha_pendings', JSON.stringify(pendingList));
+        await AsyncStorage.setItem(STORAGE_KEYS.PENDINGS_REFRESH_TRIGGER, Date.now().toString());
 
         navigation.navigate('InvoicePreview', { invoice: { ...invoiceData, id: pending.id } });
 
@@ -1169,6 +1193,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
 
         // Clear draft after successful save
         await saveLocalData(STORAGE_KEYS.DRAFTS, []);
+        await AsyncStorage.removeItem('@viveha_invoice_draft_tax');
 
         // Increment local counter and generate new invoice number
         const shopDetailsStr = await AsyncStorage.getItem('@viveha_shop_details');
@@ -1507,7 +1532,7 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
             </View>
             <View style={styles.totalRow}>
               <Text style={styles.totalLabel}>
-                Tax {taxSettings.enableTaxCalculation && taxSettings.primaryTaxRate > 0
+                Tax {enableInvoiceTax && taxSettings.enableTaxCalculation && taxSettings.primaryTaxRate > 0
                   ? `(${taxSettings.primaryTaxRate}%)`
                   : '(0%)'} :
               </Text>
@@ -1548,6 +1573,21 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
           <Text style={styles.addNewCardText}>Add New Card</Text>
         </TouchableOpacity>
 
+        {/* Enable Tax Toggle */}
+        <View style={styles.taxToggleContainer}>
+          <Text style={styles.taxToggleLabel}>Enable Tax</Text>
+          <Switch
+            trackColor={{ false: '#f4f3f4', true: '#E46269' }}
+            thumbColor={enableInvoiceTax ? '#fff' : '#f4f3f4'}
+            ios_backgroundColor="#3e3e3e"
+            onValueChange={(val) => {
+              setEnableInvoiceTax(val);
+              AsyncStorage.setItem('@viveha_invoice_draft_tax', JSON.stringify(val));
+            }}
+            value={enableInvoiceTax}
+          />
+        </View>
+
         {/* Action Buttons */}
         <View style={styles.actionButtons}>
           <TouchableOpacity
@@ -1562,6 +1602,14 @@ export default function CreateInvoiceScreen({ navigation }: CreateInvoiceScreenP
                 });
                 return;
               }
+              returningFromPreviewRef.current = true;
+              saveLocalData(STORAGE_KEYS.DRAFTS, [{
+                items,
+                details: invoiceDetails,
+                businessInfo,
+                clientInfo,
+                updatedAt: new Date().toISOString(),
+              }]);
               const previewData = {
                 number: invoiceDetails.number,
                 items,
@@ -2388,11 +2436,26 @@ const styles = StyleSheet.create({
     justifyContent: 'center',
     marginHorizontal: 20,
     marginTop: 10,
-    paddingVertical: 10,
+    paddingVertical: 15,
+    backgroundColor: '#fff',
+    borderRadius: 12,
     gap: 8,
   },
   addNewCardText: {
     fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+  },
+  taxToggleContainer: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginHorizontal: 20,
+    marginTop: 20,
+    marginBottom: 10,
+  },
+  taxToggleLabel: {
+    fontSize: 16,
     fontWeight: '600',
     color: '#333',
   },

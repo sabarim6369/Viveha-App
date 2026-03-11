@@ -113,12 +113,17 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
   const [showBrandLogo, setShowBrandLogo] = useState<boolean>(true);
   const [showGSTUIN, setShowGSTUIN] = useState<boolean>(true);
   const [showQRCode, setShowQRCode] = useState<boolean>(false);
+  const [qrImageLoadFailed, setQrImageLoadFailed] = useState<boolean>(false);
 
   useEffect(() => {
     loadShopDetails();
     loadPaymentDetails();
     loadInvoiceSettings();
   }, []);
+
+  useEffect(() => {
+    setQrImageLoadFailed(false);
+  }, [paymentDetails?.paymentQrUrl]);
 
   const loadShopDetails = async (): Promise<void> => {
     try {
@@ -211,25 +216,28 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
   };
 
   const loadImageUriAsBase64 = async (uri: string): Promise<string> => {
-    if (!uri) {
-      return '';
-    }
-
-    if (uri.startsWith('http://') || uri.startsWith('https://')) {
-      const tempPath = `${FileSystem.cacheDirectory}invoice_brand_logo.png`;
-      const downloadResult = await FileSystem.downloadAsync(uri, tempPath);
-      const downloadedData = await FileSystem.readAsStringAsync(downloadResult.uri, {
+    if (!uri?.trim()) return '';
+    const isJpeg = /\.(jpe?g|jfif)$/i.test(uri.split('?')[0]);
+    const mime = isJpeg ? 'image/jpeg' : 'image/png';
+    const ext = isJpeg ? '.jpg' : '.png';
+    try {
+      if (uri.startsWith('http://') || uri.startsWith('https://')) {
+        const tempPath = `${FileSystem.cacheDirectory}qr_${Date.now()}${ext}`;
+        const downloadResult = await FileSystem.downloadAsync(uri, tempPath);
+        if (downloadResult.status !== 200) return '';
+        const downloadedData = await FileSystem.readAsStringAsync(downloadResult.uri, {
+          encoding: FileSystem.EncodingType.Base64,
+        });
+        return `data:${mime};base64,${downloadedData}`;
+      }
+      const localData = await FileSystem.readAsStringAsync(uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
-
-      return `data:image/png;base64,${downloadedData}`;
+      return `data:${mime};base64,${localData}`;
+    } catch (error) {
+      console.warn('loadImageUriAsBase64 error:', error);
+      return '';
     }
-
-    const localData = await FileSystem.readAsStringAsync(uri, {
-      encoding: FileSystem.EncodingType.Base64,
-    });
-
-    return `data:image/png;base64,${localData}`;
   };
 
   const getBrandLogoBase64 = async (): Promise<string> => {
@@ -258,38 +266,38 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     }
   };
 
-  const getQrCodeBase64 = async (totalAmountValue: number): Promise<string> => {
+  const getGeneratedUpiQrBase64 = async (totalAmountValue: number): Promise<string> => {
+    if (!paymentDetails?.upiId) return '';
     try {
-      // Prioritize uploaded QR image if available
-      if (paymentDetails?.paymentQrUrl) {
-        return await loadImageUriAsBase64(paymentDetails.paymentQrUrl);
-      }
-
-      // Fallback to auto-generated UPI QR only if no image is uploaded
-      if (!paymentDetails?.upiId) {
-        return '';
-      }
-
       const upiString = `upi://pay?pa=${paymentDetails.upiId.trim()}&pn=${(shopDetails?.shopName || 'Viveha').trim()}&am=${totalAmountValue.toFixed(2)}&cu=INR&mc=0000`;
       const qrApiUrl = `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(upiString)}`;
       const qrDownload = await FileSystem.downloadAsync(
         qrApiUrl,
         `${FileSystem.documentDirectory}temp_qr.png`
       );
-
-      if (qrDownload.status !== 200) {
-        return '';
-      }
-
+      if (qrDownload.status !== 200) return '';
       const qrBase64 = await FileSystem.readAsStringAsync(qrDownload.uri, {
         encoding: FileSystem.EncodingType.Base64,
       });
-
       return `data:image/png;base64,${qrBase64}`;
     } catch (error) {
-      console.error('Error generating QR code:', error);
+      console.error('Error generating UPI QR:', error);
       return '';
     }
+  };
+
+  const getQrCodeBase64 = async (totalAmountValue: number): Promise<string> => {
+    // Prioritize uploaded QR image from DB if available
+    if (paymentDetails?.paymentQrUrl) {
+      try {
+        const base64 = await loadImageUriAsBase64(paymentDetails.paymentQrUrl);
+        if (base64) return base64;
+      } catch (error) {
+        console.warn('Failed to load payment QR from DB, falling back to UPI:', error);
+      }
+    }
+    // Fallback to auto-generated UPI QR
+    return getGeneratedUpiQrBase64(totalAmountValue);
   };
 
   const numberToWords = (amount: number): string => {
@@ -597,25 +605,22 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
             .upi-row { margin-top: 6px; padding-top: 6px; border-top: 1px solid #E5E7EB; }
             .upi-label { font-size: 8px; color: #6B7280; }
             .upi-value { font-size: 8px; font-weight: 600; color: #111; }
-            .qr-code-box {
-              width: 60px;
-              height: 60px;
-              background-color: #000;
-              margin-top: 6px;
+            .qr-code-wrapper {
+              width: 130px;
+              height: 130px;
+              margin-top: 4px;
               display: flex;
               align-items: center;
               justify-content: center;
               border-radius: 4px;
-            }
-            .qr-placeholder {
-              color: #fff;
-              font-size: 8px;
-              text-align: center;
+              border: 1px solid #E5E7EB;
+              padding: 4px;
+              overflow: hidden;
             }
             .qr-code-img {
-              width: 80px;
-              height: 80px;
-              margin-top: 6px;
+              width: 122px;
+              height: 122px;
+              object-fit: contain;
             }
           </style>
         </head>
@@ -677,8 +682,8 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
                 <div class="payment-status">
                   <div class="payment-title">Payment Received</div>
                   <div class="payment-label">Paid Amount</div>
-                  <div class="payment-paid">₹${paidAmount}</div>
-                  <div class="payment-total">₹${totalAmount}</div>
+                  <div class="payment-paid">${paidAmount}</div>
+                  
                 </div>
               </div>
             </div>
@@ -753,11 +758,12 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
             <div class="footer">
               <div class="footer-col">
                 <div class="footer-title">Terms and Conditions</div>
-                <div class="footer-text">1. Please pay within 15 days from the date of invoice, overdue interest @ 14% will be charged on delayed payments.</div>
-                <div class="footer-text">2. Please quote invoice number when remitting funds.</div>
+                <div class="footer-text">1.Goods once sold are not returnable or refundable unless defective at the time of purchase..</div>
+                <div class="footer-text">2.Payment must be made as per the due date mentioned in the invoice; late payments may incur additional charges.</div>
                 
                 <div class="footer-title" style="margin-top: 12px;">Additional Notes</div>
-                <div class="footer-text">It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here.</div>
+                <div class="footer-text">Please verify items and quantities upon receipt; report discrepancies within 48 hours.
+Keep the invoice for warranty/service reference and future communication.</div>
                 
                 <div class="footer-text footer-bold" style="margin-top: 8px;">
                   For any enquiries, email us on isaii.dev3@gmail.com or call us on +91 9876543210
@@ -770,7 +776,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
                   ${paymentRows}
                   ${paymentDetails?.upiId || (showQRCode && qrCodeBase64) ? `<div class="upi-row">
                     ${paymentDetails?.upiId ? `<div class="upi-label">UPI:</div><div class="upi-value">${paymentDetails.upiId}</div>` : ''}
-                    ${showQRCode && qrCodeBase64 ? `<div class="upi-label" style="margin-top: 4px;">UPI - Scan & Pay</div><img src="${qrCodeBase64}" alt="QR Code" class="qr-code-img" />` : ''}
+                    ${showQRCode && qrCodeBase64 ? `<div class="upi-label" style="margin-top: 4px;">Payment QR - Scan & Pay</div><div class="qr-code-wrapper"><img src="${qrCodeBase64}" alt="Payment QR Code" class="qr-code-img" /></div>` : ''}
                   </div>` : ''}
                 </div>
               </div>` : ''}
@@ -947,11 +953,12 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
     paymentDetails?.accountNumber ? { label: 'Account Number:', value: paymentDetails.accountNumber } : null,
     paymentDetails?.ifscCode ? { label: 'IFSC:', value: paymentDetails.ifscCode } : null,
   ].filter(Boolean) as Array<{ label: string; value: string }>;
-  const invoiceQrPreviewUrl = paymentDetails?.paymentQrUrl
+  const generatedUpiQrUrl = paymentDetails?.upiId
+    ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${paymentDetails.upiId.trim()}&pn=${(shopDetails?.shopName || 'Viveha').trim()}&am=${totalAmount}&cu=INR&mc=0000`)}`
+    : '';
+  const invoiceQrPreviewUrl = (paymentDetails?.paymentQrUrl && !qrImageLoadFailed)
     ? paymentDetails.paymentQrUrl
-    : paymentDetails?.upiId
-      ? `https://api.qrserver.com/v1/create-qr-code/?size=200x200&data=${encodeURIComponent(`upi://pay?pa=${paymentDetails.upiId.trim()}&pn=${(shopDetails?.shopName || 'Viveha').trim()}&am=${totalAmount}&cu=INR&mc=0000`)}`
-      : '';
+    : generatedUpiQrUrl;
   const hasPaymentDetails = Boolean(paymentRows.length || paymentDetails?.upiId || (showQRCode && invoiceQrPreviewUrl));
 
   // Calculate actual values from items
@@ -990,7 +997,7 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
         </TouchableOpacity>
       </View>
 
-      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={false}>
+      <ScrollView contentContainerStyle={styles.scrollContent} showsVerticalScrollIndicator={true} bounces={true}>
 
         {/* Success Banner */}
         {!isPreview && (
@@ -1173,11 +1180,12 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
           <View style={styles.paperFooter}>
             <View style={styles.termsCol}>
               <Text style={styles.footerTitle}>Terms and Conditions</Text>
-              <Text style={styles.legalText}>1. Please pay within 15 days from the date of invoice, overdue interest @ 14% will be charged on delayed payments.</Text>
-              <Text style={styles.legalText}>2. Please quote invoice number when remitting funds.</Text>
+              <Text style={styles.legalText}>1.Goods once sold are not returnable or refundable unless defective at the time of purchase.</Text>
+              <Text style={styles.legalText}>2.Payment must be made as per the due date mentioned in the invoice; late payments may incur additional charges.</Text>
 
               <Text style={[styles.footerTitle, { marginTop: 10 }]}>Additional Notes</Text>
-              <Text style={styles.legalText}>It is a long established fact that a reader will be distracted by the readable content of a page when looking at its layout. The point of using Lorem Ipsum is that it has a more-or-less normal distribution of letters, as opposed to using 'Content here, content here.</Text>
+              <Text style={styles.legalText}>Please verify items and quantities upon receipt; report discrepancies within 48 hours.
+              Keep the invoice for warranty/service reference and future communication.</Text>
 
               <Text style={[styles.legalText, { marginTop: 10, fontWeight: 'bold' }]}>For any enquiries, email us on isaii.dev3@gmail.com or call us on +91 9876543210</Text>
             </View>
@@ -1197,9 +1205,16 @@ export default function InvoicePreviewScreen({ navigation, route }: InvoicePrevi
                 ) : null}
                 {showQRCode && invoiceQrPreviewUrl ? (
                   <>
-                    <Text style={[styles.lbl, { marginTop: 4 }]}>UPI - Scan & Pay</Text>
+                    <Text style={[styles.lbl, { marginTop: 4 }]}>Payment QR - Scan & Pay</Text>
                     <View style={styles.qrPlaceholder}>
-                      <Image source={{ uri: invoiceQrPreviewUrl }} style={styles.qrImage} resizeMode="contain" />
+                      <Image
+                        source={{ uri: invoiceQrPreviewUrl }}
+                        style={styles.qrImage}
+                        resizeMode="contain"
+                        onError={() => {
+                          if (paymentDetails?.paymentQrUrl) setQrImageLoadFailed(true);
+                        }}
+                      />
                     </View>
                   </>
                 ) : null}
@@ -1241,7 +1256,7 @@ const styles = StyleSheet.create({
   editButton: { padding: 5 },
   centerEmpty: { flex: 1, justifyContent: 'center', alignItems: 'center' },
 
-  scrollContent: { paddingBottom: 20 },
+  scrollContent: { paddingBottom: 20, flexGrow: 1 },
 
   successBanner: {
     backgroundColor: '#fff', marginHorizontal: 20, marginTop: 15, borderRadius: 16,
@@ -1327,8 +1342,20 @@ const styles = StyleSheet.create({
   lbl: { fontSize: 7, color: '#6B7280' },
   val: { fontSize: 7, fontWeight: '600', color: '#111' },
   ubiRow: { flexDirection: 'row', justifyContent: 'space-between', marginTop: 4, marginBottom: 2 },
-  qrPlaceholder: { marginTop: 5, alignItems: 'center' },
-  qrImage: { width: 80, height: 80 },
+  qrPlaceholder: {
+    marginTop: 4,
+    width: 130,
+    height: 130,
+    alignItems: 'center',
+    justifyContent: 'center',
+    padding: 4,
+    backgroundColor: '#fff',
+    borderRadius: 6,
+    borderWidth: 1,
+    borderColor: '#E5E7EB',
+    overflow: 'hidden',
+  },
+  qrImage: { width: 122, height: 122 },
 
   actionBar: {
     position: 'absolute', bottom: 0, left: 0, right: 0,
