@@ -824,64 +824,6 @@ const purchaseHistorySchema = new Schema<IPurchaseHistory>(
 );
 
 // ============================================================================
-// SCHEDULED REPORT
-// ============================================================================
-export interface IScheduledReport extends Document {
-    clientId: mongoose.Types.ObjectId;
-    name: string;
-    type: string;
-    format: string;
-    frequency: 'daily' | 'weekly' | 'monthly';
-    dayOfWeek?: number;
-    dayOfMonth?: number;
-    lastRunDate?: string;
-    createdAt: Date;
-    updatedAt: Date;
-}
-
-const scheduledReportSchema = new Schema<IScheduledReport>(
-    {
-        clientId: {
-            type: Schema.Types.ObjectId,
-            ref: 'Client',
-            required: [true, 'Client ID is required'],
-            index: true,
-        },
-        name: {
-            type: String,
-            required: [true, 'Report name is required'],
-            trim: true,
-        },
-        type: {
-            type: String,
-            required: [true, 'Report type is required'],
-        },
-        format: {
-            type: String,
-            required: [true, 'Format is required'],
-        },
-        frequency: {
-            type: String,
-            enum: ['daily', 'weekly', 'monthly'],
-            required: [true, 'Frequency is required'],
-        },
-        dayOfWeek: {
-            type: Number,
-            default: 1,
-        },
-        dayOfMonth: {
-            type: Number,
-            default: 1,
-        },
-        lastRunDate: {
-            type: String,
-            default: '',
-        },
-    },
-    { timestamps: true },
-);
-
-// ============================================================================
 // PAYMENT (Multiple payments per invoice)
 // ============================================================================
 export interface IPayment extends Document {

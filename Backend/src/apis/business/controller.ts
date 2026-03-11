@@ -131,15 +131,15 @@ export const createItemController = async (req: Request, res: Response) => {
     try {
         const { clientId, name, actualPrice, salePrice, price, stock, unit, groupId, description } =
             req.body;
-        
+
         // Support both old format (just price) and new format (actualPrice + salePrice)
         const finalActualPrice = actualPrice ?? price ?? 0;
         const finalSalePrice = salePrice ?? price ?? 0;
         const finalPrice = finalSalePrice; // For backward compatibility
-        
+
         if (!clientId || !name || (finalActualPrice === undefined && finalSalePrice === undefined && price === undefined))
             return badRequest(res, 'clientId, name, and price information required');
-        
+
         return res
             .status(201)
             .json(

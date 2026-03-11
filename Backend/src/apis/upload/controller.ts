@@ -15,8 +15,7 @@ export const uploadProfilePicture = async (req: Request, res: Response) => {
         }
 
         // Generate the URL for the uploaded file
-        const fileUrl = `${req.protocol}://${req.get('host')}/uploads/${req.file.filename}`;
-
+const fileUrl = `https://${req.get('host')}/uploads/${req.file.filename}`;
         return res.status(200).json({
             success: true,
             message: 'Profile picture uploaded successfully',
