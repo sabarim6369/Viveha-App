@@ -275,7 +275,7 @@ export default function HomeScreen({ navigation }: HomeScreenProps): React.JSX.E
 
   const quickLinks: QuickLink[] = [
     { id: 1, title: 'Create Invoice', icon: 'document-text-outline', screen: 'CreateInvoice' },
-    { id: 2, title: 'Pendings', icon: 'time-outline', screen: 'Pendings' },
+    { id: 2, title: 'Pendings', icon: 'clipboard-outline', screen: 'Pendings' },
     { id: 3, title: 'Insights', icon: 'stats-chart-outline', screen: 'Insights' },
     { id: 4, title: 'Pricelist', icon: 'cash-outline', screen: 'Items' },
   ];

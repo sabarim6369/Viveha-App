@@ -479,7 +479,7 @@ export default function CustomerProfileScreen({ navigation, route }: CustomerPro
                     resizeMode="contain"
                 />
                 <Text style={s.headerTitle}>
-                    {specificInvoiceNumber ? `Invoice #${specificInvoiceNumber}` : 'Customer Profile'}
+                    {specificInvoiceNumber ? `Invoice ${specificInvoiceNumber}` : 'Customer Profile'}
                 </Text>
                 <View style={{ width: 32 }} />
             </View>

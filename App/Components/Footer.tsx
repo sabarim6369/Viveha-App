@@ -76,7 +76,7 @@ export default function Footer({ activeTab = 'Home', navigation, pendingCount = 
           activeOpacity={0.8}
         >
           <View style={styles.createButtonInner}>
-            <Ionicons name="receipt-outline" size={28} color="#fff" />
+            <Ionicons name="document-text-outline" size={28} color="#fff" />
           </View>
         </TouchableOpacity>
 

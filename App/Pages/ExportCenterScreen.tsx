@@ -11,6 +11,7 @@ import {
   ActivityIndicator,
   Modal,
   FlatList,
+  TextInput,
 } from 'react-native';
 import { Ionicons } from '@expo/vector-icons';
 import DateTimePicker from '@react-native-community/datetimepicker';
@@ -18,6 +19,7 @@ import * as FileSystem from 'expo-file-system/legacy';
 import * as Sharing from 'expo-sharing';
 import * as Print from 'expo-print';
 import Toast from 'react-native-toast-message';
+import AsyncStorage from '@react-native-async-storage/async-storage';
 import {
   getInvoices,
   getItems,
@@ -51,12 +53,21 @@ interface ReportData {
   customerPhone?: string;
 }
 
+interface ScheduledReport {
+  id: string;
+  name: string;
+  type: ReportType;
+  frequency: 'daily' | 'weekly' | 'monthly';
+  format: FormatType;
+  day?: string; // e.g., "Monday" or "15th"
+}
+
 export default function ExportCenterScreen({ navigation }: ExportCenterScreenProps): React.JSX.Element {
   // Network status monitoring
   const { isConnected, isInternetReachable } = useNetworkStatus();
   const [pendingSyncCount, setPendingSyncCount] = useState(0);
   const [isSyncing, setIsSyncing] = useState(false);
-  
+
   const [selectedReport, setSelectedReport] = useState<ReportType>('insights');
   const [selectedDateRange, setSelectedDateRange] = useState<DateRangeType>('month');
   const [selectedFormat, setSelectedFormat] = useState<FormatType>('pdf');
@@ -71,12 +82,88 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
   const [showCustomerSelector, setShowCustomerSelector] = useState(false);
   const [previewData, setPreviewData] = useState<ReportData | null>(null);
   const [showPreview, setShowPreview] = useState(false);
+  const [scheduledReports, setScheduledReports] = useState<ScheduledReport[]>([]);
+  const [showScheduleModal, setShowScheduleModal] = useState(false);
+  const [newScheduleName, setNewScheduleName] = useState('');
+  const [newScheduleFrequency, setNewScheduleFrequency] = useState<'daily' | 'weekly' | 'monthly'>('weekly');
+  const [newScheduleDay, setNewScheduleDay] = useState('Monday');
 
   // Load customers on mount
   useEffect(() => {
     loadCustomers();
     updatePendingSyncCount();
+    loadScheduledReports();
   }, []);
+
+  const loadScheduledReports = async () => {
+    try {
+      const stored = await AsyncStorage.getItem('scheduled_reports');
+      if (stored) {
+        setScheduledReports(JSON.parse(stored));
+      } else {
+        // Add a default one for demonstration as per the image
+        const defaultSchedules: ScheduledReport[] = [
+          {
+            id: '1',
+            name: 'Weekly Sales Summary',
+            type: 'insights',
+            frequency: 'weekly',
+            format: 'excel',
+            day: 'Monday'
+          }
+        ];
+        setScheduledReports(defaultSchedules);
+        await AsyncStorage.setItem('scheduled_reports', JSON.stringify(defaultSchedules));
+      }
+    } catch (error) {
+      console.error('Error loading scheduled reports:', error);
+    }
+  };
+
+  const saveScheduledReport = async () => {
+    if (!newScheduleName.trim()) {
+      Alert.alert('Error', 'Please enter a name for the schedule');
+      return;
+    }
+
+    const newSchedule: ScheduledReport = {
+      id: Date.now().toString(),
+      name: newScheduleName,
+      type: selectedReport,
+      frequency: newScheduleFrequency,
+      format: selectedFormat,
+      day: newScheduleFrequency === 'weekly' ? newScheduleDay : newScheduleFrequency === 'monthly' ? '1st' : undefined,
+    };
+
+    const updated = [...scheduledReports, newSchedule];
+    setScheduledReports(updated);
+    try {
+      await AsyncStorage.setItem('scheduled_reports', JSON.stringify(updated));
+      setShowScheduleModal(false);
+      setNewScheduleName('');
+      Toast.show({
+        type: 'success',
+        text1: 'Schedule Created',
+        text2: 'Report has been scheduled successfully',
+      });
+    } catch (error) {
+      console.error('Error saving schedule:', error);
+    }
+  };
+
+  const deleteScheduledReport = async (id: string) => {
+    const updated = scheduledReports.filter(s => s.id !== id);
+    setScheduledReports(updated);
+    try {
+      await AsyncStorage.setItem('scheduled_reports', JSON.stringify(updated));
+      Toast.show({
+        type: 'info',
+        text1: 'Schedule Removed',
+      });
+    } catch (error) {
+      console.error('Error deleting schedule:', error);
+    }
+  };
 
   // Update pending sync count
   const updatePendingSyncCount = async () => {
@@ -104,7 +191,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           }, 3000);
         }
       };
-      
+
       checkAndSync();
       loadCustomers();
       updatePendingSyncCount();
@@ -115,7 +202,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
   useEffect(() => {
     const now = new Date();
     let start = new Date();
-    
+
     switch (selectedDateRange) {
       case 'preview':
         start = new Date(now.setDate(now.getDate() - 7));
@@ -130,7 +217,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         // Keep existing dates for custom
         return;
     }
-    
+
     setStartDate(start);
     setEndDate(new Date());
   }, [selectedDateRange]);
@@ -228,7 +315,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
   const generateReportData = async (): Promise<ReportData | null> => {
     try {
       setLoading(true);
-      
+
       // Notify user if offline
       const isOffline = !isConnected || !isInternetReachable;
       if (isOffline) {
@@ -240,7 +327,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           visibilityTime: 2000,
         });
       }
-      
+
       let reportData: ReportData = {
         type: '',
         startDate: formatDate(startDate),
@@ -255,19 +342,19 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           let payments = await getPayments();
           const filteredInvoices = filterByDateRange(invoices);
           const filteredPayments = filterByDateRange(payments);
-          
+
           // Filter by customer if selected
           if (selectedCustomer) {
-            invoices = filteredInvoices.filter(inv => 
+            invoices = filteredInvoices.filter(inv =>
               inv.clientCustomerId === selectedCustomer.id ||
               inv.clientCustomerId === selectedCustomer.serverId ||
               inv.clientPhone === selectedCustomer.phone ||
               inv.clientName === selectedCustomer.name
             );
             const invoiceIds = new Set(invoices.map(inv => inv.id || inv.serverId || inv.number || inv.invoiceNumber));
-            payments = filteredPayments.filter(payment => 
+            payments = filteredPayments.filter(payment =>
               invoiceIds.has(payment.invoiceId) ||
-              invoices.some(inv => 
+              invoices.some(inv =>
                 inv.number === payment.invoiceNumber ||
                 inv.invoiceNumber === payment.invoiceNumber
               )
@@ -276,7 +363,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
             invoices = filteredInvoices;
             payments = filteredPayments;
           }
-          
+
           reportData = {
             ...reportData,
             type: 'Insights Report',
@@ -288,10 +375,10 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         case 'tax':
           let taxInvoices = await getInvoices();
           const filteredTaxInvoices = filterByDateRange(taxInvoices);
-          
+
           // Filter by customer if selected
           if (selectedCustomer) {
-            taxInvoices = filteredTaxInvoices.filter(inv => 
+            taxInvoices = filteredTaxInvoices.filter(inv =>
               inv.clientCustomerId === selectedCustomer.id ||
               inv.clientCustomerId === selectedCustomer.serverId ||
               inv.clientPhone === selectedCustomer.phone ||
@@ -300,7 +387,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           } else {
             taxInvoices = filteredTaxInvoices;
           }
-          
+
           reportData = {
             ...reportData,
             type: 'Tax Report',
@@ -310,10 +397,10 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
 
         case 'outstanding':
           let pendingPayments = await getPendingInvoices();
-          
+
           // Filter by customer if selected
           if (selectedCustomer) {
-            pendingPayments = pendingPayments.filter(payment => 
+            pendingPayments = pendingPayments.filter(payment =>
               payment.clientCustomerId === selectedCustomer.id ||
               payment.clientCustomerId === selectedCustomer.serverId ||
               payment.clientPhone === selectedCustomer.phone ||
@@ -321,7 +408,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
               payment.clientCustomerName === selectedCustomer.name
             );
           }
-          
+
           reportData = {
             ...reportData,
             type: 'Customer Outstanding Report',
@@ -332,13 +419,13 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         case 'inventory':
           const items = await getItems();
           const groups = await getItemGroups();
-          
+
           // Create a map of groupId to groupName for quick lookup
           const groupMap = new Map<string, string>();
           groups.forEach(group => {
             groupMap.set(group.id || group._id || '', group.name);
           });
-          
+
           // Populate groupName for items that have groupId but no groupName
           const enrichedItems = items.map(item => {
             if (item.groupId && !item.groupName && groupMap.has(item.groupId)) {
@@ -346,7 +433,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
             }
             return item;
           });
-          
+
           reportData = {
             ...reportData,
             type: 'Inventory Report',
@@ -377,7 +464,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
 
   const formatDataAsCSV = (data: ReportData): string => {
     let csv = '';
-    
+
     // Add offline mode indicator if applicable
     const isOffline = !isConnected || !isInternetReachable;
     if (isOffline) {
@@ -385,7 +472,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
       csv += `Data Source: Local Cache\n`;
       csv += `\n`;
     }
-    
+
     // Add customer-specific header if filtering by customer
     if (data.customerName) {
       csv += `Customer Report\n`;
@@ -409,7 +496,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         csv += `${amount.toFixed(2)},${paid.toFixed(2)},${pending.toFixed(2)},`;
         csv += `${invoice.status || 'pending'}\n`;
       });
-      
+
       // Add summary with unique customer count
       const uniqueCustomerCount = getUniqueCustomerCount(data.invoices);
       const totalRevenue = data.invoices.reduce((sum, inv) => sum + (inv.total || inv.totalAmount || inv.grandTotal || 0), 0);
@@ -420,7 +507,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
       csv += `Total Revenue,${totalRevenue.toFixed(2)}\n`;
       csv += `Total Paid,${totalPaid.toFixed(2)}\n`;
       csv += `Total Pending,${(totalRevenue - totalPaid).toFixed(2)}\n`;
-      
+
     } else if (data.type === 'Tax Report' && data.invoices) {
       csv = 'Date,Invoice Number,Customer,Subtotal,Tax Amount,Discount,Total\n';
       data.invoices.forEach((invoice: any) => {
@@ -433,7 +520,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         csv += `"${invoice.clientName || invoice.clientInfo?.name || 'N/A'}",`;
         csv += `${subtotal.toFixed(2)},${tax.toFixed(2)},${discount.toFixed(2)},${total.toFixed(2)}\n`;
       });
-      
+
       // Add tax summary
       const totalTax = data.invoices.reduce((sum, inv) => sum + (inv.tax || inv.totalTax || 0), 0);
       const totalAmount = data.invoices.reduce((sum, inv) => sum + (inv.total || inv.totalAmount || inv.grandTotal || 0), 0);
@@ -441,7 +528,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
       csv += `Total Invoices,${data.invoices.length}\n`;
       csv += `Total Tax Collected,${totalTax.toFixed(2)}\n`;
       csv += `Total Amount,${totalAmount.toFixed(2)}\n`;
-      
+
     } else if (data.type === 'Customer Outstanding Report' && data.pending) {
       // CSV Headers - exclude customer info if filtering by specific customer
       if (data.customerName) {
@@ -467,7 +554,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           csv += `${pending.dueDate || 'N/A'}\n`;
         });
       }
-      
+
       // Add summary with unique customer count
       const uniqueCustomerCount = getUniqueCustomerCount(data.pending);
       const totalOutstanding = data.pending.reduce((sum, p) => sum + (p.pendingAmount || p.amount || 0), 0);
@@ -477,7 +564,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         csv += `Unique Customers,${uniqueCustomerCount}\n`;
       }
       csv += `Total Outstanding,${totalOutstanding.toFixed(2)}\n`;
-      
+
     } else if (data.type === 'Inventory Report' && data.items) {
       csv = 'Item Name,SKU,Quantity,Price,Tax,Unit,Group,Description\n';
       data.items.forEach((item: any) => {
@@ -490,7 +577,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         csv += `"${item.groupName || 'Ungrouped'}",`;
         csv += `"${(item.description || '').replace(/"/g, '""')}"\n`;
       });
-      
+
       // Add summary
       const totalValue = data.items.reduce((sum, item) => sum + ((item.quantity || item.stockAvailable || 0) * (item.price || item.sellingPrice || 0)), 0);
       csv += `\nSummary\n`;
@@ -671,12 +758,12 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         const cells = row.length === 0
           ? '<Cell><Data ss:Type="String"></Data></Cell>'
           : row.map((cell) => {
-              const isNumber = typeof cell === 'number' && Number.isFinite(cell);
-              const styleId = isHeaderRow ? 'Header' : isNumber ? 'Number' : 'Default';
-              const type = isNumber ? 'Number' : 'String';
-              const value = isNumber ? String(cell) : escapeExcelXml(String(cell));
-              return `<Cell ss:StyleID="${styleId}"><Data ss:Type="${type}">${value}</Data></Cell>`;
-            }).join('');
+            const isNumber = typeof cell === 'number' && Number.isFinite(cell);
+            const styleId = isHeaderRow ? 'Header' : isNumber ? 'Number' : 'Default';
+            const type = isNumber ? 'Number' : 'String';
+            const value = isNumber ? String(cell) : escapeExcelXml(String(cell));
+            return `<Cell ss:StyleID="${styleId}"><Data ss:Type="${type}">${value}</Data></Cell>`;
+          }).join('');
 
         return `<Row>${cells}</Row>`;
       })
@@ -757,7 +844,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
       const totalRevenue = data.invoices.reduce((sum, inv) => sum + (inv.total || inv.totalAmount || inv.grandTotal || 0), 0);
       const totalPaid = data.invoices.reduce((sum, inv) => sum + (inv.paidAmount || 0), 0);
       const totalPending = totalRevenue - totalPaid;
-      
+
       html += `
         <div class="summary-box">
           <h3>Summary</h3>
@@ -781,7 +868,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           </thead>
           <tbody>
       `;
-      
+
       data.invoices.forEach(invoice => {
         const amount = invoice.total || invoice.totalAmount || invoice.grandTotal || 0;
         const paid = invoice.paidAmount || 0;
@@ -798,14 +885,14 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           </tr>
         `;
       });
-      
+
       html += `</tbody></table>`;
-      
+
     } else if (data.type === 'Tax Report' && data.invoices) {
       const totalTax = data.invoices.reduce((sum, inv) => sum + (inv.tax || inv.totalTax || 0), 0);
       const totalAmount = data.invoices.reduce((sum, inv) => sum + (inv.total || inv.totalAmount || inv.grandTotal || 0), 0);
       const totalSubtotal = data.invoices.reduce((sum, inv) => sum + (inv.subTotal || inv.subtotal || 0), 0);
-      
+
       html += `
         <div class="summary-box">
           <h3>Tax Summary</h3>
@@ -828,7 +915,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           </thead>
           <tbody>
       `;
-      
+
       data.invoices.forEach(invoice => {
         const subtotal = invoice.subTotal || invoice.subtotal || 0;
         const tax = invoice.tax || invoice.totalTax || 0;
@@ -846,14 +933,14 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           </tr>
         `;
       });
-      
+
       html += `</tbody></table>`;
-      
+
     } else if (data.type === 'Customer Outstanding Report' && data.pending) {
       const uniqueCustomerCount = getUniqueCustomerCount(data.pending);
       const totalOutstanding = data.pending.reduce((sum, p) => sum + (p.pendingAmount || p.amount || 0), 0);
       const totalAmount = data.pending.reduce((sum, p) => sum + (p.totalAmount || 0), 0);
-      
+
       html += `
         <div class="summary-box">
           <h3>Outstanding Summary</h3>
@@ -876,7 +963,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           </thead>
           <tbody>
       `;
-      
+
       data.pending.forEach(pending => {
         html += `
           <tr>
@@ -893,12 +980,12 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           </tr>
         `;
       });
-      
+
       html += `</tbody></table>`;
-      
+
     } else if (data.type === 'Inventory Report' && data.items) {
       const totalValue = data.items.reduce((sum, item) => sum + ((item.quantity || item.stockAvailable || item.stock || 0) * (item.price || item.amount || item.sellingPrice || 0)), 0);
-      
+
       html += `
         <div class="summary-box">
           <h3>Inventory Summary</h3>
@@ -919,7 +1006,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           </thead>
           <tbody>
       `;
-      
+
       data.items.forEach(item => {
         const qty = item.quantity || item.stockAvailable || item.stock || 0;
         const price = item.price || item.amount || item.sellingPrice || 0;
@@ -936,7 +1023,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           </tr>
         `;
       });
-      
+
       html += `</tbody></table>`;
     }
 
@@ -965,7 +1052,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           visibilityTime: 2000,
         });
       }
-      
+
       const data = await generateReportData();
       if (data) {
         setPreviewData(data);
@@ -986,7 +1073,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
 
   const handleGenerateReport = async () => {
     if (isGenerating || loading) return;
-    
+
     setIsGenerating(true);
 
     try {
@@ -1001,7 +1088,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
 
       // Get report data
       const reportData = await generateReportData();
-      
+
       if (!reportData) {
         Alert.alert('Error', 'Failed to generate report data');
         setIsGenerating(false);
@@ -1009,7 +1096,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
       }
 
       // Check if there's data to export
-      const hasData = 
+      const hasData =
         (reportData.invoices && reportData.invoices.length > 0) ||
         (reportData.payments && reportData.payments.length > 0) ||
         (reportData.pending && reportData.pending.length > 0) ||
@@ -1035,7 +1122,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         // Generate PDF
         const html = generatePDFHTML(reportData);
         const { uri } = await Print.printToFileAsync({ html });
-        
+
         // Rename file to include report info
         const fileName = `${reportName}${customerStr}_${dateStr}.pdf`;
         const newUri = `${FileSystem.documentDirectory}${fileName}`;
@@ -1051,7 +1138,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
             dialogTitle: 'Export Report',
           });
         }
-        
+
         const isOffline = !isConnected || !isInternetReachable;
         Toast.show({
           type: 'success',
@@ -1060,7 +1147,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           position: 'bottom',
           visibilityTime: 3000,
         });
-        
+
       } else if (selectedFormat === 'excel') {
         const excelContent = formatDataAsExcel(reportData);
         const fileName = `${reportName}${customerStr}_${dateStr}.xls`;
@@ -1104,7 +1191,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
             dialogTitle: 'Export Report',
           });
         }
-        
+
         const isOffline = !isConnected || !isInternetReachable;
         Toast.show({
           type: 'success',
@@ -1114,7 +1201,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
           visibilityTime: 3000,
         });
       }
-      
+
     } catch (error) {
       console.error('Error generating report:', error);
       Alert.alert(
@@ -1148,7 +1235,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
       </View>
 
       {/* Sync Indicator */}
-      <SyncIndicator 
+      <SyncIndicator
         isSyncing={isSyncing}
         isOnline={isConnected && isInternetReachable}
         pendingCount={pendingSyncCount}
@@ -1234,11 +1321,11 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                 </TouchableOpacity>
               ))}
             </View>
-            
+
             <View style={styles.dateDisplay}>
               <View style={styles.dateColumn}>
                 <Text style={styles.dateLabel}>Start Date</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.dateButton}
                   onPress={() => setShowStartDatePicker(true)}
                 >
@@ -1246,10 +1333,10 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                   <Text style={styles.dateText}>{formatDate(startDate)}</Text>
                 </TouchableOpacity>
               </View>
-              
+
               <View style={styles.dateColumn}>
                 <Text style={styles.dateLabel}>End Date</Text>
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={styles.dateButton}
                   onPress={() => setShowEndDatePicker(true)}
                 >
@@ -1258,7 +1345,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                 </TouchableOpacity>
               </View>
             </View>
-            
+
             {showStartDatePicker && (
               <DateTimePicker
                 value={startDate}
@@ -1268,7 +1355,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                 maximumDate={endDate}
               />
             )}
-            
+
             {showEndDatePicker && (
               <DateTimePicker
                 value={endDate}
@@ -1286,7 +1373,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         {(selectedReport === 'insights' || selectedReport === 'outstanding' || selectedReport === 'tax') && (
           <View style={styles.section}>
             <Text style={styles.sectionLabel}>CUSTOMER FILTER (Optional)</Text>
-            <TouchableOpacity 
+            <TouchableOpacity
               style={styles.customerSelector}
               onPress={() => setShowCustomerSelector(true)}
             >
@@ -1299,7 +1386,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
               <Ionicons name="chevron-down" size={18} color="#666" />
             </TouchableOpacity>
             {selectedCustomer && (
-              <TouchableOpacity 
+              <TouchableOpacity
                 style={styles.clearCustomerButton}
                 onPress={() => setSelectedCustomer(null)}
               >
@@ -1331,29 +1418,65 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
             ))}
           </View>
         </View>
-
-        {/* Preview Button */}
-        {/* <TouchableOpacity 
-          style={[styles.previewButton, loading && styles.previewButtonDisabled]} 
-          onPress={handlePreviewReport}
-          disabled={loading || isGenerating}
-        >
-          {loading ? (
-            <>
-              <ActivityIndicator size="small" color="#4A90E2" />
-              <Text style={styles.previewButtonText}>Loading...</Text>
-            </>
-          ) : (
-            <>
-              <Ionicons name="eye-outline" size={24} color="#4A90E2" />
-              <Text style={styles.previewButtonText}>Preview Report</Text>
-            </>
-          )}
-        </TouchableOpacity> */}
+                  {/* Scheduled Reports Section */}
+        <View style={styles.section}>
+          <View style={styles.sectionHeaderRow}>
+            <Text style={styles.sectionLabel}>SCHEDULED REPORTS</Text>
+            <TouchableOpacity 
+              style={styles.createNewButton}
+              onPress={() => setShowScheduleModal(true)}
+            >
+              <Ionicons name="add-circle" size={14} color="#4A90E2" />
+              <Text style={styles.createNewText}>Create New</Text>
+            </TouchableOpacity>
+          </View>
+          
+          <View style={styles.scheduledReportsContainer}>
+            {scheduledReports.map((report) => (
+              <View key={report.id} style={styles.scheduledReportItem}>
+                <View style={styles.scheduledItemLeft}>
+                  <View style={styles.clockIconContainer}>
+                    <Ionicons name="time" size={18} color="#666" />
+                  </View>
+                  <View style={styles.scheduledItemInfo}>
+                    <Text style={styles.scheduledItemTitle}>{report.name}</Text>
+                    <Text style={styles.scheduledItemSubtitle}>
+                      Every {report.day || report.frequency} | {report.format.toUpperCase()}
+                    </Text>
+                  </View>
+                </View>
+                <TouchableOpacity 
+                  style={styles.moreButton}
+                  onPress={() => {
+                    Alert.alert(
+                      'Manage Schedule',
+                      'What would you like to do?',
+                      [
+                        { text: 'Cancel', style: 'cancel' },
+                        { text: 'Delete', style: 'destructive', onPress: () => deleteScheduledReport(report.id) }
+                      ]
+                    );
+                  }}
+                >
+                  <Ionicons name="ellipsis-vertical" size={18} color="#999" />
+                </TouchableOpacity>
+              </View>
+            ))}
+            
+            {scheduledReports.length === 0 && (
+              <View style={styles.emptySchedules}>
+                <Text style={styles.emptySchedulesText}>No reports scheduled yet</Text>
+              </View>
+            )}
+          </View>
+          <Text style={styles.historyHelpText}>
+            Files are stored for 30 days in the Export History
+          </Text>
+        </View>
 
         {/* Generate Report Button */}
-        <TouchableOpacity 
-          style={[styles.generateButton, (isGenerating || loading) && styles.generateButtonDisabled]} 
+        <TouchableOpacity
+          style={[styles.generateButton, (isGenerating || loading) && styles.generateButtonDisabled]}
           onPress={handleGenerateReport}
           disabled={isGenerating || loading}
         >
@@ -1395,8 +1518,8 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                 <Ionicons name="close" size={20} color="#333" />
               </TouchableOpacity>
             </View>
-            
-            <TouchableOpacity 
+
+            <TouchableOpacity
               style={[styles.customerItem, !selectedCustomer && styles.customerItemSelected]}
               onPress={() => {
                 setSelectedCustomer(null);
@@ -1414,7 +1537,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
               data={customers}
               keyExtractor={(item) => item.id || item.serverId || item.phone}
               renderItem={({ item }) => (
-                <TouchableOpacity 
+                <TouchableOpacity
                   style={[
                     styles.customerItem,
                     selectedCustomer?.id === item.id && styles.customerItemSelected
@@ -1460,7 +1583,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                 <Ionicons name="close" size={20} color="#333" />
               </TouchableOpacity>
             </View>
-            
+
             {loading ? (
               <View style={styles.previewLoadingContainer}>
                 <ActivityIndicator size="large" color="#FF8A5B" />
@@ -1468,7 +1591,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
               </View>
             ) : previewData ? (
               <>
-                <ScrollView 
+                <ScrollView
                   style={styles.previewScrollView}
                   contentContainerStyle={styles.previewScrollContent}
                   showsVerticalScrollIndicator={false}
@@ -1494,18 +1617,18 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                   </View>
 
                   {/* Check if there's any data to show */}
-                  {!previewData.invoices?.length && 
-                   !previewData.pending?.length && 
-                   !previewData.items?.length && 
-                   !previewData.payments?.length && (
-                    <View style={styles.previewEmptyState}>
-                       <Ionicons name="document-outline" size={52} color="#CCC" />
-                      <Text style={styles.previewEmptyTitle}>No Data Available</Text>
-                      <Text style={styles.previewEmptyText}>
-                        There is no data for this report in the selected date range.
-                      </Text>
-                    </View>
-                  )}
+                  {!previewData.invoices?.length &&
+                    !previewData.pending?.length &&
+                    !previewData.items?.length &&
+                    !previewData.payments?.length && (
+                      <View style={styles.previewEmptyState}>
+                        <Ionicons name="document-outline" size={52} color="#CCC" />
+                        <Text style={styles.previewEmptyTitle}>No Data Available</Text>
+                        <Text style={styles.previewEmptyText}>
+                          There is no data for this report in the selected date range.
+                        </Text>
+                      </View>
+                    )}
 
                   {previewData.invoices && previewData.invoices.length > 0 && (
                     <View style={styles.previewSection}>
@@ -1635,7 +1758,7 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
                 </ScrollView>
 
                 <View style={styles.previewFooter}>
-                  <TouchableOpacity 
+                  <TouchableOpacity
                     style={styles.previewCloseButton}
                     onPress={() => setShowPreview(false)}
                   >
@@ -1656,11 +1779,106 @@ export default function ExportCenterScreen({ navigation }: ExportCenterScreenPro
         </View>
       </Modal>
 
+      {/* Schedule Modal */}
+      <Modal
+        visible={showScheduleModal}
+        transparent={true}
+        animationType="fade"
+        onRequestClose={() => setShowScheduleModal(false)}
+      >
+        <View style={styles.modalOverlay}>
+          <View style={styles.scheduleModalContent}>
+            <View style={styles.modalHeader}>
+              <Text style={styles.modalTitle}>Schedule New Report</Text>
+              <TouchableOpacity onPress={() => setShowScheduleModal(false)}>
+                <Ionicons name="close" size={20} color="#333" />
+              </TouchableOpacity>
+            </View>
+
+            <View style={styles.scheduleForm}>
+              <Text style={styles.inputLabel}>Report Name</Text>
+              <View style={styles.inputContainer}>
+                <Ionicons name="document-text-outline" size={18} color="#666" />
+                <TextInput
+                  style={styles.textInput}
+                  placeholder="e.g. Monthly Tax Summary"
+                  value={newScheduleName}
+                  onChangeText={setNewScheduleName}
+                />
+              </View>
+
+              <Text style={styles.inputLabel}>Frequency</Text>
+              <View style={styles.frequencyTabs}>
+                {(['daily', 'weekly', 'monthly'] as const).map((freq) => (
+                  <TouchableOpacity
+                    key={freq}
+                    style={[
+                      styles.freqTab,
+                      newScheduleFrequency === freq && styles.freqTabActive
+                    ]}
+                    onPress={() => setNewScheduleFrequency(freq)}
+                  >
+                    <Text style={[
+                      styles.freqTabText,
+                      newScheduleFrequency === freq && styles.freqTabTextActive
+                    ]}>
+                      {freq.charAt(0).toUpperCase() + freq.slice(1)}
+                    </Text>
+                  </TouchableOpacity>
+                ))}
+              </View>
+
+              {newScheduleFrequency === 'weekly' && (
+                <>
+                  <Text style={styles.inputLabel}>Select Day</Text>
+                  <View style={styles.daySelector}>
+                    {['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday'].map(day => (
+                      <TouchableOpacity
+                        key={day}
+                        style={[
+                          styles.dayChip,
+                          newScheduleDay === day && styles.dayChipActive
+                        ]}
+                        onPress={() => setNewScheduleDay(day)}
+                      >
+                        <Text style={[
+                          styles.dayChipText,
+                          newScheduleDay === day && styles.dayChipTextActive
+                        ]}>
+                          {day.slice(0, 3)}
+                        </Text>
+                      </TouchableOpacity>
+                    ))}
+                  </View>
+                </>
+              )}
+
+              <View style={styles.summaryContainer}>
+                <Ionicons name="information-circle-outline" size={16} color="#4A90E2" />
+                <Text style={styles.summaryText}>
+                  This will generate a {selectedFormat.toUpperCase()} {selectedReport} report {newScheduleFrequency} {newScheduleFrequency === 'weekly' ? `on ${newScheduleDay}` : ''}.
+                </Text>
+              </View>
+
+              <TouchableOpacity
+                style={styles.saveScheduleButton}
+                onPress={saveScheduledReport}
+              >
+                <Text style={styles.saveScheduleButtonText}>Save Schedule</Text>
+              </TouchableOpacity>
+            </View>
+          </View>
+        </View>
+      </Modal>
+
+
       {/* Footer */}
       <Footer activeTab="Profile" navigation={navigation} />
     </SafeAreaView>
   );
 }
+
+
 
 const styles = StyleSheet.create({
   container: {
@@ -2234,6 +2452,206 @@ const styles = StyleSheet.create({
   previewCloseButtonText: {
     fontSize: 14,
     fontWeight: '600',
+    color: '#FFFFFF',
+  },
+  
+  // Scheduled Reports Styles
+  sectionHeaderRow: {
+    flexDirection: 'row',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: 10,
+  },
+  createNewButton: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    gap: 4,
+  },
+  createNewText: {
+    fontSize: 11,
+    fontWeight: '600',
+    color: '#4A90E2',
+  },
+  scheduledReportsContainer: {
+    backgroundColor: '#FFFFFF',
+    borderRadius: 12,
+    paddingVertical: 4,
+    shadowColor: '#000',
+    shadowOffset: { width: 0, height: 2 },
+    shadowOpacity: 0.05,
+    shadowRadius: 4,
+    elevation: 2,
+  },
+  scheduledReportItem: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    justifyContent: 'space-between',
+    paddingVertical: 12,
+    paddingHorizontal: 12,
+    borderBottomWidth: 1,
+    borderBottomColor: '#F5F5F5',
+  },
+  scheduledItemLeft: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    flex: 1,
+  },
+  clockIconContainer: {
+    width: 38,
+    height: 38,
+    borderRadius: 19,
+    backgroundColor: '#F0F0F0',
+    alignItems: 'center',
+    justifyContent: 'center',
+    marginRight: 10,
+  },
+  scheduledItemInfo: {
+    flex: 1,
+  },
+  scheduledItemTitle: {
+    fontSize: 14,
+    fontWeight: '600',
+    color: '#333',
+    marginBottom: 2,
+  },
+  scheduledItemSubtitle: {
+    fontSize: 11,
+    color: '#999',
+  },
+  moreButton: {
+    padding: 4,
+  },
+  emptySchedules: {
+    padding: 20,
+    alignItems: 'center',
+  },
+  emptySchedulesText: {
+    fontSize: 12,
+    color: '#999',
+    fontStyle: 'italic',
+  },
+  historyHelpText: {
+    fontSize: 10,
+    color: '#999',
+    textAlign: 'center',
+    marginTop: 10,
+    fontStyle: 'italic',
+  },
+  
+  // Schedule Modal Styles
+  scheduleModalContent: {
+    backgroundColor: '#FFFFFF',
+    borderTopLeftRadius: 16,
+    borderTopRightRadius: 16,
+    paddingBottom: 20,
+    width: '100%',
+  },
+  scheduleForm: {
+    padding: 16,
+  },
+  inputLabel: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+    marginBottom: 8,
+    marginTop: 12,
+  },
+  inputContainer: {
+    flexDirection: 'row',
+    alignItems: 'center',
+    backgroundColor: '#F8F8F8',
+    borderRadius: 8,
+    paddingHorizontal: 12,
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  textInput: {
+    flex: 1,
+    height: 44,
+    fontSize: 14,
+    color: '#333',
+    marginLeft: 8,
+  },
+  frequencyTabs: {
+    flexDirection: 'row',
+    gap: 8,
+  },
+  freqTab: {
+    flex: 1,
+    paddingVertical: 10,
+    alignItems: 'center',
+    borderRadius: 8,
+    backgroundColor: '#F5F5F5',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  freqTabActive: {
+    backgroundColor: '#4A90E2',
+    borderColor: '#4A90E2',
+  },
+  freqTabText: {
+    fontSize: 12,
+    fontWeight: '600',
+    color: '#666',
+  },
+  freqTabTextActive: {
+    color: '#FFFFFF',
+  },
+  daySelector: {
+    flexDirection: 'row',
+    flexWrap: 'wrap',
+    gap: 6,
+  },
+  dayChip: {
+    paddingVertical: 6,
+    paddingHorizontal: 10,
+    borderRadius: 16,
+    backgroundColor: '#F0F0F0',
+    borderWidth: 1,
+    borderColor: '#E0E0E0',
+  },
+  dayChipActive: {
+    backgroundColor: '#FF8A5B',
+    borderColor: '#FF8A5B',
+  },
+  dayChipText: {
+    fontSize: 11,
+    fontWeight: '500',
+    color: '#666',
+  },
+  dayChipTextActive: {
+    color: '#FFFFFF',
+  },
+  summaryContainer: {
+    flexDirection: 'row',
+    backgroundColor: '#F0F7FF',
+    padding: 12,
+    borderRadius: 8,
+    marginTop: 20,
+    gap: 8,
+    alignItems: 'center',
+  },
+  summaryText: {
+    fontSize: 12,
+    color: '#4A90E2',
+    lineHeight: 18,
+    flex: 1,
+  },
+  saveScheduleButton: {
+    backgroundColor: '#FF8A5B',
+    paddingVertical: 14,
+    borderRadius: 10,
+    alignItems: 'center',
+    marginTop: 24,
+    shadowColor: '#FF8A5B',
+    shadowOffset: { width: 0, height: 4 },
+    shadowOpacity: 0.3,
+    shadowRadius: 8,
+    elevation: 4,
+  },
+  saveScheduleButtonText: {
+    fontSize: 14,
+    fontWeight: '700',
     color: '#FFFFFF',
   },
 });
