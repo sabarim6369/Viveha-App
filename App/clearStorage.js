@@ -12,15 +12,11 @@ async function clearAllStorage() {
       '@invoices',
       '@viveha_items',
       '@viveha_clients',
-      '@viveha_invoices',
       '@pending_sync',
-      '@viveha_pending_sync',
       '@business_info',
       '@viveha_payments',
       '@viveha_drafts',
       '@last_sync',
-
-      '@viveha_last_sync',
       '@sync_status',
       '@viveha_pending_invoices',
       '@viveha_item_groups',
@@ -28,13 +24,6 @@ async function clearAllStorage() {
       '@debug_invoice_count',
       '@viveha_token',
       '@viveha_client_id',
-      '@viveha_user_data',
-      '@viveha_cart',
-      '@viveha_payment_history',
-      '@viveha_shop_details',
-      '@viveha_pendings',
-      'hasSeenOnboarding',
-      'isNewUser'
     ];
     
     // Clear all keys
@@ -42,7 +31,6 @@ async function clearAllStorage() {
     
     console.log('✅ All offline storage cleared successfully!');
     console.log(`   Removed ${keysToDelete.length} storage keys`);
-    console.log('⚠️  You will need to login again');
     
     // Verify it's cleared
     const allKeys = await AsyncStorage.getAllKeys();

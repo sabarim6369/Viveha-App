@@ -58,7 +58,6 @@ import { createNativeStackNavigator } from '@react-navigation/native-stack';
 import { SafeAreaProvider } from 'react-native-safe-area-context';
 import AsyncStorage from '@react-native-async-storage/async-storage';
 import Toast from 'react-native-toast-message';
-import { CustomToastConfig } from './Components/CustomToast';
 
 // Import all screens
 import LogoScreen from './Pages/LogoScreen';
@@ -73,8 +72,6 @@ import VerificationCodeScreen from './Pages/VerificationCodeScreen';
 import SuccessScreen from './Pages/SuccessScreen';
 import HomeScreen from './Pages/HomeScreen';
 import PendingsScreen from './Pages/PendingsScreen';
-import CustomerInvoicesScreen from './Pages/CustomerInvoicesScreen';
-import ContactInvoicesScreen from './Pages/ContactInvoicesScreen';
 import CreateInvoiceScreen from './Pages/CreateInvoiceScreen';
 import InvoicePreviewScreen from './Pages/InvoicePreviewScreen';
 import ProfileScreen from './Pages/ProfileScreen';
@@ -86,28 +83,25 @@ import OnboardingScreen1 from './Pages/OnboardingScreen1';
 import OnboardingScreen2 from './Pages/OnboardingScreen2';
 import OnboardingScreen3 from './Pages/OnboardingScreen3';
 import VisitingCardScreen from './Pages/VisitingCardScreen';
+import SettingsScreen from './Pages/SettingsScreen';
 // import OnboardingScreen4 from './Pages/OnboardingScreen4';
 
 import InsightsScreen from './Pages/InsightsScreen';
 
 import TaxAndDiscountScreen from './Pages/TaxAndDiscountScreen';
 import ContactsScreen from './Pages/ContactsScreen';
-import SettingsScreen from './Pages/SettingsScreen';
-import InviteFriendsScreen from './Pages/InviteFriendsScreen';
-import CustomerProfileScreen from './Pages/CustomerProfileScreen';
-import CreateCustomerScreen from './Pages/CreateCustomerScreen';
-import HelpSupportScreen from './Pages/HelpSupportScreen';
-import RateUsScreen from './Pages/RateUsScreen';
-import InvoiceCustomizationScreen from './Pages/InvoiceCustomizationScreen';
-import PaymentMethodScreen from './Pages/PaymentMethodScreen';
-import ExportCenterScreen from './Pages/ExportCenterScreen';
-import NotificationsScreen from './Pages/NotificationsScreen';
-import EditProfileScreen from './Pages/EditProfileScreen';
+import DealerMainScreen from './Pages/DealerMainScreen';
+import DealerScreen from './Pages/DealerScreen';
+import DealerCatalogScreen from './Pages/DealerCatalogScreen';
+import DealerDetailScreen from './Pages/DealerDetailScreen';
+import DealerInventoryScreen from './Pages/DealerInventoryScreen';
+import DealerOrderReviewScreen from './Pages/DealerOrderReviewScreen';
+import DealerPaymentScreen from './Pages/DealerPaymentScreen';
 
 const Stack = createNativeStackNavigator();
 
 export default function App() {
-  const [initialRoute, setInitialRoute] = useState("OTPVerification");
+  const [initialRoute, setInitialRoute] = useState("Logo");
   const [isLoading, setIsLoading] = useState(true);
 
   useEffect(() => {
@@ -115,24 +109,22 @@ export default function App() {
       try {
         const token = await AsyncStorage.getItem('@viveha_token');
         const clientId = await AsyncStorage.getItem('@viveha_client_id');
-        const hasSeenOnboarding = await AsyncStorage.getItem('hasSeenOnboarding');
 
-        console.log('🔍 Checking App Status:');
+        console.log('🔍 Checking Login Status:');
         console.log('   - Token:', token ? 'Found' : 'Missing');
         console.log('   - ClientId:', clientId ? 'Found' : 'Missing');
-        console.log('   - Has seen onboarding:', hasSeenOnboarding);
 
         if (token && clientId) {
           console.log('✅ Auto-login to Home');
+          // Verify token validity or just trust it exists for now (10 days requirement)
+          // We could add a timestamp check if we stored login time, 
+          // but typically token existence + backend 401 handling is enough.
+          // For now, simple existence check to skip login screens.
           setInitialRoute("Home");
-        } else if (!hasSeenOnboarding) {
-          console.log('🆕 First time user - showing splash and onboarding');
-          // First time opening the app - show logo splash, then onboarding screens
-          setInitialRoute("Logo");
         } else {
-          console.log('🔐 Returning user - showing Login screen');
-          // Returning user who has seen onboarding - show login
-          setInitialRoute("OTPVerification");
+          console.log('❌ Auto-login failed, defaulting to Logo');
+          // Optional: Clear any partial data if one exists but not other?
+          // setInitialRoute("Logo"); // Default is already Logo
         }
       } catch (error) {
         console.error('Error checking login status:', error);
@@ -175,15 +167,11 @@ export default function App() {
           {/* <Stack.Screen name="Onboarding4" component={OnboardingScreen4} /> */}
           <Stack.Screen name="Home" component={HomeScreen} />
           <Stack.Screen name="Pendings" component={PendingsScreen} />
-          <Stack.Screen name="CustomerInvoices" component={CustomerInvoicesScreen} />
-          <Stack.Screen name="ContactInvoices" component={ContactInvoicesScreen} />
           <Stack.Screen name="Items" component={ItemsScreen} />
           <Stack.Screen name="AddInvoice" component={CreateInvoiceScreen} />
           <Stack.Screen name="CreateInvoice" component={CreateInvoiceScreen} />
           <Stack.Screen name="InvoicePreview" component={InvoicePreviewScreen} />
           <Stack.Screen name="Profile" component={ProfileScreen} />
-          <Stack.Screen name="Settings" component={SettingsScreen} />
-          <Stack.Screen name="InvoiceCustomization" component={InvoiceCustomizationScreen} />
           <Stack.Screen name="VisitingCard" component={VisitingCardScreen} />
           <Stack.Screen name="History" component={HistoryScreen} />
           <Stack.Screen name="DiscountOffer" component={DiscountOfferScreen} />
@@ -191,18 +179,17 @@ export default function App() {
           <Stack.Screen name="Insights" component={InsightsScreen} />
           <Stack.Screen name="TaxAndDiscount" component={TaxAndDiscountScreen} />
           <Stack.Screen name="MyContacts" component={ContactsScreen} />
-          <Stack.Screen name="PaymentMethod" component={PaymentMethodScreen} />
-          <Stack.Screen name="ExportCenter" component={ExportCenterScreen} />
-          <Stack.Screen name="CreateCustomer" component={CreateCustomerScreen} />
-          <Stack.Screen name="InviteFriends" component={InviteFriendsScreen} />
-          <Stack.Screen name="CustomerProfile" component={CustomerProfileScreen} />
-          <Stack.Screen name="HelpSupport" component={HelpSupportScreen} />
-          <Stack.Screen name="RateUs" component={RateUsScreen} />
-          <Stack.Screen name="Notifications" component={NotificationsScreen} />
-          <Stack.Screen name="EditProfile" component={EditProfileScreen} />
+          <Stack.Screen name="Settings" component={SettingsScreen} />
+          <Stack.Screen name="Dealer" component={DealerMainScreen} />
+          <Stack.Screen name="AddDealer" component={DealerScreen} />
+          <Stack.Screen name="DealerCatalog" component={DealerCatalogScreen} />
+          <Stack.Screen name="DealerDetail" component={DealerDetailScreen} />
+          <Stack.Screen name="DealerInventory" component={DealerInventoryScreen} />
+          <Stack.Screen name="DealerOrderReview" component={DealerOrderReviewScreen} />
+          <Stack.Screen name="DealerPayment" component={DealerPaymentScreen} />
         </Stack.Navigator>
       </NavigationContainer>
-      <Toast config={CustomToastConfig} position="bottom" bottomOffset={100} />
+      <Toast position="bottom" bottomOffset={100} />
     </SafeAreaProvider>
   );
 }

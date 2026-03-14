@@ -55,7 +55,7 @@ App/
 ├── app.json                        # Expo configuration
 ├── README.md                       # This file
 ├── assets/                         # Images and static resources
-│   └── logo2.png
+│   └── logo.png
 ├── Components/
 │   └── Footer.js                   # Reusable bottom navigation
 └── Pages/
