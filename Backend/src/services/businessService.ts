@@ -1232,7 +1232,7 @@ export const getClientCustomerProfile = async (clientId: string, clientCustomerI
         const payments = await Payment.find({
             clientId,
             invoiceId: { $in: allInvoices.map((inv) => inv._id) },
-        }).sort({ paidAt: -1 });
+        }).sort({ paidAt: 1 });
 
         return {
             success: true,
