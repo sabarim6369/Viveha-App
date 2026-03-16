@@ -157,7 +157,7 @@ export const getPendingReminders = async (req: AuthRequest, res: Response): Prom
             amount: reminder.amount,
             timestamp: reminder.createdAt,
             reminderDate: reminder.reminderDate,
-            read: reminder.status === 'sent',
+            read: reminder.read || false,
             status: reminder.status,
         }));
 
@@ -224,6 +224,42 @@ export const updateReminderStatus = async (req: AuthRequest, res: Response): Pro
 };
 
 // ============================================================================
+// MARK REMINDER AS READ
+// ============================================================================
+export const markReminderAsRead = async (req: AuthRequest, res: Response): Promise<void> => {
+    try {
+        const { clientId } = req.auth!;
+        const { reminderId } = req.params;
+
+        const reminder = await Reminder.findOneAndUpdate(
+            { _id: reminderId, clientId },
+            { read: true },
+            { new: true }
+        );
+
+        if (!reminder) {
+            res.status(404).json({
+                success: false,
+                error: 'Reminder not found',
+            });
+            return;
+        }
+
+        res.status(200).json({
+            success: true,
+            message: 'Reminder marked as read',
+            data: reminder,
+        });
+    } catch (error: any) {
+        console.error('Error marking reminder as read:', error);
+        res.status(500).json({
+            success: false,
+            error: error.message || 'Failed to mark reminder as read',
+        });
+    }
+};
+
+// ============================================================================
 // DELETE REMINDER
 // ============================================================================
 export const deleteReminder = async (req: AuthRequest, res: Response): Promise<void> => {
@@ -258,28 +294,28 @@ export const deleteReminder = async (req: AuthRequest, res: Response): Promise<v
 };
 
 // ============================================================================
-// DELETE ALL REMINDERS (CLEAR ALL NOTIFICATIONS)
+// MARK ALL REMINDERS AS READ (CLEAR ALL NOTIFICATIONS)
 // ============================================================================
-export const deleteAllReminders = async (req: AuthRequest, res: Response): Promise<void> => {
+export const markAllRemindersAsRead = async (req: AuthRequest, res: Response): Promise<void> => {
     try {
         const { clientId } = req.auth!;
 
-        // Delete all sent and cancelled reminders (keep pending ones)
-        const result = await Reminder.deleteMany({
-            clientId,
-            status: { $in: ['sent', 'cancelled'] },
-        });
+        // Mark all reminders as read
+        const result = await Reminder.updateMany(
+            { clientId },
+            { read: true }
+        );
 
         res.status(200).json({
             success: true,
-            message: `Deleted ${result.deletedCount} notifications`,
-            deletedCount: result.deletedCount,
+            message: `Marked ${result.modifiedCount} notifications as read`,
+            modifiedCount: result.modifiedCount,
         });
     } catch (error: any) {
-        console.error('Error deleting all reminders:', error);
+        console.error('Error marking all reminders as read:', error);
         res.status(500).json({
             success: false,
-            error: error.message || 'Failed to delete all reminders',
+            error: error.message || 'Failed to mark all reminders as read',
         });
     }
 };

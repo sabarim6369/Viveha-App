@@ -5,8 +5,9 @@ import {
     getReminders,
     getPendingReminders,
     updateReminderStatus,
+    markReminderAsRead,
     deleteReminder,
-    deleteAllReminders,
+    markAllRemindersAsRead,
 } from './controller.js';
 
 const router = express.Router();
@@ -26,10 +27,13 @@ router.get('/notifications', getPendingReminders);
 // Update reminder status
 router.patch('/:reminderId/status', updateReminderStatus);
 
+// Mark reminder as read
+router.patch('/:reminderId/read', markReminderAsRead);
+
 // Delete reminder
 router.delete('/:reminderId', deleteReminder);
 
-// Delete all reminders (clear all notifications)
-router.delete('/', deleteAllReminders);
+// Mark all reminders as read (clear all notifications)
+router.patch('/', markAllRemindersAsRead);
 
 export default router;

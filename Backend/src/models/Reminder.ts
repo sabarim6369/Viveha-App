@@ -14,6 +14,7 @@ export interface IReminder extends Document {
     status: 'pending' | 'sent' | 'failed' | 'cancelled';
     sentAt?: Date;
     failureReason?: string;
+    read: boolean;
     createdAt: Date;
     updatedAt: Date;
 }
@@ -68,6 +69,11 @@ const reminderSchema = new Schema<IReminder>(
         failureReason: {
             type: String,
             trim: true,
+        },
+        read: {
+            type: Boolean,
+            default: false,
+            index: true,
         },
     },
     { 
