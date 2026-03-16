@@ -242,6 +242,16 @@ export const recordPaymentController = async (req: Request, res: Response) => {
         const { clientId, invoiceId, amount } = req.body;
         if (!clientId || !invoiceId || amount === undefined)
             return badRequest(res, 'clientId,invoiceId,amount required');
+        
+        // Handle custom payment date if provided
+        let paidAt;
+        if (req.body.paidAt) {
+            paidAt = new Date(req.body.paidAt);
+            if (isNaN(paidAt.getTime())) {
+                return badRequest(res, 'Invalid paidAt date format');
+            }
+        }
+        
         return res.json(
             await businessService.recordPayment(
                 clientId,
@@ -249,6 +259,7 @@ export const recordPaymentController = async (req: Request, res: Response) => {
                 amount,
                 req.body.method,
                 req.body.note,
+                paidAt,
             ),
         );
     } catch (e: any) {

@@ -1035,6 +1035,7 @@ export const recordPayment = async (
     amount: number,
     method: string = 'cash',
     note: string = '',
+    paidAt?: Date,
 ) => {
     try {
         const invoice = await Invoice.findOne({ _id: invoiceId, clientId });
@@ -1056,6 +1057,7 @@ export const recordPayment = async (
             amount,
             method,
             note,
+            paidAt: paidAt || new Date(),
         });
 
         invoice.paidAmount += amount;

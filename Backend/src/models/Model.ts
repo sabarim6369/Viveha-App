@@ -867,7 +867,6 @@ const paymentSchema = new Schema<IPayment>(
         paidAt: {
             type: Date,
             default: Date.now,
-            immutable: true,
         },
     },
     { timestamps: true },
