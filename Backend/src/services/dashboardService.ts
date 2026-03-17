@@ -69,54 +69,90 @@ export const getDashboardSummary = async (clientId: string) => {
     }
 };
 
-export const getSalesTrends = async (clientId: string, months: number = 6) => {
+export const getSalesTrends = async (clientId: string, months: number = 6, period: string = 'month') => {
     try {
         const normalizedMonths = normalizeNumber(months, 6, 1, 24);
         const now = new Date();
-        const startMonth = new Date(now.getFullYear(), now.getMonth(), 1);
-        startMonth.setMonth(startMonth.getMonth() - (normalizedMonths - 1));
+        let startDate: Date;
+        let groupBy: any;
+        let labelFormat: string;
 
-        // Get total invoiced amount per month
+        if (period === 'today') {
+            // Today - group by hour
+            startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
+            groupBy = {
+                hour: { $hour: '$generatedAt' },
+            };
+            labelFormat = 'hour';
+        } else if (period === 'week') {
+            // This Week - group by day
+            startDate = new Date(now);
+            startDate.setDate(now.getDate() - 6); // Last 7 days
+            groupBy = {
+                day: { $dayOfMonth: '$generatedAt' },
+                month: { $month: '$generatedAt' },
+                year: { $year: '$generatedAt' },
+            };
+            labelFormat = 'day';
+        } else if (period === 'month') {
+            // This Month - group by week
+            startDate = new Date(now.getFullYear(), now.getMonth(), 1);
+            groupBy = {
+                week: { $week: '$generatedAt' },
+                month: { $month: '$generatedAt' },
+                year: { $year: '$generatedAt' },
+            };
+            labelFormat = 'week';
+        } else {
+            // This Year - group by month
+            startDate = new Date(now.getFullYear(), 0, 1);
+            groupBy = {
+                month: { $month: '$generatedAt' },
+                year: { $year: '$generatedAt' },
+            };
+            labelFormat = 'month';
+        }
+
         const invoicedResults = await Invoice.aggregate([
             {
                 $match: {
                     clientId: toObjectId(clientId),
-                    generatedAt: { $gte: startMonth },
+                    generatedAt: { $gte: startDate },
                 },
             },
             {
                 $group: {
-                    _id: {
-                        year: { $year: '$generatedAt' },
-                        month: { $month: '$generatedAt' },
-                    },
+                    _id: groupBy,
                     totalInvoiced: { $sum: '$totalAmount' },
                     totalReceived: { $sum: { $ifNull: ['$paidAmount', 0] } },
                 },
             },
+            { $sort: { '_id.year': 1, '_id.month': 1, '_id.week': 1, '_id.day': 1, '_id.hour': 1 } },
         ]);
 
-        const dataByMonth = new Map(
-            invoicedResults.map((entry) => [
-                `${entry._id.year}-${entry._id.month}`,
-                {
-                    totalInvoiced: entry.totalInvoiced,
-                    totalReceived: entry.totalReceived,
-                },
-            ]),
-        );
+        // Format labels based on period
+        const trends = invoicedResults.map((entry) => {
+            let label = '';
+            
+            if (period === 'today') {
+                label = `${entry._id.hour}:00`;
+            } else if (period === 'week') {
+                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
+                const dayIndex = new Date(entry._id.year, entry._id.month - 1, entry._id.day).getDay();
+                label = dayNames[dayIndex];
+            } else if (period === 'month') {
+                label = `W${entry._id.week}`;
+            } else {
+                label = MONTH_LABELS[entry._id.month - 1];
+            }
 
-        const trends = [];
-        for (let i = normalizedMonths - 1; i >= 0; i -= 1) {
-            const date = new Date(now.getFullYear(), now.getMonth() - i, 1);
-            const key = `${date.getFullYear()}-${date.getMonth() + 1}`;
-            const data = dataByMonth.get(key) || { totalInvoiced: 0, totalReceived: 0 };
-            trends.push({
-                month: MONTH_LABELS[date.getMonth()],
-                totalInvoiced: data.totalInvoiced,
-                totalReceived: data.totalReceived,
-            });
-        }
+            return {
+                label,
+                totalInvoiced: entry.totalInvoiced,
+                totalReceived: entry.totalReceived,
+                month: period === 'year' ? MONTH_LABELS[entry._id.month - 1] : label,
+            };
+        });
 
         return trends;
     } catch (error: any) {

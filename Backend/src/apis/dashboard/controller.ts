@@ -34,8 +34,12 @@ export const getSalesTrendsController = async (req: AuthenticatedRequest, res: R
             });
         }
 
-        const { months } = req.query;
-        const trends = await dashboardService.getSalesTrends(clientId, months as unknown as number);
+        const { months, period } = req.query;
+        const trends = await dashboardService.getSalesTrends(
+            clientId, 
+            months as unknown as number,
+            period as string
+        );
         return res.status(200).json(trends);
     } catch (error: any) {
         return res.status(500).json({ success: false, message: error.message });
