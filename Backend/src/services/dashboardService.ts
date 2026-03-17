@@ -78,27 +78,42 @@ export const getSalesTrends = async (clientId: string, months: number = 6, perio
         let labelFormat: string;
 
         if (period === 'today') {
-            // Today - group by hour
+            // Today - group by hour (convert UTC to local time)
             startDate = new Date(now.getFullYear(), now.getMonth(), now.getDate());
             groupBy = {
-                hour: { $hour: '$generatedAt' },
+                hour: { 
+                    $hour: { 
+                        date: '$generatedAt', 
+                        timezone: 'Asia/Kolkata' // Convert to IST (UTC+5:30)
+                    } 
+                },
             };
             labelFormat = 'hour';
+            console.log("🕐 Today period - grouping by hour with timezone conversion");
         } else if (period === 'week') {
             // This Week - group by day
             startDate = new Date(now);
             startDate.setDate(now.getDate() - 6); // Last 7 days
+            startDate.setHours(0, 0, 0, 0); // Start of day
             groupBy = {
                 day: { $dayOfMonth: '$generatedAt' },
                 month: { $month: '$generatedAt' },
                 year: { $year: '$generatedAt' },
             };
             labelFormat = 'day';
+            console.log("🗓️ Week period detected, grouping by day");
         } else if (period === 'month') {
             // This Month - group by week
             startDate = new Date(now.getFullYear(), now.getMonth(), 1);
             groupBy = {
-                week: { $week: '$generatedAt' },
+                weekOfMonth: {
+                    $ceil: {
+                        $divide: [
+                            { $dayOfMonth: '$generatedAt' },
+                            7
+                        ]
+                    }
+                },
                 month: { $month: '$generatedAt' },
                 year: { $year: '$generatedAt' },
             };
@@ -127,25 +142,32 @@ export const getSalesTrends = async (clientId: string, months: number = 6, perio
                     totalReceived: { $sum: { $ifNull: ['$paidAmount', 0] } },
                 },
             },
-            { $sort: { '_id.year': 1, '_id.month': 1, '_id.week': 1, '_id.day': 1, '_id.hour': 1 } },
+            { $sort: { '_id.year': 1, '_id.month': 1, '_id.weekOfMonth': 1, '_id.day': 1, '_id.hour': 1 } },
         ]);
 
         // Format labels based on period
+        console.log("🔍 Formatting labels for period:", period);
+        console.log("📊 Raw invoice results:", invoicedResults);
+        
         const trends = invoicedResults.map((entry) => {
             let label = '';
             
             if (period === 'today') {
                 label = `${entry._id.hour}:00`;
             } else if (period === 'week') {
-                const dayNames = ['Sun', 'Mon', 'Tue', 'Wed', 'Thu', 'Fri', 'Sat'];
-                const dayIndex = new Date(entry._id.year, entry._id.month - 1, entry._id.day).getDay();
-                label = dayNames[dayIndex];
+                // Show day numbers 1-7 for the week
+                const dayOfWeek = new Date(entry._id.year, entry._id.month - 1, entry._id.day).getDay();
+                label = `${dayOfWeek === 0 ? 7 : dayOfWeek}`; // Sunday = 7, Monday = 1, etc.
+                console.log("📅 Week day calculation:", { year: entry._id.year, month: entry._id.month, day: entry._id.day, dayOfWeek, label });
             } else if (period === 'month') {
-                label = `W${entry._id.week}`;
+                // Show week of month W1-W4
+                label = `W${entry._id.weekOfMonth}`;
             } else {
-                label = MONTH_LABELS[entry._id.month - 1];
+                // Show first letter of month name for year
+                label = MONTH_LABELS[entry._id.month - 1].charAt(0);
             }
 
+            console.log("🏷️ Generated label:", label);
             return {
                 label,
                 totalInvoiced: entry.totalInvoiced,
@@ -192,11 +214,11 @@ export const getTopItems = async (clientId: string, limit: number = 5) => {
     }
 };
 
-export const getDashboard = async (clientId: string, months: number, limit: number) => {
+export const getDashboard = async (clientId: string, months: number, limit: number, period?: string) => {
     try {
         const [summary, salesTrends, topItems] = await Promise.all([
             getDashboardSummary(clientId),
-            getSalesTrends(clientId, months),
+            getSalesTrends(clientId, months, period),
             getTopItems(clientId, limit),
         ]);
 

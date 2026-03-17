@@ -74,11 +74,12 @@ export const getDashboardController = async (req: AuthenticatedRequest, res: Res
             });
         }
 
-        const { months, limit } = req.query;
+        const { months, limit, period } = req.query;
         const dashboard = await dashboardService.getDashboard(
             clientId,
             months as unknown as number,
             limit as unknown as number,
+            period as string,
         );
         return res.status(200).json(dashboard);
     } catch (error: any) {
