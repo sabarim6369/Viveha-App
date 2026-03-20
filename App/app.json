@@ -4,11 +4,11 @@
     "slug": "viveha-ai",
     "version": "1.0.0",
     "orientation": "portrait",
-    "icon": "./assets/logo.png",
+    "icon": "./assets/logo2.png",
     "userInterfaceStyle": "light",
     "newArchEnabled": true,
     "splash": {
-      "image": "./assets/splashimg.png",
+      "image": "./assets/logo2.png",
       "resizeMode": "contain",
       "backgroundColor": "#ffffff"
     },
@@ -20,25 +20,44 @@
     },
     "android": {
       "adaptiveIcon": {
-        "foregroundImage": "./assets/finallogo.png",
+        "foregroundImage": "./assets/finallogo1.png",
         "backgroundColor": "#ffffff"
       },
       "edgeToEdgeEnabled": true,
-      "package": "com.isaiiai.vivehaai",
+      "package": "com.isaiiai.vivehaaiapp",
       "permissions": [
-        "READ_CONTACTS"
-      ]
+        "READ_CONTACTS",
+        "android.permission.READ_EXTERNAL_STORAGE",
+        "android.permission.WRITE_EXTERNAL_STORAGE",
+        "android.permission.READ_MEDIA_VISUAL_USER_SELECTED",
+        "android.permission.ACCESS_MEDIA_LOCATION",
+        "android.permission.READ_MEDIA_IMAGES",
+        "android.permission.READ_MEDIA_VIDEO",
+        "android.permission.READ_MEDIA_AUDIO"
+      ],
+      "allowBackup": false
     },
     "web": {
       "favicon": "./assets/favicon.png"
     },
+    "plugins": [
+      "@react-native-community/datetimepicker",
+      [
+        "expo-media-library",
+        {
+          "photosPermission": "Allow Viveha to save invoices to your photos.",
+          "savePhotosPermission": "Allow Viveha to save invoices to your photos.",
+          "isAccessMediaLocationEnabled": true,
+          "writeOnly": true
+        }
+      ],
+      "expo-asset",
+      "expo-font"
+    ],
     "extra": {
       "eas": {
-        "projectId": "c553f67a-f36c-457c-a687-83b0b39b9714"
+        "projectId": "9d1841c7-612f-4987-903d-c5301dd8a940"
       }
-    },
-    "plugins": [
-      "expo-speech-recognition"
-    ]
+    }
   }
 }
