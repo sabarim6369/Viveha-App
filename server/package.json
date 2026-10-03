@@ -1,0 +1,35 @@
+{
+  "name": "viveka-backend-js",
+  "version": "1.0.0",
+  "description": "Viveka - B2B Billing System Backend API (Javascript)",
+  "main": "index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node index.js",
+    "dev": "nodemon index.js"
+  },
+  "keywords": [
+    "billing",
+    "b2b",
+    "invoicing",
+    "viveka",
+    "api"
+  ],
+  "author": "Viveka Team <dev@viveka.example>",
+  "license": "MIT",
+  "dependencies": {
+    "axios": "^1.6.2",
+    "bcrypt": "^5.1.1",
+    "chalk": "^5.3.0",
+    "cors": "^2.8.6",
+    "dotenv": "^16.3.1",
+    "express": "^4.19.2",
+    "jsonwebtoken": "^9.0.2",
+    "mongoose": "^8.0.3",
+    "multer": "^2.1.1",
+    "nodemailer": "^8.0.2"
+  },
+  "devDependencies": {
+    "nodemon": "^3.0.2"
+  }
+}

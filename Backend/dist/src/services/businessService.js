@@ -1,0 +1,934 @@
+import mongoose from 'mongoose';
+import { Client, Item, ItemGroup, clientCustomer, Cart, CartItem, Invoice, PurchaseHistory, Payment } from '../models/Model.js';
+// Helper to return invoice products as stored snapshots
+const buildInvoiceWithProductDetails = async (invoiceDoc) => {
+    if (!invoiceDoc)
+        return invoiceDoc;
+    const invoiceObj = typeof invoiceDoc.toObject === 'function'
+        ? invoiceDoc.toObject()
+        : { ...invoiceDoc };
+    const products = (invoiceObj.products || []).map((product) => ({
+        productId: product.productId || null,
+        itemName: product.itemName || '',
+        costPerUnit: product.costPerUnit,
+        quantity: product.quantity,
+        itemGroup: product.itemGroup || '',
+    }));
+    const additionalFees = (invoiceObj.additionalFees || []).map((fee) => ({
+        name: fee.name || '',
+        amount: fee.amount || 0,
+    }));
+    return {
+        ...invoiceObj,
+        products,
+        additionalFees,
+        // Explicitly ensure date fields are included
+        invoiceDate: invoiceObj.invoiceDate || invoiceObj.createdAt,
+        dueDate: invoiceObj.dueDate || null,
+    };
+};
+const normalizeItemsForSyncResponse = (items) => items.map((item) => ({
+    ...item.toObject(),
+    groupId: item.groupId ? item.groupId.toString() : null,
+    productId: item._id ? item._id.toString() : null,
+}));
+const resolveClientCustomerForInvoice = async ({ clientId, providedclientCustomerId, clientCustomerName, clientCustomerPhone, customerPhone, fallbackPhone, clientCustomerAddress, clientCustomerEmailId, clientCustomerGstNo, }) => {
+    let customerDoc = null;
+    const resolvedclientCustomerId = providedclientCustomerId || null;
+    if (resolvedclientCustomerId) {
+        customerDoc = await clientCustomer.findOne({
+            _id: resolvedclientCustomerId,
+            clientId,
+        });
+    }
+    const phoneToUse = clientCustomerPhone ||
+        customerPhone ||
+        fallbackPhone ||
+        customerDoc?.phoneNumber ||
+        '';
+    const nameToUse = clientCustomerName || customerDoc?.name || '';
+    const addressToUse = clientCustomerAddress || customerDoc?.address || '';
+    const emailIdToUse = clientCustomerEmailId || customerDoc?.emailId || '';
+    const gstNoToUse = clientCustomerGstNo || customerDoc?.gstNo || '';
+    if (!customerDoc && phoneToUse) {
+        const createResult = await createclientCustomer(clientId, nameToUse || 'clientCustomer', phoneToUse, addressToUse, emailIdToUse, gstNoToUse);
+        customerDoc = createResult.clientCustomer;
+    }
+    const clientCustomerId = customerDoc?._id || resolvedclientCustomerId || null;
+    return {
+        customerDoc,
+        clientCustomerId,
+        nameToUse,
+        phoneToUse,
+    };
+};
+export const getFullClientData = async (clientId) => {
+    const [itemGroups, items, clientCustomers, rawInvoices, payments, purchaseHistory,] = await Promise.all([
+        ItemGroup.find({ clientId }),
+        Item.find({ clientId }),
+        clientCustomer.find({ clientId }).sort({ createdAt: -1 }),
+        Invoice.find({ clientId }).populate('clientCustomerId'),
+        Payment.find({ clientId }),
+        PurchaseHistory.find({ clientId })
+            .populate('clientCustomerId')
+            .populate('invoiceId'),
+    ]);
+    const invoices = await Promise.all(rawInvoices.map((invoice) => buildInvoiceWithProductDetails(invoice)));
+    return {
+        itemGroups,
+        items: normalizeItemsForSyncResponse(items),
+        clientCustomers,
+        invoices,
+        payments,
+        purchaseHistory,
+    };
+};
+// ============================================================================
+// ITEM GROUP SERVICES
+// ============================================================================
+export const createItemGroup = async (clientId, name, description = '') => {
+    try {
+        const itemGroup = await ItemGroup.create({
+            clientId,
+            name,
+            description,
+        });
+        return { success: true, itemGroup };
+    }
+    catch (error) {
+        throw new Error(`Failed to create item group: ${error.message}`);
+    }
+};
+export const getItemGroups = async (clientId) => {
+    try {
+        const itemGroups = await ItemGroup.find({ clientId });
+        return { success: true, itemGroups };
+    }
+    catch (error) {
+        throw new Error(`Failed to fetch item groups: ${error.message}`);
+    }
+};
+export const updateItemGroup = async (clientId, groupId, updateData) => {
+    try {
+        const itemGroup = await ItemGroup.findOneAndUpdate({ _id: groupId, clientId }, { ...updateData, updatedAt: new Date() }, { new: true });
+        if (!itemGroup) {
+            throw new Error('Item group not found');
+        }
+        return { success: true, itemGroup };
+    }
+    catch (error) {
+        throw new Error(`Failed to update item group: ${error.message}`);
+    }
+};
+export const deleteItemGroup = async (clientId, groupId) => {
+    try {
+        const itemGroup = await ItemGroup.findOneAndDelete({
+            _id: groupId,
+            clientId,
+        });
+        if (!itemGroup) {
+            throw new Error('Item group not found');
+        }
+        return { success: true, message: 'Item group deleted' };
+    }
+    catch (error) {
+        throw new Error(`Failed to delete item group: ${error.message}`);
+    }
+};
+// ============================================================================
+// ITEM SERVICES
+// ============================================================================
+export const createItem = async (clientId, name, actualPrice, salePrice, price, stock = 0, unit = 'nos', groupId = null, description = '') => {
+    try {
+        const item = await Item.create({
+            clientId,
+            name,
+            actualPrice,
+            salePrice,
+            price, // For backward compatibility with existing code
+            stock,
+            unit,
+            groupId,
+            description,
+        });
+        const itemObject = item.toObject();
+        return {
+            success: true,
+            item: { ...itemObject, productId: item._id.toString() },
+        };
+    }
+    catch (error) {
+        throw new Error(`Failed to create item: ${error.message}`);
+    }
+};
+export const getItems = async (clientId, groupId = null) => {
+    try {
+        const filter = { clientId, isActive: true };
+        if (groupId) {
+            filter.groupId = groupId;
+        }
+        const items = await Item.find(filter);
+        const normalizedItems = items.map((item) => ({
+            ...item.toObject(),
+            groupId: item.groupId ? item.groupId.toString() : null,
+            productId: item._id ? item._id.toString() : null,
+        }));
+        return { success: true, items: normalizedItems };
+    }
+    catch (error) {
+        throw new Error(`Failed to fetch items: ${error.message}`);
+    }
+};
+export const updateItem = async (clientId, itemId, updateData) => {
+    try {
+        // Ensure price field is synced with salePrice if salePrice is being updated
+        const updatedFields = { ...updateData };
+        if (updateData.salePrice !== undefined) {
+            updatedFields.price = updateData.salePrice; // Keep price in sync with salePrice for backward compatibility
+        }
+        // If actualPrice is provided but salePrice isn't, and old price exists
+        if (updateData.actualPrice !== undefined && updateData.salePrice === undefined && updateData.price !== undefined) {
+            updatedFields.salePrice = updateData.price;
+        }
+        const item = await Item.findOneAndUpdate({ _id: itemId, clientId }, { ...updatedFields, updatedAt: new Date() }, { new: true });
+        if (!item) {
+            throw new Error('Item not found');
+        }
+        return { success: true, item };
+    }
+    catch (error) {
+        throw new Error(`Failed to update item: ${error.message}`);
+    }
+};
+export const deleteItem = async (clientId, itemId) => {
+    try {
+        const item = await Item.findOneAndUpdate({ _id: itemId, clientId }, { isActive: false }, { new: true });
+        if (!item) {
+            throw new Error('Item not found');
+        }
+        return { success: true, message: 'Item deleted' };
+    }
+    catch (error) {
+        throw new Error(`Failed to delete item: ${error.message}`);
+    }
+};
+// ============================================================================
+// CLIENT clientCustomer SERVICES (Client clientCustomers with name and phone)
+// ============================================================================
+const sanitizeclientCustomerName = (rawName) => {
+    const trimmed = (rawName || '').trim();
+    if (trimmed.length >= 2)
+        return trimmed;
+    return 'clientCustomer';
+};
+export const createclientCustomer = async (clientId, name, phone, address = '', emailId = '', gstNo = '') => {
+    const phoneNumber = (phone || '').trim();
+    const nameToUse = sanitizeclientCustomerName(name);
+    try {
+        const client = await Client.findById(clientId).lean();
+        if (!client) {
+            throw new Error('Client not found');
+        }
+        const customerFieldSettings = {
+            address: false,
+            gstNo: false,
+            emailId: false,
+            ...(client.clientSettings?.customerFields || {}),
+        };
+        // Check if clientCustomer with this phone already exists for this client
+        const existingCustomer = await clientCustomer.findOne({
+            clientId,
+            phoneNumber,
+        });
+        if (existingCustomer) {
+            // Update existing customer with new information
+            let updated = false;
+            if (name && nameToUse !== existingCustomer.name) {
+                existingCustomer.name = nameToUse;
+                existingCustomer.updatedAt = new Date();
+                updated = true;
+            }
+            if (address && address.trim()) {
+                existingCustomer.address = address.trim();
+                existingCustomer.updatedAt = new Date();
+                updated = true;
+            }
+            if (emailId && existingCustomer.emailId !== emailId) {
+                existingCustomer.emailId = emailId;
+                updated = true;
+            }
+            if (gstNo && existingCustomer.gstNo !== gstNo) {
+                existingCustomer.gstNo = gstNo;
+                updated = true;
+            }
+            if (updated) {
+                await existingCustomer.save();
+            }
+            // Note: Existing customers are not validated against current field settings
+            // because they were created when those fields may not have been required.
+            // Only new customers are validated against current settings.
+            return { success: true, clientCustomer: existingCustomer, isNew: false };
+        }
+        // Validate NEW customer - removed address validation
+        if (customerFieldSettings.emailId && !emailId) {
+            throw new Error('Email ID is required');
+        }
+        if (customerFieldSettings.gstNo && !gstNo) {
+            throw new Error('GST number is required');
+        }
+        // Create new client clientCustomer
+        const newCustomer = await clientCustomer.create({
+            clientId,
+            name: nameToUse,
+            phoneNumber,
+            address,
+            emailId,
+            gstNo,
+        });
+        return { success: true, clientCustomer: newCustomer, isNew: true };
+    }
+    catch (error) {
+        throw new Error(`Failed to create client clientCustomer: ${error.message}`);
+    }
+};
+export const getclientCustomers = async (clientId) => {
+    try {
+        const clientCustomers = await clientCustomer.find({ clientId }).sort({
+            createdAt: -1,
+        });
+        return { success: true, clientCustomers };
+    }
+    catch (error) {
+        throw new Error(`Failed to fetch client clientCustomers: ${error.message}`);
+    }
+};
+export const getclientCustomerByPhone = async (clientId, phone) => {
+    try {
+        const result = await clientCustomer.findOne({
+            clientId,
+            phoneNumber: phone,
+        });
+        return { success: true, clientCustomer: result };
+    }
+    catch (error) {
+        throw new Error(`Failed to fetch client clientCustomer: ${error.message}`);
+    }
+};
+export const updateclientCustomer = async (clientId, clientCustomerId, updateData) => {
+    try {
+        const updatedCustomer = await clientCustomer.findOneAndUpdate({ _id: clientCustomerId, clientId }, { ...updateData, updatedAt: new Date() }, { new: true });
+        if (!updatedCustomer) {
+            throw new Error('Client clientCustomer not found');
+        }
+        return { success: true, clientCustomer: updatedCustomer };
+    }
+    catch (error) {
+        throw new Error(`Failed to update client clientCustomer: ${error.message}`);
+    }
+};
+export const deleteclientCustomer = async (clientId, clientCustomerId) => {
+    try {
+        const result = await clientCustomer.findOneAndDelete({
+            _id: clientCustomerId,
+            clientId,
+        });
+        if (!result) {
+            throw new Error('Client clientCustomer not found');
+        }
+        return { success: true, message: 'Client clientCustomer deleted' };
+    }
+    catch (error) {
+        throw new Error(`Failed to delete client clientCustomer: ${error.message}`);
+    }
+};
+// ============================================================================
+// CART SERVICES
+// ============================================================================
+export const createCart = async (clientId, clientCustomerPhone = null) => {
+    try {
+        const cart = await Cart.create({
+            clientId,
+            clientCustomerPhone,
+            totalAmount: 0,
+            itemCount: 0,
+        });
+        return { success: true, cart };
+    }
+    catch (error) {
+        throw new Error(`Failed to create cart: ${error.message}`);
+    }
+};
+export const addToCart = async (cartId, itemId, itemName, unitPrice, quantity) => {
+    try {
+        const cart = await Cart.findById(cartId);
+        if (!cart) {
+            throw new Error('Cart not found');
+        }
+        const lineTotal = unitPrice * quantity;
+        const cartItem = await CartItem.create({
+            cartId,
+            itemId,
+            itemNameSnapshot: itemName,
+            unitPriceSnapshot: unitPrice,
+            quantity,
+            lineTotal,
+        });
+        // Update cart totals
+        cart.totalAmount += lineTotal;
+        cart.itemCount += 1;
+        await cart.save();
+        return { success: true, cartItem };
+    }
+    catch (error) {
+        throw new Error(`Failed to add item to cart: ${error.message}`);
+    }
+};
+export const removeFromCart = async (cartId, cartItemId) => {
+    try {
+        const cartItem = await CartItem.findOneAndDelete({
+            _id: cartItemId,
+            cartId,
+        });
+        if (!cartItem) {
+            throw new Error('Cart item not found');
+        }
+        // Update cart totals
+        const cart = await Cart.findById(cartId);
+        if (!cart) {
+            throw new Error('Cart not found');
+        }
+        cart.totalAmount -= cartItem.lineTotal;
+        cart.itemCount -= 1;
+        await cart.save();
+        return { success: true, message: 'Item removed from cart' };
+    }
+    catch (error) {
+        throw new Error(`Failed to remove item from cart: ${error.message}`);
+    }
+};
+export const getCart = async (cartId) => {
+    try {
+        const cart = await Cart.findById(cartId);
+        const cartItems = await CartItem.find({ cartId });
+        if (!cart) {
+            throw new Error('Cart not found');
+        }
+        return { success: true, cart, cartItems };
+    }
+    catch (error) {
+        throw new Error(`Failed to fetch cart: ${error.message}`);
+    }
+};
+export const clearCart = async (cartId) => {
+    try {
+        await CartItem.deleteMany({ cartId });
+        await Cart.findByIdAndDelete(cartId);
+        return { success: true, message: 'Cart cleared' };
+    }
+    catch (error) {
+        throw new Error(`Failed to clear cart: ${error.message}`);
+    }
+};
+export const generateInvoice = async (clientId, invoiceData) => {
+    try {
+        const { cartId, clientCustomerId: providedclientCustomerId, clientCustomerName, clientCustomerPhone, customerPhone, clientCustomerAddress, clientCustomerEmailId, clientCustomerGstNo, invoiceNumber, invoiceDate, dueDate, totalAmount: providedTotalAmount, totalTax = 0, totalDiscount = 0, paidAmount: providedPaidAmount = 0, notes = '', } = invoiceData;
+        if (!cartId) {
+            throw new Error('cartId is required to generate invoice');
+        }
+        // Fetch client settings for tax calculation
+        const client = await Client.findById(clientId).lean();
+        if (!client) {
+            throw new Error('Client not found');
+        }
+        const cart = await Cart.findById(cartId);
+        if (!cart) {
+            throw new Error('Cart not found');
+        }
+        const cartItems = await CartItem.find({ cartId });
+        if (!cartItems.length) {
+            throw new Error('Cart is empty');
+        }
+        const { clientCustomerId, nameToUse, phoneToUse } = await resolveClientCustomerForInvoice({
+            clientId,
+            providedclientCustomerId,
+            clientCustomerName,
+            clientCustomerPhone,
+            customerPhone,
+            fallbackPhone: cart.clientCustomerPhone || undefined,
+            clientCustomerAddress,
+            clientCustomerEmailId,
+            clientCustomerGstNo,
+        });
+        const totalFromCart = cartItems.reduce((sum, item) => sum + item.lineTotal, 0);
+        // Auto-calculate tax if enabled in client settings
+        let finalTotalTax = totalTax;
+        const taxSettings = client?.clientSettings?.taxSettings;
+        if (taxSettings?.enableTaxCalculation && taxSettings?.primaryTaxRate > 0) {
+            // Calculate tax as percentage of subtotal
+            finalTotalTax = (totalFromCart * taxSettings.primaryTaxRate) / 100;
+        }
+        const totalAmount = typeof providedTotalAmount === 'number'
+            ? providedTotalAmount
+            : totalFromCart + finalTotalTax - totalDiscount;
+        const paidAmount = typeof providedPaidAmount === 'number' ? providedPaidAmount : 0;
+        if (paidAmount < 0) {
+            throw new Error('Paid amount cannot be negative');
+        }
+        if (paidAmount > totalAmount) {
+            throw new Error('Paid amount cannot exceed total amount');
+        }
+        const finalInvoiceNumber = invoiceNumber || `INV-${Date.now()}`;
+        const isFinalized = paidAmount >= totalAmount;
+        const itemIds = cartItems
+            .map((item) => item.itemId)
+            .filter(Boolean)
+            .map((id) => id.toString());
+        const items = itemIds.length
+            ? await Item.find({ _id: { $in: itemIds } })
+            : [];
+        const itemMap = new Map(items.map((item) => [item._id.toString(), item.toObject()]));
+        const groupIds = items
+            .map((item) => item.groupId)
+            .filter(Boolean)
+            .map((id) => id.toString()); // Convert to string for Map key
+        // Convert groupIds from string back to ObjectId for find if needed, or query by array of strings?
+        // mongoose .find({ _id: { $in: [...] } }) works with strings if valid ObjectIds.
+        const groups = groupIds.length
+            ? await ItemGroup.find({ _id: { $in: groupIds } })
+            : [];
+        const groupMap = new Map(groups.map((group) => [group._id.toString(), group.name]));
+        const invoiceProducts = cartItems.map((item) => {
+            const itemDoc = itemMap.get(item.itemId?.toString());
+            const groupName = itemDoc?.groupId
+                ? groupMap.get(itemDoc.groupId.toString()) || ''
+                : '';
+            return {
+                productId: item.itemId,
+                itemName: item.itemNameSnapshot,
+                quantity: item.quantity,
+                costPerUnit: item.unitPriceSnapshot,
+                itemGroup: groupName,
+            };
+        });
+        const invoice = await Invoice.create({
+            clientId,
+            clientCustomerId,
+            clientCustomerName: nameToUse,
+            clientCustomerPhone: phoneToUse,
+            invoiceNumber: finalInvoiceNumber,
+            invoiceDate,
+            dueDate,
+            subtotal: totalFromCart,
+            totalTax: finalTotalTax,
+            totalDiscount,
+            totalAmount,
+            paidAmount,
+            products: invoiceProducts,
+            notes,
+            isFinalized,
+        });
+        // Update stock for each item captured on the cart
+        for (const cartItem of cartItems) {
+            if (cartItem.itemId) {
+                const dbItem = await Item.findById(cartItem.itemId);
+                if (dbItem && dbItem.stock >= cartItem.quantity) {
+                    dbItem.stock -= cartItem.quantity;
+                    await dbItem.save();
+                }
+            }
+        }
+        // Record initial payment if any
+        if (paidAmount > 0) {
+            await Payment.create({
+                clientId,
+                invoiceId: invoice._id,
+                amount: paidAmount,
+                method: 'cash',
+                note: 'Payment at invoice generation',
+            });
+        }
+        // Create purchase history when finalized and clientCustomer is present
+        if (isFinalized && clientCustomerId) {
+            await PurchaseHistory.create({
+                clientId,
+                clientCustomerId,
+                clientCustomerPhone: phoneToUse || '',
+                invoiceId: invoice._id,
+                totalAmount,
+            });
+        }
+        // Clear cart after invoice generation
+        await clearCart(cartId);
+        // Increment invoice count
+        await Client.findByIdAndUpdate(clientId, { $inc: { invoiceCount: 1 } });
+        const invoiceWithProducts = await buildInvoiceWithProductDetails(invoice);
+        return { success: true, invoice: invoiceWithProducts };
+    }
+    catch (error) {
+        throw new Error(`Failed to generate invoice: ${error.message}`);
+    }
+};
+export const generateInvoiceWithProduct = async (clientId, invoiceData) => {
+    try {
+        const { products, clientCustomerId: providedclientCustomerId, clientCustomerName, clientCustomerPhone, customerPhone, clientCustomerAddress, clientCustomerEmailId, clientCustomerGstNo, invoiceNumber, invoiceDate, dueDate, subtotal: providedSubtotal, totalAmount: providedTotalAmount, totalTax = 0, totalDiscount = 0, paidAmount: providedPaidAmount = 0, notes = '', additionalFees = [], } = invoiceData;
+        if (!products || !products.length) {
+            throw new Error('Products array is required and cannot be empty');
+        }
+        for (const product of products) {
+            if (!product.productId) {
+                throw new Error('Each product must include productId');
+            }
+            if (!product.quantity || product.quantity <= 0) {
+                throw new Error('Each product must include quantity greater than 0');
+            }
+        }
+        // Fetch client settings for tax calculation
+        const client = await Client.findById(clientId).lean();
+        if (!client) {
+            throw new Error('Client not found');
+        }
+        const { clientCustomerId, nameToUse, phoneToUse } = await resolveClientCustomerForInvoice({
+            clientId,
+            providedclientCustomerId,
+            clientCustomerName,
+            clientCustomerPhone,
+            customerPhone,
+            clientCustomerAddress,
+            clientCustomerEmailId,
+            clientCustomerGstNo,
+        });
+        const productIds = products
+            .map((product) => product.productId)
+            .filter(Boolean)
+            .map((id) => id.toString());
+        const items = productIds.length
+            ? await Item.find({ _id: { $in: productIds } })
+            : [];
+        const itemMap = new Map(items.map((item) => [item._id.toString(), item.toObject()]));
+        const groupIds = items
+            .map((item) => item.groupId)
+            .filter(Boolean)
+            .map((id) => id.toString());
+        const groups = groupIds.length
+            ? await ItemGroup.find({ _id: { $in: groupIds } })
+            : [];
+        const groupMap = new Map(groups.map((group) => [group._id.toString(), group.name]));
+        const invoiceProducts = products.map((product) => {
+            const itemDoc = itemMap.get(product.productId.toString());
+            if (!itemDoc) {
+                throw new Error('Product not found');
+            }
+            const groupName = itemDoc?.groupId
+                ? groupMap.get(itemDoc.groupId.toString()) || ''
+                : '';
+            return {
+                productId: new mongoose.Types.ObjectId(product.productId),
+                itemName: itemDoc?.name || 'Unknown Item',
+                quantity: product.quantity,
+                costPerUnit: itemDoc?.price ?? 0,
+                itemGroup: groupName,
+            };
+        });
+        const calculatedSubtotal = invoiceProducts.reduce((sum, product) => sum + product.costPerUnit * product.quantity, 0);
+        const subtotal = typeof providedSubtotal === 'number'
+            ? providedSubtotal
+            : calculatedSubtotal;
+        // Auto-calculate tax if enabled in client settings
+        let finalTotalTax = totalTax;
+        const taxSettings = client?.clientSettings?.taxSettings;
+        if (taxSettings?.enableTaxCalculation && taxSettings?.primaryTaxRate > 0) {
+            // Calculate tax as percentage of subtotal
+            finalTotalTax = (subtotal * taxSettings.primaryTaxRate) / 100;
+        }
+        // Check if totalAmount is provided, otherwise default to subtotal + tax - discount
+        // The original logic seemed to rely on providedTotalAmount being passed if strictly needed,
+        // or implies calculation.
+        // Looking at original code:
+        // const totalAmount = providedTotalAmount ... ? providedTotalAmount : ...
+        // BUT in generateInvoice (cart), it was calculated.
+        // In generateInvoiceWithProduct (original js), it was:
+        // const subtotal = ...
+        // ...
+        // const totalAmount = providedTotalAmount ...
+        // Let's stick to original logic:
+        const totalAmount = typeof providedTotalAmount === 'number'
+            ? providedTotalAmount
+            : subtotal + finalTotalTax - totalDiscount;
+        const paidAmount = typeof providedPaidAmount === 'number' ? providedPaidAmount : 0;
+        if (paidAmount < 0) {
+            throw new Error('Paid amount cannot be negative');
+        }
+        if (paidAmount > totalAmount) {
+            throw new Error('Paid amount cannot exceed total amount');
+        }
+        const finalInvoiceNumber = invoiceNumber || `INV-${Date.now()}`;
+        const isFinalized = paidAmount >= totalAmount;
+        const invoice = await Invoice.create({
+            clientId,
+            clientCustomerId,
+            clientCustomerName: nameToUse,
+            clientCustomerPhone: phoneToUse,
+            invoiceNumber: finalInvoiceNumber,
+            invoiceDate,
+            dueDate,
+            subtotal,
+            totalTax: finalTotalTax,
+            totalDiscount,
+            totalAmount,
+            paidAmount,
+            products: invoiceProducts,
+            additionalFees,
+            notes,
+            isFinalized,
+        });
+        // Update stock
+        for (const product of products) {
+            if (product.productId) {
+                const dbItem = await Item.findById(product.productId);
+                if (dbItem && dbItem.stock >= product.quantity) {
+                    dbItem.stock -= product.quantity;
+                    await dbItem.save();
+                }
+            }
+        }
+        // Record initial payment
+        if (paidAmount > 0) {
+            await Payment.create({
+                clientId,
+                invoiceId: invoice._id,
+                amount: paidAmount,
+                method: 'cash',
+                note: 'Payment at invoice generation',
+            });
+        }
+        // Create purchase history
+        if (isFinalized && clientCustomerId) {
+            await PurchaseHistory.create({
+                clientId,
+                clientCustomerId,
+                clientCustomerPhone: phoneToUse || '',
+                invoiceId: invoice._id,
+                totalAmount,
+            });
+        }
+        // Increment invoice count
+        await Client.findByIdAndUpdate(clientId, { $inc: { invoiceCount: 1 } });
+        const invoiceWithProducts = await buildInvoiceWithProductDetails(invoice);
+        return { success: true, invoice: invoiceWithProducts };
+    }
+    catch (error) {
+        throw new Error(`Failed to generate invoice with products: ${error.message}`);
+    }
+};
+// ============================================================================
+// INVOICE GETTERS & PAYMENTS
+// ============================================================================
+export const getInvoices = async (clientId) => {
+    try {
+        const invoices = await Invoice.find({ clientId }).sort({
+            createdAt: -1,
+        });
+        const invoicesWithProducts = await Promise.all(invoices.map((inv) => buildInvoiceWithProductDetails(inv)));
+        return { success: true, invoices: invoicesWithProducts };
+    }
+    catch (error) {
+        throw new Error(`Failed to fetch invoices: ${error.message}`);
+    }
+};
+export const recordPayment = async (clientId, invoiceId, amount, method = 'cash', note = '', paidAt) => {
+    try {
+        const invoice = await Invoice.findOne({ _id: invoiceId, clientId });
+        if (!invoice) {
+            throw new Error('Invoice not found');
+        }
+        if (amount <= 0) {
+            throw new Error('Payment amount must be positive');
+        }
+        if (invoice.paidAmount + amount > invoice.totalAmount) {
+            throw new Error('Payment exceeds total amount');
+        }
+        const payment = await Payment.create({
+            clientId,
+            invoiceId,
+            amount,
+            method,
+            note,
+            paidAt: paidAt || new Date(),
+        });
+        invoice.paidAmount += amount;
+        if (invoice.paidAmount >= invoice.totalAmount) {
+            invoice.isFinalized = true;
+        }
+        await invoice.save();
+        return { success: true, payment, invoice };
+    }
+    catch (error) {
+        throw new Error(`Failed to record payment: ${error.message}`);
+    }
+};
+export const getPaymentsForInvoice = async (clientId, invoiceId) => {
+    try {
+        const invoice = await Invoice.findOne({ _id: invoiceId, clientId });
+        if (!invoice) {
+            throw new Error('Invoice not found');
+        }
+        const payments = await Payment.find({ invoiceId }).sort({ paidAt: -1 });
+        return { success: true, payments };
+    }
+    catch (error) {
+        throw new Error(`Failed to fetch payments: ${error.message}`);
+    }
+};
+export const getPurchaseHistory = async (clientId, clientCustomerId = null, clientCustomerPhone = null) => {
+    try {
+        const query = { clientId };
+        if (clientCustomerId) {
+            query.clientCustomerId = clientCustomerId;
+        }
+        if (clientCustomerPhone) {
+            query.clientCustomerPhone = clientCustomerPhone;
+        }
+        const history = await PurchaseHistory.find(query)
+            .populate('invoiceId')
+            .sort({ purchasedAt: -1 });
+        return { success: true, history };
+    }
+    catch (error) {
+        throw new Error(`Failed to fetch purchase history: ${error.message}`);
+    }
+};
+export const getPendingInvoices = async (clientId) => {
+    try {
+        const invoices = await Invoice.find({
+            clientId,
+            $expr: { $lt: ['$paidAmount', '$totalAmount'] },
+        }).sort({ createdAt: 1 });
+        return { success: true, pendingInvoices: invoices };
+    }
+    catch (error) {
+        throw new Error(`Failed to fetch pending invoices: ${error.message}`);
+    }
+};
+export const getPendingInvoicesByClientCustomer = async (clientId, clientCustomerId, clientCustomerPhone = null) => {
+    try {
+        const query = {
+            clientId,
+            clientCustomerId,
+            $expr: { $lt: ['$paidAmount', '$totalAmount'] },
+        };
+        const invoices = await Invoice.find(query).sort({ createdAt: 1 });
+        return { success: true, pendingInvoices: invoices };
+    }
+    catch (error) {
+        throw new Error(`Failed to fetch pending invoices for clientCustomer: ${error.message}`);
+    }
+};
+export const getPaidInvoicesByClientCustomer = async (clientId, clientCustomerId, clientCustomerPhone = null) => {
+    try {
+        const query = {
+            clientId,
+            clientCustomerId,
+            $expr: { $gte: ['$paidAmount', '$totalAmount'] },
+        };
+        const invoices = await Invoice.find(query).sort({ createdAt: -1 });
+        return { success: true, paidInvoices: invoices };
+    }
+    catch (error) {
+        throw new Error(`Failed to fetch paid invoices for clientCustomer: ${error.message}`);
+    }
+};
+export const getPaymentReport = async (clientId) => {
+    try {
+        const totalSales = await Invoice.aggregate([
+            { $match: { clientId: new mongoose.Types.ObjectId(clientId) } },
+            {
+                $group: {
+                    _id: null,
+                    total: { $sum: '$totalAmount' },
+                    paid: { $sum: '$paidAmount' },
+                },
+            },
+        ]);
+        const totalReceived = totalSales[0]?.paid || 0;
+        const totalPending = (totalSales[0]?.total || 0) - totalReceived;
+        return {
+            success: true,
+            report: {
+                totalSales: totalSales[0]?.total || 0,
+                totalReceived,
+                totalPending,
+            },
+        };
+    }
+    catch (error) {
+        throw new Error(`Failed to fetch payment report: ${error.message}`);
+    }
+};
+// Get customer profile with all invoices and payments
+export const getClientCustomerProfile = async (clientId, clientCustomerId) => {
+    try {
+        // Get customer details
+        const customer = await clientCustomer.findOne({
+            _id: clientCustomerId,
+            clientId,
+        });
+        if (!customer) {
+            throw new Error('Customer not found');
+        }
+        // Get all invoices (pending and paid) for this customer
+        const allInvoices = await Invoice.find({
+            clientId,
+            clientCustomerId,
+        }).sort({ createdAt: -1 });
+        // Build invoices with product details
+        const invoicesWithProducts = await Promise.all(allInvoices.map((inv) => buildInvoiceWithProductDetails(inv)));
+        // Separate pending and paid invoices
+        const pendingInvoices = invoicesWithProducts.filter((inv) => inv.paidAmount < inv.totalAmount);
+        const paidInvoices = invoicesWithProducts.filter((inv) => inv.paidAmount >= inv.totalAmount);
+        // Calculate total balance (pending amount)
+        const totalBalance = pendingInvoices.reduce((sum, inv) => sum + (inv.totalAmount - inv.paidAmount), 0);
+        // Get all payments for this customer
+        const payments = await Payment.find({
+            clientId,
+            invoiceId: { $in: allInvoices.map((inv) => inv._id) },
+        }).sort({ paidAt: 1 });
+        return {
+            success: true,
+            customer: customer.toObject(),
+            pendingInvoices,
+            paidInvoices,
+            totalBalance,
+            payments,
+            statistics: {
+                totalPendingInvoices: pendingInvoices.length,
+                totalPaidInvoices: paidInvoices.length,
+                totalInvoices: allInvoices.length,
+                totalAmountPaid: paidInvoices.reduce((sum, inv) => sum + inv.paidAmount, 0),
+            },
+        };
+    }
+    catch (error) {
+        throw new Error(`Failed to fetch customer profile: ${error.message}`);
+    }
+};
+// ============================================================================
+// SYNC SERVICES
+// ============================================================================
+export const syncClientData = async (clientId, data) => {
+    try {
+        // Placeholder for upstream sync logic.
+        // In a full implementation, we would process `data.invoices`, `data.clientCustomers`, etc.
+        // and merge them into the database.
+        if (data?.invoices && Array.isArray(data.invoices)) {
+            // Basic invoice sync logic could go here
+            // For now, logging to avoid data loss during stub execution
+            console.log(`Received ${data.invoices.length} invoices for sync from ${clientId}`);
+        }
+        // Return full client data for downstream sync
+        const fullData = await getFullClientData(clientId);
+        return { success: true, ...fullData };
+    }
+    catch (error) {
+        throw new Error(`Sync failed: ${error.message}`);
+    }
+};
