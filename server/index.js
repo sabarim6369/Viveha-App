@@ -3,6 +3,8 @@ import dotenv from 'dotenv';
 // @ts-ignore
 import cors from 'cors';
 import { connectDB } from './src/config/db.js';
+import { startInvoiceWorker } from './src/workers/invoiceWorker.js';
+
 // Import routes
 import otpRoutes from './src/api/routes/otpRoutes.js';
 import mockOtpRouter from './src/api/routes/mockOtpRoutes.js';
@@ -78,6 +80,10 @@ const startServer = async () => {
     try {
         // Connect to MongoDB
         await connectDB();
+        
+        // Start RabbitMQ Worker for async tasks
+        startInvoiceWorker();
+
         // Start Express server
         app.listen(PORT, () => {
             console.log(`

@@ -1,4 +1,5 @@
 import * as businessService from '../../../services/businessService.js';
+import { publishInvoiceGenerationTask } from '../../../services/mqProducer.js';
 const badRequest = (res, msg) => res.status(400).json({ success: false, message: msg });
 const serverError = (res, e) => res
     .status(500)
@@ -8,9 +9,12 @@ export const generateInvoiceController = async (req, res) => {
     try {
         if (!req.body.clientId || !req.body.cartId)
             return badRequest(res, 'clientId and cartId required');
+        
+        await publishInvoiceGenerationTask('FROM_CART', req.body.clientId, req.body);
+        
         return res
-            .status(201)
-            .json(await businessService.generateInvoice(req.body.clientId, req.body));
+            .status(202)
+            .json({ success: true, message: 'Invoice generation queued for processing' });
     }
     catch (e) {
         return badRequest(res, e.message);
@@ -20,9 +24,12 @@ export const generateInvoiceWithProductsController = async (req, res) => {
     try {
         if (!req.body.clientId || !req.body.products)
             return badRequest(res, 'clientId and products required');
+            
+        await publishInvoiceGenerationTask('WITH_PRODUCTS', req.body.clientId, req.body);
+
         return res
-            .status(201)
-            .json(await businessService.generateInvoiceWithProduct(req.body.clientId, req.body));
+            .status(202)
+            .json({ success: true, message: 'Invoice generation queued for processing' });
     }
     catch (e) {
         return badRequest(res, e.message);
