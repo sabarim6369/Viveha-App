@@ -6,7 +6,8 @@
   "type": "module",
   "scripts": {
     "start": "node index.js",
-    "dev": "nodemon index.js"
+    "dev": "nodemon index.js",
+    "test": "node --experimental-vm-modules node_modules/jest/bin/jest.js"
   },
   "keywords": [
     "billing",
@@ -37,6 +38,7 @@
     "rate-limit-redis": "^6.0.1"
   },
   "devDependencies": {
+    "jest": "^30.5.2",
     "nodemon": "^3.0.2"
   }
 }
