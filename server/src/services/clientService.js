@@ -1,4 +1,4 @@
-import { Client } from '../models/Model.js';
+import { Client } from '../models/Client.js';
 export const defaultCustomerFieldSettings = {
     address: false,
     gstNo: false,

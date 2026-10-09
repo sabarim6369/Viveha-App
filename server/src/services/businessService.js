@@ -1,5 +1,13 @@
 import mongoose from 'mongoose';
-import { Client, Item, ItemGroup, clientCustomer, Cart, CartItem, Invoice, PurchaseHistory, Payment } from '../models/Model.js';
+import { Client } from '../models/Client.js';
+import { Item } from '../models/Item.js';
+import { ItemGroup } from '../models/ItemGroup.js';
+import { clientCustomer } from '../models/ClientCustomer.js';
+import { Cart } from '../models/Cart.js';
+import { CartItem } from '../models/CartItem.js';
+import { Invoice } from '../models/Invoice.js';
+import { PurchaseHistory } from '../models/PurchaseHistory.js';
+import { Payment } from '../models/Payment.js';
 // Helper to return invoice products as stored snapshots
 const buildInvoiceWithProductDetails = async (invoiceDoc) => {
     if (!invoiceDoc)

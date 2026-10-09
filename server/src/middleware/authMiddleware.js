@@ -1,5 +1,6 @@
 import jwt from 'jsonwebtoken';
-import { Client, DeviceSession } from '../models/Model.js';
+import { Client } from '../models/Client.js';
+import { DeviceSession } from '../models/DeviceSession.js';
 const JWT_SECRET = process.env.JWT_SECRET || 'dev-jwt-secret';
 // Validate bearer token, ensure session is active, and attach auth context
 export const authenticateToken = async (req, res, next) => {

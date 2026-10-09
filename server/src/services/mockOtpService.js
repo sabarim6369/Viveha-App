@@ -1,4 +1,5 @@
-import { Client, OtpSession } from '../models/Model.js'; // Imports will be fixed generally later if needed, matching current pattern
+import { Client } from '../models/Client.js';
+import { OtpSession } from '../models/OtpSession.js'; // Imports will be fixed generally later if needed, matching current pattern
 import crypto from 'crypto';
 const OTP_TTL_SECONDS = 600;
 const MAX_ATTEMPTS = 5;
