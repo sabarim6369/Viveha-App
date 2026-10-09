@@ -20,17 +20,21 @@ dotenv.config();
 const app = express();
 const PORT = process.env.PORT || 10000;
 import helmet from 'helmet';
+import mongoSanitize from 'express-mongo-sanitize';
+import morgan from 'morgan';
 
 // ============================================================================
 // MIDDLEWARE
 // ============================================================================
 app.use(helmet());
+app.use(morgan('dev')); // HTTP request logger
 app.use(cors({
     origin: 'http://localhost:5173',
     credentials: true,
 }));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
+app.use(mongoSanitize());
 // ============================================================================
 // ROUTES
 // ============================================================================
