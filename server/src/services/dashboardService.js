@@ -1,5 +1,6 @@
 import mongoose from 'mongoose';
 import { Invoice } from '../models/Invoice.js';
+import { getCache, setCache } from './cacheService.js';
 const MONTH_LABELS = [
     'Jan',
     'Feb',
@@ -147,16 +148,29 @@ export const getTopItems = async (clientId, limit = 5) => {
 };
 export const getDashboard = async (clientId, months, limit) => {
     try {
+        const cacheKey = `dashboard:${clientId}:${months || 6}:${limit || 5}`;
+        const cachedData = await getCache(cacheKey);
+        
+        if (cachedData) {
+            return cachedData;
+        }
+
         const [summary, salesTrends, topItems] = await Promise.all([
             getDashboardSummary(clientId),
             getSalesTrends(clientId, months),
             getTopItems(clientId, limit),
         ]);
-        return {
+        
+        const dashboardData = {
             summary,
             salesTrends,
             topItems,
         };
+
+        // Cache the dashboard response for 15 minutes (900 seconds)
+        await setCache(cacheKey, dashboardData, 900);
+
+        return dashboardData;
     }
     catch (error) {
         throw new Error(`Failed to fetch dashboard: ${error.message}`);

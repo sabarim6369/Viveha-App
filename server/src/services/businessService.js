@@ -8,6 +8,7 @@ import { CartItem } from '../models/CartItem.js';
 import { Invoice } from '../models/Invoice.js';
 import { PurchaseHistory } from '../models/PurchaseHistory.js';
 import { Payment } from '../models/Payment.js';
+import { deleteCacheByPattern } from './cacheService.js';
 // Helper to return invoice products as stored snapshots
 const buildInvoiceWithProductDetails = async (invoiceDoc) => {
     if (!invoiceDoc)
@@ -537,6 +538,10 @@ export const generateInvoice = async (clientId, invoiceData) => {
         }
         // Clear cart after invoice generation
         await clearCart(cartId);
+        
+        // Invalidate dashboard cache
+        await deleteCacheByPattern(`dashboard:${clientId}:*`);
+
         const invoiceWithProducts = await buildInvoiceWithProductDetails(invoice);
         return { success: true, invoice: invoiceWithProducts };
     }
@@ -674,6 +679,10 @@ export const generateInvoiceWithProduct = async (clientId, invoiceData) => {
                 totalAmount,
             });
         }
+        
+        // Invalidate dashboard cache
+        await deleteCacheByPattern(`dashboard:${clientId}:*`);
+
         const invoiceWithProducts = await buildInvoiceWithProductDetails(invoice);
         return { success: true, invoice: invoiceWithProducts };
     }
@@ -720,6 +729,10 @@ export const recordPayment = async (clientId, invoiceId, amount, method = 'cash'
             invoice.isFinalized = true;
         }
         await invoice.save();
+        
+        // Invalidate dashboard cache
+        await deleteCacheByPattern(`dashboard:${clientId}:*`);
+
         return { success: true, payment, invoice };
     }
     catch (error) {
