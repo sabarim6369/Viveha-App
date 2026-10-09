@@ -19,9 +19,12 @@ dotenv.config();
 // Initialize express app
 const app = express();
 const PORT = process.env.PORT || 10000;
+import helmet from 'helmet';
+
 // ============================================================================
 // MIDDLEWARE
 // ============================================================================
+app.use(helmet());
 app.use(cors({
     origin: 'http://localhost:5173',
     credentials: true,
