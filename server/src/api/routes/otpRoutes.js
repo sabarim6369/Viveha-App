@@ -7,5 +7,7 @@ const router = express.Router();
  * @body    { phoneNumber: string, purpose: 'register' | 'login' }
  * @returns { success: boolean, message: string }
  */
-router.post('/send', sendOTPController);
+import { otpLimiter } from '../../middleware/rateLimiter.js';
+
+router.post('/send', otpLimiter, sendOTPController);
 export default router;
