@@ -1,6 +1,5 @@
 import express from 'express';
 import dotenv from 'dotenv';
-// @ts-ignore
 import cors from 'cors';
 import { connectDB } from './src/config/db.js';
 import { startInvoiceWorker } from './src/workers/invoiceWorker.js';
@@ -163,6 +162,9 @@ System is ready to handle requests!
         process.exit(1);
     }
 };
-// Start the server
-startServer();
+// Start the server if not in test mode
+if (process.env.NODE_ENV !== 'test') {
+    startServer();
+}
+
 export default app;
